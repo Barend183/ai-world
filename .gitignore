@@ -1,0 +1,4 @@
+secrets.json
+__pycache__/
+# his plain world never leaves this PC or GitHub's throwaway server; only docs/vault (sealed) is uploaded
+docs/world/

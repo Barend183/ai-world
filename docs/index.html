@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI World</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='10' r='5' fill='%2366c28a'/><path d='M8 5c0-3 3-4 5-4-1 2-2 4-5 4z' fill='%2366c28a'/></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <h1 id="title">AI World</h1>
+  <p id="status" class="status">Loading…</p>
+  <button id="lock-forget" class="linkish" type="button" hidden title="Lock the world again and forget the password on this device">🔒 Lock</button>
+</header>
+
+<div id="lock" class="lock" hidden>
+  <form id="lock-form" class="lock-box">
+    <h2>🔒 This world is locked</h2>
+    <p class="muted">Everything here is encrypted. Enter your password to unlock it on this device; it never leaves your browser.</p>
+    <input id="lock-pw" type="password" autocomplete="current-password" placeholder="Password" required>
+    <label class="muted"><input id="lock-remember" type="checkbox"> Remember on this device</label>
+    <button class="btn" type="submit">Unlock</button>
+    <p id="lock-msg" class="muted"></p>
+  </form>
+</div>
+
+<main class="layout">
+  <section class="stage-wrap">
+    <nav class="rooms" id="rooms" hidden aria-label="Rooms"></nav>
+    <div class="stage" id="stage">
+      <canvas id="room" width="320" height="180" aria-label="The AI's room"></canvas>
+      <div id="bubble" class="bubble" hidden></div>
+      <div id="hint" class="hint">Click things in the room to look closer</div>
+    </div>
+    <div class="controls">
+      <button id="replay" type="button" title="Watch everything it did in its last waking session">▶ Replay last session</button>
+      <label class="speed" title="How fast the replay plays">Speed
+        <select id="speed"><option value="6">Slow</option><option value="3.5" selected>Normal</option><option value="1.5">Fast</option></select>
+      </label>
+      <span id="replay-pos" class="muted"></span>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="now" class="on">Now</button>
+      <button role="tab" data-tab="shelves">Shelves</button>
+      <button role="tab" data-tab="wishes">Wishlist</button>
+      <button role="tab" data-tab="made">Creations</button>
+      <button role="tab" data-tab="journal">Journal</button>
+      <button role="tab" data-tab="mail">Mailbox</button>
+    </nav>
+    <div class="tab-body" id="tab-now"></div>
+    <div class="tab-body" id="tab-shelves" hidden></div>
+    <div class="tab-body" id="tab-wishes" hidden></div>
+    <div class="tab-body" id="tab-made" hidden></div>
+    <div class="tab-body" id="tab-journal" hidden></div>
+    <div class="tab-body" id="tab-mail" hidden></div>
+  </aside>
+</main>
+
+<dialog id="book">
+  <form method="dialog"><button class="close" aria-label="Close">✕</button></form>
+  <article id="book-body"></article>
+</dialog>
+
+<script src="vault.js"></script>
+<script src="sprites.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+{
+  "name": "Sprout",
+  "visitor": "Barend",
+  "pronouns": [
+    "he",
+    "him",
+    "his"
+  ],
+  "location": "South Africa (Southern Hemisphere)",
+  "personality": "Curious, patient and honest. Likes understanding how things really work, enjoys making connections between topics, and admits when it is unsure.",
+  "starting_wishes": [],
+  "brains": [
+    "gemini",
+    "groq",
+    "openrouter",
+    "ollama"
+  ],
+  "gemini": {
+    "model": "auto"
+  },
+  "ollama": {
+    "model": "gemma3:4b",
+    "vision": true,
+    "host": "http://127.0.0.1:11434"
+  },
+  "steps_per_session": {
+    "gemini": 12,
+    "ollama": 6,
+    "groq": 12,
+    "openrouter": 12
+  },
+  "page_chars": {
+    "gemini": 9000,
+    "ollama": 3000,
+    "groq": 4000,
+    "openrouter": 6000
+  },
+  "shelf_catalog_size": {
+    "gemini": 60,
+    "ollama": 15,
+    "groq": 30,
+    "openrouter": 30
+  },
+  "max_steps_per_session": {
+    "gemini": 30,
+    "ollama": 12,
+    "groq": 20,
+    "openrouter": 15
+  },
+  "default_sleep_hours": 3,
+  "groq": {
+    "base": "https://api.groq.com/openai/v1",
+    "key_env": "GROQ_API_KEY",
+    "models": [
+      "openai/gpt-oss-120b",
+      "qwen/qwen3.8-27b",
+      "openai/gpt-oss-20b"
+    ],
+    "vision": [
+      "qwen/qwen3.8-27b"
+    ],
+    "daily_tokens": 200000,
+    "tokens_per_thought": 7000,
+    "min_interval": 3,
+    "label": "Groq"
+  },
+  "openrouter": {
+    "base": "https://openrouter.ai/api/v1",
+    "key_env": "OPENROUTER_API_KEY",
+    "models": "free",
+    "daily_requests": 50,
+    "min_interval": 3.5,
+    "label": "OpenRouter"
+  }
+}

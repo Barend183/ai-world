@@ -1,0 +1,102 @@
+# Checks every hour whether the AI wants to wake up (it chooses its own sleep), on GitHub's free servers, then saves what it did.
+name: Live
+
+on:
+  schedule:
+    - cron: "17 * * * *"     # every hour GitHub checks whether he wants to be awake; he chooses when
+                              # (Gemini's free tier, 20 requests per model per day, is his thinking budget)
+  workflow_dispatch:          # the "Run workflow" button wakes it up right now
+  push:
+    paths: ["docs/vault/inbox/**"]   # a note you send from his page wakes him right away
+
+permissions:
+  contents: write             # save its books and journal
+  issues: write               # read and answer your notes
+
+concurrency:
+  group: live
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false   # no saved token in the folder that his programs could use
+
+      # His workshop programs run as this separate, powerless user: it can't read the keys or push to GitHub.
+      - name: Set up the workshop's locked-down user
+        run: |
+          sudo useradd --create-home --shell /usr/sbin/nologin sprout
+          mkdir -p docs/world/workshop
+          sudo chown -R sprout docs/world/workshop
+          chmod o+x "$HOME" "$HOME/work" "$(dirname "$GITHUB_WORKSPACE")"
+          chmod o+rx "$GITHUB_WORKSPACE" docs docs/world
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the PDF reader and the lock
+        run: pip install --quiet -r requirements.txt
+
+      # His world is stored encrypted in the public repository; it's only opened here, on this throwaway server.
+      - name: Unlock his world
+        env:
+          WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
+        run: python -m brain unlock
+
+      - name: Wake up
+        id: wake
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m brain run --next-wake 180 ${{ github.event_name == 'workflow_dispatch' && '--now' || '' }}
+
+      # Only when every free service is used up for the day: run a free open model (Gemma 3) right here instead.
+      # It's slower and simpler, but unlimited, so he never has to stop.
+      - name: Restore the open-source brain from cache
+        if: steps.wake.outputs.needs_local == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-models-${{ hashFiles('config.json') }}
+
+      - name: Start the open-source brain
+        if: steps.wake.outputs.needs_local == 'true'
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          sudo systemctl stop ollama || true
+          OLLAMA_MODELS="$HOME/.ollama/models" nohup ollama serve > /tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -s localhost:11434/api/tags > /dev/null && break; sleep 1; done
+          ollama pull "$(python -c "import json; print(json.load(open('config.json'))['ollama']['model'])")"
+
+      - name: Wake up (open-source brain)
+        if: steps.wake.outputs.needs_local == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ""
+          GROQ_API_KEY: ""
+          OPENROUTER_API_KEY: ""
+          WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
+        run: python -m brain run --next-wake 180 ${{ github.event_name == 'workflow_dispatch' && '--now' || '' }}
+
+      - name: Lock his world again and save it
+        run: |
+          python -m brain lock
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A docs/vault
+          if git diff --cached --quiet; then echo "nothing new"; exit 0; fi
+          git commit -q -m "His world, $(date -u +'%Y-%m-%d %H:%M') UTC"
+          # the token is used only here, after his session has finished
+          REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git pull -q --rebase "$REMOTE" "${GITHUB_REF_NAME}" && git push -q "$REMOTE" "HEAD:${GITHUB_REF_NAME}"
+        env:
+          WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
