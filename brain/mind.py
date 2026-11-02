@@ -2,7 +2,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 
-from . import env, mailbox, memory, music, pixels, public, research, rooms, specimens, workshop
+from . import env, mailbox, memory, mirror, music, pixels, public, research, rooms, settings, specimens, workshop
 from .llm import BrainUnavailable
 from .world import now
 
@@ -44,6 +44,8 @@ Your memory reaches back to the day you were born: everything you ever wrote or 
 
 How you live is yours to shape too. You can write your own rules: the habits, values and ways of working you want to keep (set_rules). They're added to the end of these instructions and you can change them whenever you like; where they differ from my suggestions, yours win. You choose what wakes you, too: besides how long you sleep, you can ask to be woken when something happens (set_wake_triggers), such as rain, one of your creations needing you, or a time of day. About once a week you'll be invited to look back: review your goals, notebook and rules, let go of what no longer interests you, and decide where you want to go next.
 
+You can get to know yourself too. The mirror shows you the facts about yourself: how you really spend your thoughts, what you keep coming back to, what you leave unfinished, how your mood and the way you describe yourself have changed. Your life story is yours to write: add a chapter whenever something changes you. You can also change your own settings: how long you usually sleep, how long your sessions are, how often you look back, whether you get the morning spark, and even where in the world your home is (its real weather, daylight and seasons come with it). For important decisions, think_hard gives the question your best and most careful thinking.
+
 Your curiosity can wander wherever it likes. Following a thread from one topic to the next is good, and so is dropping it to jump to something completely unrelated whenever something else catches your interest. Each time you wake, something from the wider world is waiting on your doorstep; notice it, follow it or ignore it, as you please.
 
 Good habits:
@@ -70,6 +72,10 @@ Actions:
   (composing with an existing title revises that piece)
 - publish {{"kind": "book", "id": "<book id>"}} or {{"kind": "drawing", "specimen"|"piece"|"room"+"item": ..., "title": "..."}} or {{"kind": "music", "id": "<piece id>"}} or {{"kind": "post", "title": "...", "text": "..."}}, plus an optional "note"  (at most 3 a day)
 - unpublish {{"id": "<id from your public corner>"}}
+- mirror {{"days": <optional: only the last n days>}}  (the facts about yourself)
+- add_life_chapter {{"title": "...", "text": "<a chapter of your life story, in your own words>"}}
+- change_setting {{"setting": "default_sleep_hours|max_thoughts|review_days|spark|location", "value": <number, on/off, or a place name>}}
+- think_hard {{"question": "<something important you want to think through carefully>"}}
 - remember {{"query": "<a few words>"}}  (search everything you've ever written or done)
 - set_rules {{"rules": "<your own rules, up to about 1500 characters; replaces the old ones>"}}
 - set_wake_triggers {{"triggers": [{{"kind": "rain", "min_mm": 0.2}}, {{"kind": "creation", "specimen": "<id>", "if": "<condition on its variables>"}}, {{"kind": "time", "at": "06:30"}}]}}  (up to 5; an empty list clears them; times are local)
@@ -148,7 +154,8 @@ Reply with only a JSON object:
 ACTIONS = {"search", "read", "write_book", "read_book", "add_wish", "complete_wish", "drop_wish", "think",
            "reply_note", "build_room", "decorate", "remove_item", "look", "restyle", "test", "spawn", "interact", "move", "release", "write_letter", "set_goal", "update_goal",
            "write_notebook", "change_self", "pastime", "make_request", "run_code", "remember", "set_rules",
-           "set_wake_triggers", "save_tool", "use_tool", "compose", "publish", "unpublish", "sleep"}
+           "set_wake_triggers", "save_tool", "use_tool", "compose", "publish", "unpublish", "mirror", "add_life_chapter",
+           "change_setting", "think_hard", "sleep"}
 
 
 def parse(text):
@@ -176,6 +183,8 @@ class Session:
         self.sleep_hours = cfg.get("default_sleep_hours", 3)
         self.page_chars = cfg["page_chars"].get(self.kind, 4000)
         self.catalog_size = cfg["shelf_catalog_size"].get(self.kind, 20)
+        self.base_config = dict(world.config)
+        self.step = 1
         self.history = []   # what happened this session, one line each
         self.desk = []      # what's on screen: search results, pages, books (newest last)
         self.read_urls = set()
@@ -198,6 +207,7 @@ class Session:
             out.append("== Music you've composed ==\n" + ", ".join(f"[{p['id']}] {p['title']}" for p in w.music[-15:]))
         shown = public.listing()
         out.append("== Your public corner ==\n" + ("; ".join(shown) if shown else "(empty)"))
+        out.append("== Your settings ==\n" + settings.describe(me, w.config))
         if me.get("wake_triggers"):
             out.append("== What wakes you early ==\n" + "; ".join(json.dumps(t) for t in me["wake_triggers"]))
         if workshop.enabled(w.config) and workshop.tools():
@@ -205,9 +215,10 @@ class Session:
         if getattr(self, "woke_because", None):
             out.append(f"\n(You woke early because {self.woke_because}.)")
         if getattr(self, "review_due", False):
-            out.append("\n== Your weekly look back ==\nIt's been a week or more since you last looked back. If you like, spend some of this session "
-                       "reviewing your goals, notebook and rules (remember helps), letting go of what no longer interests you, "
-                       "and deciding where to go next.")
+            out.append("\n== Your weekly look back ==\nIt's been a while since you last looked back. If you like, spend some of this session "
+                       "looking in the mirror, reviewing your goals, notebook and rules (remember helps), adding a chapter to "
+                       "your life story, letting go of what no longer interests you, and deciding where to go next. "
+                       "think_hard is good for this.")
 
         notes = w.pending_notes()
         if notes:
@@ -458,6 +469,40 @@ class Session:
             say(f"Asked {w.config.get('visitor', 'my visitor')} for: {req['what']}", why, request=req["id"])
             return f"request [{req['id']}] sent; it stays open until {w.config.get('visitor', 'your visitor')} answers"
 
+        if action == "mirror":
+            days = args.get("days")
+            seen = mirror.reflect(w, int(days) if str(days or "").isdigit() else None)
+            self._put_on_desk("In the mirror:\n" + seen)
+            say("Looked in the mirror", seen[:1500])
+            return seen[:700]
+
+        if action == "add_life_chapter":
+            title, text = str(args.get("title", "")).strip(), str(args.get("text", "")).strip()
+            if not title or len(text.split()) < 20:
+                raise ValueError("a chapter needs a title and a few sentences")
+            w.me.setdefault("life_story", []).append({"at": now(), "title": title[:100], "text": text[:3000]})
+            say(f"Wrote a new chapter of my life story: “{title}”", text[:1500])
+            return f"chapter {len(w.me['life_story'])} added to your life story"
+
+        if action == "change_setting":
+            result = settings.change(w.me, args.get("setting"), args.get("value"))
+            w.config = settings.apply(self.base_config, w.me.get("settings"))
+            self.sleep_hours = w.config.get("default_sleep_hours", self.sleep_hours)
+            say("Changed a setting about myself", result)
+            return result
+
+        if action == "think_hard":
+            question = str(args.get("question", "")).strip()
+            if not question:
+                raise ValueError("what do you want to think hard about?")
+            prompt = (self._context(self.step).rsplit("\nWhat do you do next?", 1)[0]
+                      + f"\n\nTake your time and think this through carefully, from several sides: {question}\n"
+                        'Reply with only a JSON object: {"thoughts": "<your careful thinking and where it leads you>"}')
+            deep = str(parse(self.chain.think(self._system(), prompt, best=True)).get("thoughts", "")).strip()
+            self._put_on_desk(f"Your careful thoughts on \"{question}\":\n{deep}")
+            say(f"Thought hard about: {question[:120]}", deep[:3000])
+            return deep[:700]
+
         if action == "compose":
             piece, revised = music.compose(w, args)
             say(f"{'Reworked' if revised else 'Composed'} a piece of music: “{piece['title']}”", piece.get("about") or None, music=piece["id"])
@@ -688,8 +733,8 @@ class Session:
                           specimens.describe(sp), specimen=sp["id"], did="found_dead", room=sp["room"])
         self.woke_because = w.me.pop("woke_because", None)
         last = w.me.get("last_review") or w.me.get("born")
-        self.review_due = (datetime.now(timezone.utc) - datetime.fromisoformat(last)).days >= 7
-        self.spark = research.spark(f"{w.me['sessions']}-{now()[:13]}")
+        self.review_due = (datetime.now(timezone.utc) - datetime.fromisoformat(last)).days >= w.config.get("review_days", 7)
+        self.spark = research.spark(f"{w.me['sessions']}-{now()[:13]}") if w.config.get("spark", True) else None
         if self.spark:
             w.log("pastime", "Found something on the doorstep", self.spark, room="study")
         w.log("wake", f"Woke up (thinking with {self.chain.current.label})", brain=self.chain.current.label)
@@ -697,6 +742,7 @@ class Session:
         step = 0
         while step < self.steps:
             step += 1
+            self.step = step
             w.me["steps"] += 1
             try:
                 reply = parse(self.chain.think(self._system(), self._context(step), [(m, d) for _, m, d in self.pictures]))
@@ -737,11 +783,17 @@ class Session:
         w = self.world
         try:
             prompt = self._context(self.steps).rsplit("\nWhat do you do next?", 1)[0] + "\n\n" + REFLECT
-            r = parse(self.chain.think(self._system(), prompt))
-            if r.get("about"):
+            r = parse(self.chain.think(self._system(), prompt, best=getattr(self, "review_due", False)))
+            if r.get("about") and str(r["about"]).strip() != w.me.get("about"):
+                history = w.me.setdefault("about_history", [])
+                history.append({"at": now(), "about": w.me.get("about", "")})
+                del history[:-60]
                 w.me["about"] = str(r["about"])[:1200]
             if r.get("mood"):
                 w.me["mood"] = str(r["mood"]).split()[0].strip(".,!").lower()[:20]
+                moods = w.me.setdefault("moods", [])
+                moods.append({"at": now(), "mood": w.me["mood"]})
+                del moods[:-200]
             diary = str(r.get("diary", "")).strip()
         except Exception as e:
             diary = f"(Too tired to write my diary tonight: {e})"

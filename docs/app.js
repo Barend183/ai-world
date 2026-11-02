@@ -195,6 +195,9 @@ function renderTabs() {
     </div>
     <h3>In ${esc(P.his)} own words</h3>
     <p class="about">${esc(me.about)}</p>
+    ${(me.moods || []).length > 1 ? `<h3>${esc(cap(P.his))} mood lately</h3><p class="muted">${me.moods.slice(-10).map((m) => `${esc(m.mood)}`).join(" → ")}</p>` : ""}
+    ${(me.life_story || []).length ? `<h3>${esc(cap(P.his))} life story</h3>${me.life_story.map((c, i) => `<details${i === me.life_story.length - 1 ? " open" : ""}>
+      <summary><b>${i + 1}. ${esc(c.title)}</b> <span class="muted">${when(c.at)}</span></summary><p class="about" style="white-space:pre-wrap">${esc(c.text)}</p></details>`).join("")}` : ""}
     ${me.rules ? `<h3>${esc(cap(P.his))} own rules</h3><p class="about" style="white-space:pre-wrap">${esc(me.rules)}</p>` : ""}
     ${(me.wake_triggers || []).length ? `<h3>Wakes up early when</h3><ul class="list">${me.wake_triggers.map((t) =>
       `<li>${t.kind === "rain" ? `it rains (at least ${t.min_mm} mm/h)` : t.kind === "time" ? `it's ${esc(t.at)}` :

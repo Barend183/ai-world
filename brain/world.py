@@ -34,7 +34,7 @@ PLACES = {
     "build_room": "room", "decorate": "item", "remove_item": "room",
     "look": "computer", "restyle": "room", "test": "computer",
     "set_goal": "board", "update_goal": "board", "write_letter": "mailbox",
-    "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer", "compose": "armchair", "publish": "computer", "unpublish": "computer",
+    "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer", "compose": "armchair", "mirror": "room", "add_life_chapter": "armchair", "change_setting": "armchair", "think_hard": "armchair", "publish": "computer", "unpublish": "computer",
     "remember": "shelves", "set_rules": "armchair", "set_wake_triggers": "bed", "save_tool": "computer", "use_tool": "computer",
 }
 
@@ -71,11 +71,12 @@ def save(name, data):
 
 class World:
     def __init__(self, config):
-        self.config = config
         self.me = load("self.json", None) or {
             "name": config["name"], "born": now(), "about": config["personality"],
             "mood": "curious", "sessions": 0, "steps": 0,
         }
+        from .settings import apply
+        self.config = apply(config, self.me.get("settings"))
         self.shelves = load("shelves.json", [])
         self.wishes = load("wishlist.json", None)
         if self.wishes is None:

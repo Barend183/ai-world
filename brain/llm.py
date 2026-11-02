@@ -147,8 +147,17 @@ class Gemini:
         if self.status.get("gemini_last_good") == model:
             del self.status["gemini_last_good"]
 
-    def think(self, system, prompt, images=()):
+    def think(self, system, prompt, images=(), best=False):
         import base64
+        if best:   # important thinking: the strongest full model that's available right now
+            strongest = next((m for m in self.candidates if "lite" not in m and self._usable(m)
+                              and m not in getattr(self, "_failed", set())), None)
+            if strongest and strongest != self.model:
+                everyday, self.model = self.model, strongest
+                try:
+                    return self.think(system, prompt, images)
+                except Exception:
+                    self.model = everyday   # fall back to the everyday model
         pictures = [{"inline_data": {"mime_type": mime, "data": base64.b64encode(data).decode()}} for mime, data in images]
         body = {
             "systemInstruction": {"parts": [{"text": system}]},
@@ -359,7 +368,7 @@ class Scripted:
         self.actions = list(actions)
         self.label = "scripted test brain"
 
-    def think(self, system, prompt, images=()):
+    def think(self, system, prompt, images=(), best=False):
         return json.dumps(self.actions.pop(0) if self.actions else {"thought": "Nothing left to do.", "action": "sleep", "args": {}})
 
 
@@ -425,11 +434,13 @@ class Chain:
                 total += max(0, cfg["daily_requests"] - used.get("requests", 0))
         return total
 
-    def think(self, system, prompt, images=()):
+    def think(self, system, prompt, images=(), best=False):
         while True:
             if self.current is None and self.pick() is None:
                 raise BrainUnavailable("; ".join(self.problems))
             try:
+                if best and self.current.kind == "gemini":
+                    return self.current.think(system, prompt, images, best=True)
                 return self.current.think(system, prompt, images)
             except QuotaExhausted:
                 until = next_reset() if self.current.kind == "gemini" else next_utc_midnight()

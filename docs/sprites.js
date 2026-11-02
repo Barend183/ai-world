@@ -62,8 +62,9 @@ function sky(hour) {
   if (hour < 18) return ["#8fd0f5", "#cfeefc"];
   return ["#f39a63", "#7a5c9e"];
 }
-// His world runs on Cape Town's clock (UTC+2), whatever time it is where you're visiting from.
-const worldTime = () => new Date(Date.now() + 2 * 3600 * 1000);
+// His world runs on its own clock (Cape Town's, UTC+2, unless he has moved it), whatever time it is where you're visiting from.
+const worldOffset = () => (typeof S !== "undefined" && S.weather && typeof S.weather.offset === "number" ? S.weather.offset : 2);
+const worldTime = () => new Date(Date.now() + worldOffset() * 3600 * 1000);
 const worldHour = () => worldTime().getUTCHours();
 // The weather there right now, when the page has it (rain makes grey clouds and drops on the glass).
 const worldWeather = () => (typeof weatherNow === "function" ? weatherNow() : null);

@@ -83,4 +83,4 @@ class Weather:
         save("weather.json", {"hours": self.hours})   # the hourly record, for the simulation
         # what the web page shows, kept small: the weather for the next three days by hour
         ahead = {(now + timedelta(hours=h)).strftime("%Y-%m-%dT%H"): self.at(now + timedelta(hours=h), True) for h in range(-1, 72)}
-        save("weather_now.json", {"place": self.place, "updated": now.isoformat(timespec="seconds"), "hours": ahead})
+        save("weather_now.json", {"place": self.place, "offset": self.offset, "updated": now.isoformat(timespec="seconds"), "hours": ahead})
