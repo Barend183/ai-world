@@ -39,8 +39,10 @@ def _openers():
     found = []
     for name in ("WORLD_PASSWORD", "WORLD_PASSWORD_OLD"):
         raw = os.environ.get(name, "")
-        for pw in (raw.strip(), raw):
-            if pw and pw not in found:
+        clean = raw.strip()
+        # as typed, cleaned up, and with the line break that pasting into GitHub can add
+        for pw in (clean, raw, clean + "\n", clean + "\r\n"):
+            if clean and pw not in found:
                 found.append(pw)
     return found
 
