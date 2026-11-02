@@ -46,6 +46,7 @@ jobs:
       - name: Unlock his world
         env:
           WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
+          WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
           WORLD_PASSWORD_OLD: ${{ secrets.WORLD_PASSWORD_OLD }}   # only while changing the password
         run: python -m brain unlock
 
@@ -56,6 +57,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
+          WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python -m brain run --next-wake 180 ${{ github.event_name == 'workflow_dispatch' && '--now' || '' }}
 
@@ -85,6 +87,7 @@ jobs:
           GROQ_API_KEY: ""
           OPENROUTER_API_KEY: ""
           WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
+          WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
         run: python -m brain run --next-wake 180 ${{ github.event_name == 'workflow_dispatch' && '--now' || '' }}
 
       - name: Lock his world again and save it
@@ -100,4 +103,5 @@ jobs:
           git pull -q --rebase "$REMOTE" "${GITHUB_REF_NAME}" && git push -q "$REMOTE" "HEAD:${GITHUB_REF_NAME}"
         env:
           WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
+          WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

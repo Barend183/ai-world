@@ -24,9 +24,11 @@ _keys = {}
 
 
 def password():
-    """The password everything is sealed with. Stray spaces or a line break at either end are ignored,
-    since they sneak in so easily when a password is pasted."""
-    pw = os.environ.get("WORLD_PASSWORD", "").strip()
+    """The password everything is sealed with: WORLD_PASSWORD_NEW when it's set (a reset that doesn't
+    need you to know the old password: the old one is still in WORLD_PASSWORD, so the world can be
+    opened with it and re-sealed with the new one), otherwise WORLD_PASSWORD. Stray spaces or a line
+    break at either end are ignored, since they sneak in so easily when a password is pasted."""
+    pw = (os.environ.get("WORLD_PASSWORD_NEW", "") or os.environ.get("WORLD_PASSWORD", "")).strip()
     if not pw:
         raise SystemExit("WORLD_PASSWORD isn't set, so the world can't be locked or unlocked.")
     return pw
@@ -37,7 +39,7 @@ def _openers():
     while you're changing it (the next lock re-seals everything with the new one), each also exactly
     as saved, in case an older seal included a stray line break."""
     found = []
-    for name in ("WORLD_PASSWORD", "WORLD_PASSWORD_OLD"):
+    for name in ("WORLD_PASSWORD_NEW", "WORLD_PASSWORD", "WORLD_PASSWORD_OLD"):
         raw = os.environ.get(name, "")
         clean = raw.strip()
         # as typed, cleaned up, and with the line break that pasting into GitHub can add
