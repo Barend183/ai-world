@@ -24,10 +24,34 @@ _keys = {}
 
 
 def password():
-    pw = os.environ.get("WORLD_PASSWORD", "")
+    """The password everything is sealed with. Stray spaces or a line break at either end are ignored,
+    since they sneak in so easily when a password is pasted."""
+    pw = os.environ.get("WORLD_PASSWORD", "").strip()
     if not pw:
         raise SystemExit("WORLD_PASSWORD isn't set, so the world can't be locked or unlocked.")
     return pw
+
+
+def _openers():
+    """Passwords that may open what's already in the vault: the current one, then WORLD_PASSWORD_OLD
+    while you're changing it (the next lock re-seals everything with the new one), each also exactly
+    as saved, in case an older seal included a stray line break."""
+    found = []
+    for name in ("WORLD_PASSWORD", "WORLD_PASSWORD_OLD"):
+        raw = os.environ.get(name, "")
+        for pw in (raw.strip(), raw):
+            if pw and pw not in found:
+                found.append(pw)
+    return found
+
+
+def open_any(blob):
+    for pw in _openers():
+        try:
+            return open_(blob, pw)
+        except ValueError:
+            continue
+    raise ValueError("none of the passwords open this (check WORLD_PASSWORD)")
 
 
 def _key(pw, salt):
@@ -143,7 +167,7 @@ def unlock():
         print("No locked world yet: he starts fresh.")
         return False
     with open(path, "rb") as f:
-        bundle = json.loads(open_(f.read(), pw))
+        bundle = json.loads(open_any(f.read()))
     for rel, text in bundle["files"].items():
         if ".." in rel.split("/"):
             continue
@@ -151,13 +175,13 @@ def unlock():
         _write(os.path.join(WORLD, *rel.split("/")), data)
     for month_file in glob.glob(os.path.join(VAULT, "journal", "*.bin")):
         with open(month_file, "rb") as f:
-            _write(os.path.join(WORLD, "journal", os.path.basename(month_file)[:-4] + ".jsonl"), open_(f.read(), pw))
+            _write(os.path.join(WORLD, "journal", os.path.basename(month_file)[:-4] + ".jsonl"), open_any(f.read()))
     taken = []
     for note_file in sorted(glob.glob(os.path.join(VAULT, "inbox", "*.bin"))):
         name = os.path.basename(note_file)
         try:
             with open(note_file, "rb") as f:
-                note = json.loads(open_(f.read(), pw))
+                note = json.loads(open_any(f.read()))
         except (ValueError, json.JSONDecodeError):
             print("A note in the inbox couldn't be opened and was left alone.")
             continue

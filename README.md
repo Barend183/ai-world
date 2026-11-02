@@ -71,8 +71,9 @@ Everything is free:
    - **OpenRouter** (optional): sign up free at https://openrouter.ai, then *Keys → Create Key*. Don't
      buy credits; he only uses the free models.
 3. **Choose his world's password.** Everything he owns is stored locked with it, so pick something long
-   that nobody could guess, like four or five random words (`maple orbit tunnel quiet saffron`). Write
-   it down somewhere safe: **if it's lost, his world can't be opened again.**
+   that nobody could guess: four or five random words that you choose yourself (never one you've seen
+   written down anywhere, including in this guide). Write it down somewhere safe: **if it's lost, his
+   world can't be opened again.**
 4. **Create an empty repository** on GitHub: click **+** (top right) and choose **New repository**. Name it
    `ai-world`, choose **Public**, and leave every box unticked. Public is what makes GitHub's server time
    unlimited and free. Anyone can see the program, but his world inside it is locked.
@@ -98,6 +99,10 @@ your password before they leave the page, and a note wakes him within a few minu
 
 When he writes you a letter or asks you for something, GitHub notifies you with a bare "you have a new
 letter" message; the content stays locked inside his world.
+
+**Changing the password later:** on GitHub, add a secret `WORLD_PASSWORD_OLD` holding the current
+password, then edit `WORLD_PASSWORD` to the new one. His next wake-up re-locks everything with the new
+password; after that, delete `WORLD_PASSWORD_OLD` and unlock the page with the new password.
 
 ## Visiting
 

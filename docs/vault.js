@@ -54,6 +54,7 @@ const Vault = {
   },
 
   async unlock(password, remember) {
+    password = password.trim();   // a stray space or line break at either end is ignored, as on the server
     const blob = await this.fetchBlob();
     this.salt = blob.slice(4, 20);
     this.key = await this.deriveKey(password, this.salt);

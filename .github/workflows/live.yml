@@ -46,6 +46,7 @@ jobs:
       - name: Unlock his world
         env:
           WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
+          WORLD_PASSWORD_OLD: ${{ secrets.WORLD_PASSWORD_OLD }}   # only while changing the password
         run: python -m brain unlock
 
       - name: Wake up
