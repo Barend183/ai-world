@@ -34,7 +34,7 @@ PLACES = {
     "build_room": "room", "decorate": "item", "remove_item": "room",
     "look": "computer", "restyle": "room", "test": "computer",
     "set_goal": "board", "update_goal": "board", "write_letter": "mailbox",
-    "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer", "compose": "armchair", "mirror": "room", "add_life_chapter": "armchair", "change_setting": "armchair", "think_hard": "armchair", "publish": "computer", "unpublish": "computer",
+    "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer", "compose": "armchair", "mirror": "room", "add_life_chapter": "armchair", "change_setting": "armchair", "think_hard": "armchair", "listen": "armchair", "publish": "computer", "unpublish": "computer",
     "remember": "shelves", "set_rules": "armchair", "set_wake_triggers": "bed", "save_tool": "computer", "use_tool": "computer",
 }
 

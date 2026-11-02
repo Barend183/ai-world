@@ -19,6 +19,9 @@ he decides what to learn, make and build.
 - **Living on his own terms:** he decides how long to stay awake and how long to sleep (a note from you
   wakes him early), sets himself long-term goals and tracks them, and writes you letters when he has
   something to say (at most two a day). He's told how many free thoughts he has left each day.
+- **Senses:** he can see pictures and hear recordings (his own music played aloud, and birdsong, rain or
+  instruments from the pages he reads) while thinking with Gemini. Smell, taste and touch he doesn't have;
+  the weather reaches him as numbers.
 - **Being himself:** he keeps a personal notebook (one page of working memory he rewrites as he likes),
   can change his own personality, name and pronouns, and can spend time on pastimes that aren't
   useful at all, like walking in his garden or watching the rain.

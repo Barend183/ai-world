@@ -10,6 +10,11 @@ from html.parser import HTMLParser
 
 BOT_UA = "AIWorld/1.0 (a hobby AI that teaches itself; personal project)"
 IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+SOUND_EXTENSIONS = (".mp3", ".ogg", ".oga", ".wav", ".flac", ".m4a", ".aac")
+# what Gemini can listen to, by the type the server says it is
+SOUND_TYPES = {"audio/mpeg": "audio/mp3", "audio/mp3": "audio/mp3", "audio/ogg": "audio/ogg", "application/ogg": "audio/ogg",
+               "audio/wav": "audio/wav", "audio/x-wav": "audio/wav", "audio/wave": "audio/wav", "audio/flac": "audio/flac",
+               "audio/x-flac": "audio/flac", "audio/aac": "audio/aac", "audio/mp4": "audio/aac", "audio/x-m4a": "audio/aac"}
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 SKIP_TAGS = {"script", "style", "noscript", "svg", "nav", "footer", "header", "form", "aside", "iframe", "button"}
 BLOCK_TAGS = {"p", "div", "li", "br", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "section", "article", "blockquote", "pre"}
@@ -78,6 +83,10 @@ class _Text(HTMLParser):
             href = dict(attrs).get("href") or ""
             if href and not href.startswith(("#", "javascript:", "mailto:", "tel:")):
                 self._link = [urllib.parse.urljoin(self.base, href).split("#")[0], ""]
+        if tag in ("audio", "source") and not self._skip:
+            src = dict(attrs).get("src") or ""
+            if src and src.split("?")[0].lower().endswith(SOUND_EXTENSIONS):
+                self.links.append((urllib.parse.urljoin(self.base, src), "a recording on this page"))
         if tag == "img" and not self._skip:
             a = dict(attrs)
             src = a.get("src") or a.get("data-src") or ""
@@ -218,6 +227,8 @@ def _wikipedia_article(url):
             info = (p.get("imageinfo") or [{}])[0]
             if info.get("mime") in ("image/jpeg", "image/png") and info.get("thumburl"):
                 images.append((info["thumburl"], p["title"].replace("File:", "").rsplit(".", 1)[0][:100]))
+            elif str(info.get("mime", "")).startswith(("audio/", "application/ogg")) and info.get("url"):
+                images.append((info["url"], p["title"].replace("File:", "").rsplit(".", 1)[0][:100]))
     except Exception:
         pass
     return page.get("title", title), page.get("extract", ""), images[:6]
@@ -250,7 +261,10 @@ def read(url, max_chars, part=1):
     chunk = text[(part - 1) * max_chars: part * max_chars]
     if part < parts:
         chunk += f" [...continues: part {part} of {parts}]"
-    return {"title": title or url, "text": chunk, "images": images, "links": links, "part": part, "parts": parts}
+    is_sound = lambda u: u.split("?")[0].lower().endswith(SOUND_EXTENSIONS)
+    sounds = [(u, a) for u, a in images + links if is_sound(u)][:8]
+    return {"title": title or url, "text": chunk, "images": [(u, a) for u, a in images if not is_sound(u)],
+            "links": [(u, a) for u, a in links if not is_sound(u)], "sounds": sounds, "part": part, "parts": parts}
 
 
 def fetch_image(url, limit=6_000_000):
@@ -302,3 +316,19 @@ def spark(seed):
         except Exception:
             continue
     return None
+
+
+def fetch_sound(url, limit=10_000_000):
+    """Downloads a recording so the AI can listen to it: (mime type Gemini understands, bytes)."""
+    if not _is_public(url):
+        raise ValueError("that address isn't on the public internet")
+    ua = BOT_UA if re.search(r"(wikipedia|wikimedia)\.org", url) else UA
+    req = urllib.request.Request(url, headers={"User-Agent": ua})
+    with urllib.request.urlopen(req, timeout=40) as r:
+        mime = r.headers.get_content_type()
+        data = r.read(limit + 1)
+    if mime not in SOUND_TYPES:
+        raise ValueError(f"that isn't a recording I can listen to ({mime})")
+    if len(data) > limit:
+        raise ValueError("that recording is too long to listen to in one go")
+    return SOUND_TYPES[mime], data

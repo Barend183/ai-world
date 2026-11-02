@@ -33,6 +33,7 @@ class Gemini:
     overloaded, hangs or runs out of free requests (each model has its own daily allowance)."""
     kind = "gemini"
     sees = True
+    hears = True
     BASE = "https://generativelanguage.googleapis.com/v1beta"
     SKIP = ("image", "tts", "live", "audio", "exp", "thinking", "8b", "preview", "customtools", "omni")
 
@@ -205,6 +206,7 @@ class Ollama:
     def think(self, system, prompt, images=()):
         import base64
         user = {"role": "user", "content": prompt}
+        images = [(mime, data) for mime, data in images if mime.startswith("image/")]
         if images and self.sees:
             user["images"] = [base64.b64encode(data).decode() for _, data in images]
         body = {
@@ -312,6 +314,7 @@ class OpenAICompat:
                 continue
             self.model, self.label = model, f"{self.name} ({model})"
             content = prompt
+            images = [(mime, data) for mime, data in images if mime.startswith("image/")]
             if images and model in self.vision:
                 content = [{"type": "text", "text": prompt}] + [
                     {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64.b64encode(data).decode()}"}}
@@ -363,6 +366,7 @@ class Scripted:
     """A fake brain for testing the world without any AI: replays a list of actions."""
     kind = "scripted"
     sees = True
+    hears = True
 
     def __init__(self, actions):
         self.actions = list(actions)

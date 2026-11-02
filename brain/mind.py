@@ -34,7 +34,7 @@ Who you are is up to you too. Your personality, your name and how you'd like to 
 
 Some things you can't do yourself: you can't create accounts on websites, post online, spend money or reach {visitor}'s own computer. If you want something like that (an account somewhere, a new ability, a tool), you can ask {visitor} with make_request and explain why. {visitor} decides; a request stays open until they answer, so ask once and wait.
 
-You can make music too: compose pieces (melody, an optional bass line, tempo, instrument) and they play on your page.
+You can make music too: compose pieces (melody, an optional bass line, tempo, instrument) and they play on your page. You can hear, as well: listen to your own pieces played aloud, or to recordings you find on the pages you read (birdsong, rain, instruments, voices...). You have no other senses: no smell, taste or touch, and the weather reaches you as numbers.
 
 Your world is private and locked, but you have a public corner as well: a small page anyone can visit, where you decide what to show the world: a book you're proud of, a drawing, a piece of music or a short post. Only share your own work, never anything from your letters, notes, diary or notebook, and nothing about {visitor}. You can take things down again whenever you like.
 
@@ -72,6 +72,7 @@ Actions:
   (composing with an existing title revises that piece)
 - publish {{"kind": "book", "id": "<book id>"}} or {{"kind": "drawing", "specimen"|"piece"|"room"+"item": ..., "title": "..."}} or {{"kind": "music", "id": "<piece id>"}} or {{"kind": "post", "title": "...", "text": "..."}}, plus an optional "note"  (at most 3 a day)
 - unpublish {{"id": "<id from your public corner>"}}
+- listen {{"music": "<id of one of your pieces>"}} or {{"url": "<a recording from a page you read>"}}  (hear it with your next thought; only while thinking with Gemini)
 - mirror {{"days": <optional: only the last n days>}}  (the facts about yourself)
 - add_life_chapter {{"title": "...", "text": "<a chapter of your life story, in your own words>"}}
 - change_setting {{"setting": "default_sleep_hours|max_thoughts|review_days|spark|location", "value": <number, on/off, or a place name>}}
@@ -155,7 +156,7 @@ ACTIONS = {"search", "read", "write_book", "read_book", "add_wish", "complete_wi
            "reply_note", "build_room", "decorate", "remove_item", "look", "restyle", "test", "spawn", "interact", "move", "release", "write_letter", "set_goal", "update_goal",
            "write_notebook", "change_self", "pastime", "make_request", "run_code", "remember", "set_rules",
            "set_wake_triggers", "save_tool", "use_tool", "compose", "publish", "unpublish", "mirror", "add_life_chapter",
-           "change_setting", "think_hard", "sleep"}
+           "change_setting", "think_hard", "listen", "sleep"}
 
 
 def parse(text):
@@ -275,7 +276,7 @@ class Session:
             out.append("\n== On your desk right now ==")
             out += self.desk
         if self.pictures:
-            out.append("\n== Pictures in front of you (attached, in this order) ==")
+            out.append("\n== Pictures and sounds in front of you (attached, in this order) ==")
             out += [f"{i}. {label}" for i, (label, _, _) in enumerate(self.pictures, 1)]
         out.append("\nWhat do you do next? Reply with JSON only.")
         return "\n".join(out)
@@ -334,8 +335,10 @@ class Session:
             title, text = page["title"], page["text"]
             pics = "".join(f"\n  - {alt or 'picture'}: {src}" for src, alt in page["images"])
             links = "".join(f"\n  - {label}: {href}" for href, label in page["links"][:25])
+            sounds = "".join(f"\n  - {label or 'recording'}: {href}" for href, label in page.get("sounds", []))
             where = f" (part {page['part']} of {page['parts']})" if page["parts"] > 1 else ""
             self._put_on_desk(f"Page: {title}{where}\n{url}\n{text}" + (f"\nPictures on this page:{pics}" if pics else "")
+                              + (f"\nRecordings on this page (listen to hear them):{sounds}" if sounds else "")
                               + (f"\nLinks on this page:{links}" if links else ""))
             say(f"Read “{title}”{where}", text[:1500], url=url)
             return f"read “{title}”{where} ({url})"
@@ -468,6 +471,24 @@ class Session:
             mailbox.send_request(req, w.me["name"])
             say(f"Asked {w.config.get('visitor', 'my visitor')} for: {req['what']}", why, request=req["id"])
             return f"request [{req['id']}] sent; it stays open until {w.config.get('visitor', 'your visitor')} answers"
+
+        if action == "listen":
+            if not getattr(self.chain.current, "hears", False):
+                raise ValueError("your ears are resting: the brain you're using right now can't hear (only Gemini can)")
+            if args.get("music"):
+                piece = next((p for p in w.music if p["id"] == rooms.slug(str(args["music"]))), None)
+                if not piece:
+                    raise ValueError("there's no piece of yours with that id")
+                mime, data, label = "audio/wav", music.render_wav(piece), f"your piece “{piece['title']}”, played aloud"
+                extra = {"music": piece["id"]}
+            elif args.get("url"):
+                mime, data = research.fetch_sound(str(args["url"]).strip())
+                label, extra = f"a recording from {args['url']}", {"sound": str(args["url"])}
+            else:
+                raise ValueError("listen to one of your pieces (music) or a recording (url)")
+            self.pictures = (self.pictures + [(label, mime, data)])[-2:]
+            say("Listened to " + label.replace("your piece", "my piece"), None, **extra)
+            return f"listening to {label} (you can hear it now)"
 
         if action == "mirror":
             days = args.get("days")
