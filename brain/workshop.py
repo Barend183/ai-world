@@ -5,6 +5,7 @@ opens online, on GitHub's throwaway servers (or locally if you set "allow_code_l
 Online, each program runs as a separate, unprivileged user with an empty environment, so it can't
 read the API keys or the GitHub token, and the checkout keeps no credentials it could push with.
 """
+import json
 import os
 import re
 import shutil
@@ -26,7 +27,7 @@ def _size():
     return sum(os.path.getsize(os.path.join(d, f)) for d, _, files in os.walk(FOLDER) for f in files)
 
 
-def run(code, save_as=None, timeout=60):
+def run(code, save_as=None, timeout=60, stdin=None):
     if not code.strip():
         raise ValueError("there's no code to run")
     os.makedirs(FOLDER, exist_ok=True)
@@ -47,7 +48,8 @@ def run(code, save_as=None, timeout=60):
             raise ValueError("the workshop's safety lock isn't available here, so it stays closed")
         cmd = ["sudo", "-n", "-u", SANDBOX_USER, "env", "-i", *[f"{k}={v}" for k, v in env.items()], *cmd]
     try:
-        done = subprocess.run(cmd, cwd=FOLDER, env=env, capture_output=True, timeout=timeout)
+        done = subprocess.run(cmd, cwd=FOLDER, env=env, capture_output=True, timeout=timeout,
+                              input=(stdin or "").encode("utf-8"))
         out = (done.stdout + done.stderr).decode("utf-8", errors="replace")
         status = "" if done.returncode == 0 else f"\n(exited with code {done.returncode})"
     except subprocess.TimeoutExpired as e:
@@ -58,5 +60,40 @@ def run(code, save_as=None, timeout=60):
     out = out.strip() or "(the program printed nothing)"
     if len(out) > 5000:
         out = out[:2500] + "\n[...]\n" + out[-2400:]
-    files = sorted(f for f in os.listdir(FOLDER) if not f.startswith("."))
+    files = sorted(f for f in os.listdir(FOLDER) if not f.startswith(".") and f != "tools")
     return out + status + (f"\nFiles in your workshop: {', '.join(files[:40])}" if files else "")
+
+
+# ---- his own tools: programs he saved to reuse as actions -----------------------------------
+TOOLS = os.path.join(FOLDER, "tools")
+INDEX = os.path.join(TOOLS, "index.json")
+
+
+def tools():
+    try:
+        with open(INDEX, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_tool(name, description, code):
+    name = re.sub(r"[^a-z0-9_]", "_", str(name).lower())[:30].strip("_")
+    if not name or not code.strip():
+        raise ValueError("a tool needs a name and its code")
+    os.makedirs(TOOLS, exist_ok=True)
+    with open(os.path.join(TOOLS, name + ".py"), "w", encoding="utf-8") as f:
+        f.write(code)
+    index = tools()
+    index[name] = str(description)[:200]
+    with open(INDEX, "w", encoding="utf-8") as f:
+        json.dump(index, f, indent=1)
+    return name
+
+
+def use_tool(name, data):
+    path = os.path.join(TOOLS, re.sub(r"[^a-z0-9_]", "_", str(name).lower()) + ".py")
+    if not os.path.exists(path):
+        raise ValueError(f"you have no tool called '{name}'. Your tools: {', '.join(tools()) or 'none yet'}")
+    with open(path, encoding="utf-8") as f:
+        return run(f.read(), stdin=json.dumps(data))

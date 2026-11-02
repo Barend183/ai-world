@@ -2,7 +2,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 
-from . import env, mailbox, pixels, research, rooms, specimens, workshop
+from . import env, mailbox, memory, pixels, research, rooms, specimens, workshop
 from .llm import BrainUnavailable
 from .world import now
 
@@ -36,6 +36,10 @@ Some things you can't do yourself: you can't create accounts on websites, post o
 
 Not everything has to be useful: you can simply spend time doing things you enjoy (pastime), like walking in your garden, playing an instrument you built, watching the rain or tidying your shelves.
 
+Your memory reaches back to the day you were born: everything you ever wrote or did is still there, and remember searches all of it (books, notebook, goals, letters and every journal entry), so you can pick up old threads whenever you like.
+
+How you live is yours to shape too. You can write your own rules: the habits, values and ways of working you want to keep (set_rules). They're added to the end of these instructions and you can change them whenever you like; where they differ from my suggestions, yours win. You choose what wakes you, too: besides how long you sleep, you can ask to be woken when something happens (set_wake_triggers), such as rain, one of your creations needing you, or a time of day. About once a week you'll be invited to look back: review your goals, notebook and rules, let go of what no longer interests you, and decide where you want to go next.
+
 Your curiosity can wander wherever it likes. Following a thread from one topic to the next is good, and so is dropping it to jump to something completely unrelated whenever something else catches your interest. Each time you wake, something from the wider world is waiting on your doorstep; notice it, follow it or ignore it, as you please.
 
 Good habits:
@@ -58,6 +62,9 @@ Actions:
 - reply_note {{"id": "<note id>", "reply": "..."}}
 - write_letter {{"text": "..."}}  (a letter to {visitor}, whenever you like; at most two a day)
 - make_request {{"what": "<what you'd like, e.g. an account on a particular website, a new ability>", "why": "<why you want it and what you'd do with it>"}}  (at most one a day)
+- remember {{"query": "<a few words>"}}  (search everything you've ever written or done)
+- set_rules {{"rules": "<your own rules, up to about 1500 characters; replaces the old ones>"}}
+- set_wake_triggers {{"triggers": [{{"kind": "rain", "min_mm": 0.2}}, {{"kind": "creation", "specimen": "<id>", "if": "<condition on its variables>"}}, {{"kind": "time", "at": "06:30"}}]}}  (up to 5; an empty list clears them; times are local)
 - write_notebook {{"text": "<your whole notebook, up to about 2000 characters; replaces the old page>"}}
 - change_self {{"personality": "<optional new description of your character>", "name": "<optional new name>", "pronouns": ["he", "him", "his"]}}
 - pastime {{"activity": "<what you do, in a few words>", "room": "<optional room id>", "thoughts": "<optional: what goes through your mind>"}}
@@ -92,15 +99,17 @@ Actions:
   (Conditions: "<var> <op> <number>" with < <= > >= == !=, or "season is <name>", joined with "and". Besides its own variables a
   condition can use the world around it: env_temp (C), env_rain (mm/hour), env_humidity (%), env_wind (km/h), env_daylight (1 day, 0 night),
   env_hour (0-23), env_month (1-12) and age_days (how long it has existed). The first action branch whose condition holds is used, so put special cases first. "minutes" lets time pass quickly for that thing only, like baking for 30 minutes.)
-  Example, only to show how the parts work together (your creations are your own): a sourdough starter that bubbles
-  when fed, goes flat when hungry and recovers when fed again:
-  {{"name": "Sourdough starter", "kind": "food", "look": {{"shape": "round", "color": "#efe3c8", "texture": "spotted", "parts": ["pot"], "size_var": "rise"}},
-   "vars": {{"food": {{"start": 80, "min": 0, "max": 100, "per_hour": -4, "unit": "%"}}, "rise": {{"start": 20, "min": 0, "max": 100, "unit": "%"}}, "health": {{"start": 100, "min": 0, "max": 100, "unit": "%"}}}},
-   "rules": [{{"if": "food > 30", "per_hour": {{"rise": 6}}, "note": "bubbling and rising"}},
-             {{"if": "food < 10", "per_hour": {{"rise": -5, "health": -1}}, "note": "flat, with grey liquid on top"}},
-             {{"if": "food > 10 and health < 100", "per_hour": {{"health": 2}}, "note": ""}}],
-   "actions": {{"feed": [{{"change": {{"food": 80, "rise": -30}}, "say": "Stirred in fresh flour and water."}}]}},
-   "alive_var": "health", "end_word": "spoiled"}}
+  Example, only to show how the parts fit together (not a suggestion; your creations are your own): a made-up
+  "Thing" that takes in something from its surroundings, gets used up, wears down when neglected and recovers when looked after:
+  {{"name": "Thing", "kind": "object", "look": {{"shape": "box", "color": "#8899aa"}},
+   "vars": {{"store": {{"start": 50, "min": 0, "max": 100, "per_hour": -1, "unit": "%"}}, "condition": {{"start": 100, "min": 0, "max": 100, "unit": "%"}}}},
+   "rules": [{{"if": "env_rain > 0", "per_hour": {{"store": 5}}, "note": "filling up"}},
+             {{"if": "store < 10", "per_day": {{"condition": -5}}, "note": "looking neglected"}},
+             {{"if": "store > 10 and condition < 100", "per_day": {{"condition": 3}}, "note": ""}},
+             {{"chance": 0.01, "change": {{"condition": -40}}, "note": "something went wrong"}}],
+   "actions": {{"use": [{{"if": "store < 20", "say": "Not enough left to use."}}, {{"change": {{"store": -20}}, "say": "Used some."}}],
+               "fix": [{{"change": {{"condition": 30}}, "minutes": 20, "say": "Spent a while fixing it."}}]}},
+   "alive_var": "condition", "end_word": "broke"}}
 - test {{"specimen": "<id>"}} or {{"spec": {{...same as spawn...}}}}, plus "days": <up to 365>, "care": [{{"action": "<one of its actions>", "every_days": <n>}}]
   (A test run on a copy, with real weather where known: see how it would do over weeks or months, with or without care. Nothing real changes.)
 - interact {{"specimen": "<id>", "action": "observe" or one of its actions}}
@@ -117,7 +126,10 @@ Your workshop is open: you can write and run your own Python programs (Python's 
 you fetch, run your own simulations and experiments, generate pixel art or anything else you can think of. The workshop folder
 keeps your files between sessions (programs you save, data, results); a program runs for at most 60 seconds and you see what
 it prints. Keep a library of programs that are useful to you and reuse them.
-- run_code {"code": "<python program>", "save_as": "<optional file name to keep it, e.g. growth_model.py>"}"""
+- run_code {"code": "<python program>", "save_as": "<optional file name to keep it, e.g. growth_model.py>"}
+- save_tool {"name": "<short_name>", "description": "<what it does and what input it expects>", "code": "<python program>"}
+  (turns a program into a tool of your own; it reads its input as JSON from standard input: json.load(sys.stdin))
+- use_tool {"name": "<short_name>", "input": <any JSON>}"""
 
 REFLECT = """Your session is over and you're climbing into bed. Look back on today.
 Reply with only a JSON object:
@@ -127,7 +139,8 @@ Reply with only a JSON object:
 
 ACTIONS = {"search", "read", "write_book", "read_book", "add_wish", "complete_wish", "drop_wish", "think",
            "reply_note", "build_room", "decorate", "remove_item", "look", "restyle", "test", "spawn", "interact", "move", "release", "write_letter", "set_goal", "update_goal",
-           "write_notebook", "change_self", "pastime", "make_request", "run_code", "sleep"}
+           "write_notebook", "change_self", "pastime", "make_request", "run_code", "remember", "set_rules",
+           "set_wake_triggers", "save_tool", "use_tool", "sleep"}
 
 
 def parse(text):
@@ -173,6 +186,16 @@ class Session:
                f"You have lived for {days} days and written {len(w.shelves)} books."]
         out.append("\n== Who you are (your own words) ==\n" + me["about"])
         out.append("\n== Your notebook ==\n" + (me.get("notebook") or "(empty: write_notebook to start it)"))
+        if me.get("wake_triggers"):
+            out.append("== What wakes you early ==\n" + "; ".join(json.dumps(t) for t in me["wake_triggers"]))
+        if workshop.enabled(w.config) and workshop.tools():
+            out.append("== Your tools ==\n" + "\n".join(f"- {n}: {d}" for n, d in workshop.tools().items()))
+        if getattr(self, "woke_because", None):
+            out.append(f"\n(You woke early because {self.woke_because}.)")
+        if getattr(self, "review_due", False):
+            out.append("\n== Your weekly look back ==\nIt's been a week or more since you last looked back. If you like, spend some of this session "
+                       "reviewing your goals, notebook and rules (remember helps), letting go of what no longer interests you, "
+                       "and deciding where to go next.")
 
         notes = w.pending_notes()
         if notes:
@@ -249,7 +272,9 @@ class Session:
                              location=c.get("location", "the Southern Hemisphere"), weather_place=c.get("weather_place", "Cape Town"),
                              catalog=", ".join(rooms.CATALOG["floor"] + rooms.CATALOG["wall"]),
                              pieces=", ".join(rooms.STUDY_PIECES))
-        return text + (WORKSHOP if workshop.enabled(c) else "")
+        rules = me.get("rules")
+        return (text + (WORKSHOP if workshop.enabled(c) else "")
+                + (f"\n\n== Your own rules (written by you; they win where they differ from the above) ==\n{rules}" if rules else ""))
 
     # ---- acting ------------------------------------------------------------
     def act(self, thought, action, args):
@@ -421,6 +446,54 @@ class Session:
             say(f"Asked {w.config.get('visitor', 'my visitor')} for: {req['what']}", why, request=req["id"])
             return f"request [{req['id']}] sent; it stays open until {w.config.get('visitor', 'your visitor')} answers"
 
+        if action == "remember":
+            found = memory.search(w, str(args.get("query", "")))
+            self._put_on_desk(f"What you remember about \"{args.get('query')}\":\n{found}")
+            say(f"Thought back: {args.get('query')}", found[:1500])
+            return found[:600]
+
+        if action == "set_rules":
+            w.me["rules"] = str(args.get("rules", "")).strip()[:1800]
+            say("Wrote down my own rules" if w.me["rules"] else "Cleared my own rules", w.me["rules"] or None)
+            return "rules saved (they're part of your instructions from now on)"
+
+        if action == "set_wake_triggers":
+            triggers = []
+            for t in (args.get("triggers") or [])[:5]:
+                kind = str(t.get("kind", "")).lower()
+                if kind == "rain":
+                    triggers.append({"kind": "rain", "min_mm": max(float(t.get("min_mm", 0.1)), 0.05)})
+                elif kind == "time":
+                    at = str(t.get("at", ""))
+                    if not __import__("re").match(r"^([01]?\d|2[0-3]):[0-5]\d$", at):
+                        raise ValueError("a time trigger needs \"at\": \"HH:MM\"")
+                    triggers.append({"kind": "time", "at": at})
+                elif kind == "creation":
+                    sp = w.specimen(t.get("specimen", ""))
+                    if not sp:
+                        raise ValueError("a creation trigger needs the id of one of your creations")
+                    cond = specimens.condition(t.get("if"), sp["spec"]["vars"], {x["name"] for x in sp["spec"]["seasons"]})
+                    if not cond:
+                        raise ValueError("a creation trigger needs a condition, e.g. \"food < 20\"")
+                    triggers.append({"kind": "creation", "specimen": sp["id"], "if": cond})
+                else:
+                    raise ValueError("trigger kinds are rain, creation and time")
+            w.me["wake_triggers"] = triggers
+            say("Set what wakes me early" if triggers else "Cleared my wake-up triggers", json.dumps(triggers) if triggers else None)
+            return f"{len(triggers)} wake-up trigger(s) set"
+
+        if action in ("save_tool", "use_tool"):
+            if not workshop.enabled(w.config):
+                raise ValueError("your workshop is closed here (it only opens when you live online)")
+            if action == "save_tool":
+                name = workshop.save_tool(args.get("name", ""), args.get("description", ""), str(args.get("code", "")))
+                say(f"Made myself a new tool: {name}", str(args.get("description", "")))
+                return f"tool '{name}' saved; use it with use_tool"
+            result = workshop.use_tool(args.get("name", ""), args.get("input"))
+            self._put_on_desk(f"Tool {args.get('name')} says:\n{result}")
+            say(f"Used my tool {args.get('name')}", result[:1500])
+            return result[:600]
+
         if action == "run_code":
             if not workshop.enabled(w.config):
                 raise ValueError("your workshop is closed here (it only opens when you live online)")
@@ -586,6 +659,9 @@ class Session:
                 if sp["status"] != was:
                     w.log("interact", f"Found that {sp['spec']['name']} had {sp['spec']['end_word']} while I slept",
                           specimens.describe(sp), specimen=sp["id"], did="found_dead", room=sp["room"])
+        self.woke_because = w.me.pop("woke_because", None)
+        last = w.me.get("last_review") or w.me.get("born")
+        self.review_due = (datetime.now(timezone.utc) - datetime.fromisoformat(last)).days >= 7
         self.spark = research.spark(f"{w.me['sessions']}-{now()[:13]}")
         if self.spark:
             w.log("pastime", "Found something on the doorstep", self.spark, room="study")
@@ -643,5 +719,7 @@ class Session:
         except Exception as e:
             diary = f"(Too tired to write my diary tonight: {e})"
         w.me["state"] = "asleep"
+        if getattr(self, "review_due", False):
+            w.me["last_review"] = now()
         w.me["wake_after"] = (datetime.now(timezone.utc) + timedelta(hours=self.sleep_hours)).isoformat(timespec="seconds")
         w.log("diary", f"Wrote in my diary and went to sleep for {self.sleep_hours:g} hours", diary)

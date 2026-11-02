@@ -30,10 +30,8 @@ jobs:
       - name: Set up the workshop's locked-down user
         run: |
           sudo useradd --create-home --shell /usr/sbin/nologin sprout
-          mkdir -p docs/world/workshop
-          sudo chown -R sprout docs/world/workshop
           chmod o+x "$HOME" "$HOME/work" "$(dirname "$GITHUB_WORKSPACE")"
-          chmod o+rx "$GITHUB_WORKSPACE" docs docs/world
+          chmod o+rx "$GITHUB_WORKSPACE" docs
 
       - uses: actions/setup-python@v5
         with:
@@ -48,7 +46,12 @@ jobs:
           WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
           WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
           WORLD_PASSWORD_OLD: ${{ secrets.WORLD_PASSWORD_OLD }}   # only while changing the password
-        run: python -m brain unlock
+        run: |
+          python -m brain unlock
+          # his workshop folder is shared: his programs (the locked-down user) and his saved tools both live there
+          mkdir -p docs/world/workshop/tools
+          chmod o+rx docs/world
+          sudo chmod -R a+rwX docs/world/workshop
 
       - name: Wake up
         id: wake

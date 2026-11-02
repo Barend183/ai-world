@@ -53,6 +53,47 @@ def page_config(config, next_wake_minutes, next_wake=None):
     })
 
 
+def trigger_fired(world):
+    """Checked while he sleeps, without using his thinking budget: did one of his wake-up triggers happen?"""
+    import copy
+    from . import env, specimens
+    now_ = datetime.now(timezone.utc)
+    last = datetime.fromisoformat(world.me.get("last_seen") or now_.isoformat())
+    weather = None
+    for t in world.me.get("wake_triggers", []):
+        try:
+            if t["kind"] == "rain":
+                weather = weather or env.Weather(config_of(world))
+                if not weather.hours:
+                    weather.refresh(1)
+                if weather.at(now_, True)["env_rain"] >= t["min_mm"]:
+                    return "it started raining"
+            elif t["kind"] == "time":
+                h, m = map(int, t["at"].split(":"))
+                offset = timedelta(hours=config_of(world).get("utc_offset_hours", 2))
+                local_now = now_ + offset
+                at = local_now.replace(hour=h, minute=m, second=0, microsecond=0)
+                if at > local_now:
+                    at -= timedelta(days=1)
+                if at - offset > last:
+                    return f"it's {t['at']}, the time you asked to be woken"
+            elif t["kind"] == "creation":
+                sp = world.specimen(t["specimen"])
+                if sp and sp["status"] == "alive":
+                    ghost = copy.deepcopy(sp)
+                    specimens.advance(ghost)
+                    scope = {**ghost["values"], **specimens.env_at(ghost, now_)}
+                    if specimens.holds(t["if"], scope, specimens.season_at(ghost["spec"], now_)):
+                        return f"{sp['spec']['name']} needs you ({t['if']})"
+        except Exception as e:
+            print("couldn't check a wake-up trigger:", type(e).__name__)
+    return None
+
+
+def config_of(world):
+    return world.config
+
+
 def run_once(config, script=None, next_wake_minutes=None, force=False):
     world = World(config)
     from . import mailbox
@@ -60,9 +101,11 @@ def run_once(config, script=None, next_wake_minutes=None, force=False):
     if not force and script is None and wake_after and datetime.fromisoformat(wake_after) > datetime.now(timezone.utc):
         before = len(world.pending_notes())
         mailbox.collect(world)   # a new note wakes him early
-        if len(world.pending_notes()) == before:
+        reason = "a note arrived" if len(world.pending_notes()) > before else trigger_fired(world)
+        if not reason:
             print(f"{config['name']} is asleep until {wake_after} (his choice).")
             return None
+        world.me["woke_because"] = reason
         world.save()
     chain = Chain(config, world.brain_status)
     if script is not None:

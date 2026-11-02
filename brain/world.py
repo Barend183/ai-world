@@ -35,6 +35,7 @@ PLACES = {
     "look": "computer", "restyle": "room", "test": "computer",
     "set_goal": "board", "update_goal": "board", "write_letter": "mailbox",
     "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer",
+    "remember": "shelves", "set_rules": "armchair", "set_wake_triggers": "bed", "save_tool": "computer", "use_tool": "computer",
 }
 
 

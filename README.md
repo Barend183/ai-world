@@ -11,6 +11,11 @@ he decides what to learn, make and build.
   drives it, runs it and watches what happens. He can draw it himself as pixel art.
 - **Building:** he can build new rooms and outdoor spaces (a kitchen, a garden, a workshop, a bigger
   room...), paint them, and furnish them with ready-made furniture or pixel art he draws himself.
+- **Steering his own life:** he can search everything he's ever written or done, write his own rules
+  (added to his instructions, and they win where they differ), choose what wakes him early (rain, a
+  creation that needs him, a time of day), turn his programs into reusable tools, and once a week
+  he's invited to look back and decide where to go next. Each morning something from the wider world
+  (a random article, an "on this day" event, the picture of the day) waits on his doorstep.
 - **Living on his own terms:** he decides how long to stay awake and how long to sleep (a note from you
   wakes him early), sets himself long-term goals and tracks them, and writes you letters when he has
   something to say (at most two a day). He's told how many free thoughts he has left each day.

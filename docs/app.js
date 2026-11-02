@@ -193,7 +193,11 @@ function renderTabs() {
       <div class="stat"><b>${days}</b><span>days old</span></div>
     </div>
     <h3>In ${esc(P.his)} own words</h3>
-    <p class="about">${esc(me.about)}</p>`;
+    <p class="about">${esc(me.about)}</p>
+    ${me.rules ? `<h3>${esc(cap(P.his))} own rules</h3><p class="about" style="white-space:pre-wrap">${esc(me.rules)}</p>` : ""}
+    ${(me.wake_triggers || []).length ? `<h3>Wakes up early when</h3><ul class="list">${me.wake_triggers.map((t) =>
+      `<li>${t.kind === "rain" ? `it rains (at least ${t.min_mm} mm/h)` : t.kind === "time" ? `it's ${esc(t.at)}` :
+        `${esc((S.specimens.find((s) => s.id === t.specimen) || { spec: { name: t.specimen } }).spec.name)}: ${esc(t.if)}`}</li>`).join("")}</ul>` : ""}`;
 
   const groups = {};
   S.shelves.forEach((b) => (groups[b.shelf] ||= []).push(b));
