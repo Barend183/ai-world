@@ -32,7 +32,7 @@ def _online():
 def _locked():
     """In a locked world nothing personal may appear on GitHub: notes arrive sealed in the vault,
     and GitHub only gets a content-free "you've got mail" notice."""
-    return bool(os.environ.get("WORLD_PASSWORD"))
+    return bool(os.environ.get("WORLD_PASSWORD") or os.environ.get("WORLD_PASSWORD_NEW"))
 
 
 def _notice(title):

@@ -127,7 +127,7 @@ def run_once(config, script=None, next_wake_minutes=None, force=False):
     page_config(config, next_wake_minutes, world.me.get("wake_after"))
     world.save()
     session = [e for e in world.recent if e["session"] == world.me["sessions"]]
-    if os.environ.get("WORLD_PASSWORD") and os.environ.get("GITHUB_ACTIONS"):
+    if (os.environ.get("WORLD_PASSWORD") or os.environ.get("WORLD_PASSWORD_NEW")) and os.environ.get("GITHUB_ACTIONS"):
         print(f"  ({len(session)} things done; details stay locked)")   # GitHub's logs are public
     else:
         for e in session:
