@@ -141,3 +141,8 @@ dialog .close { position: absolute; right: 12px; top: 10px; background: none; bo
 .lock-box h2 { margin: 0; font-size: 20px; }
 .lock-box input[type=password] { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .linkish { background: none; border: 0; color: var(--muted); cursor: pointer; margin-left: auto; }
+
+.tune { display: flex; gap: 10px; align-items: flex-start; }
+.btn.play { padding: 4px 10px; min-width: 36px; }
+a.linkish { text-decoration: none; }
+.top .linkish + .linkish { margin-left: 8px; }

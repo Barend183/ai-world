@@ -49,6 +49,7 @@ async function load(first) {
   if (S.locked && !first && !(await Vault.refresh())) return showLock("Your password changed; please unlock again.");
   S.goals = await getJSON("goals.json", []);
   S.requests = await getJSON("requests.json", []);
+  S.music = await getJSON("music.json", []);
   const [cfg, me, shelves, wishes, notes, recent, specimens, rooms] = await Promise.all([
     getJSON("config.json", {}), getJSON("self.json", null), getJSON("shelves.json", []), getJSON("wishlist.json", []),
     getJSON("notes.json", []), getJSON("recent.json", []), getJSON("specimens.json", []), getJSON("rooms.json", null),
@@ -247,7 +248,10 @@ function renderCreations() {
       ${history ? `<ul class="hist">${history}</ul>` : ""}</div></div>`;
   };
   const rooms = S.rooms.filter((r) => !r.builtin).map((r) => `<li><b>${esc(r.name)}</b> <span class="muted">${esc(r.kind)} · ${r.items.length} things</span><div class="muted">${esc(r.purpose)}</div></li>`).join("");
-  $("tab-made").innerHTML = (live.length ? `<h3>Brought to life</h3>${live.map(card).join("")}` :
+  const tunes = (S.music || []).slice().reverse().map((p) => `<li class="tune"><button class="btn play" data-play="${esc(p.id)}" type="button">▶</button>
+      <div><b>${esc(p.title)}</b> <span class="muted">${esc(p.instrument)} · ${p.tempo} bpm · ${ago(p.composed)}</span>
+      ${p.about ? `<div class="muted">${esc(p.about)}</div>` : ""}</div></li>`).join("");
+  $("tab-made").innerHTML = (tunes ? `<h3>Music ${esc(P.he)} composed</h3><ul class="list">${tunes}</ul>` : "") + (live.length ? `<h3>Brought to life</h3>${live.map(card).join("")}` :
     `<p class="muted">Nothing here yet. When ${esc(S.me.name)} learns about something (a plant, an animal, a car, a recipe, a machine), ${esc(P.he)} can bring a simulated one into ${esc(P.his)} world and look after it.</p>`) +
     (rooms ? `<h3>Rooms ${esc(P.he)} built</h3><ul class="list">${rooms}</ul>` : "") +
     (gone.length ? `<h3>Said goodbye to</h3><ul class="list">${gone.map((s) => `<li>${esc(s.spec.name)} <span class="muted">${ago(s.released)}</span></li>`).join("")}</ul>` : "");
@@ -403,7 +407,7 @@ const STUDY_ANCHORS = {
 };
 
 function drawStudy(t) {
-  const W = 320, hour = new Date().getHours(), night = isNight(), room = roomOf("study"), skins = room.skins || {};
+  const W = 320, night = isNight(), room = roomOf("study"), skins = room.skins || {};
   const piece = (name, draw) => {
     const skin = skins[name];
     if (skin) { const [ax, ay] = STUDY_ANCHORS[name]; const { w, h } = Px.art(ctx, skin, skin.pixels, ax, ay); S.boxes.push({ x: ax - w / 2, y: ay - h, w, h, label: name }); }
@@ -420,11 +424,8 @@ function drawStudy(t) {
   piece("rug", () => { r(96, 140, 128, 30, "#7a3b3b"); r(100, 143, 120, 24, "#9b4d4a"); r(104, 146, 112, 18, "#b8665c"); });
 
   piece("window", () => {
-    const [top, bottom] = sky(hour);
     r(110, 20, 54, 50, "#6e4a2d");
-    for (let i = 0; i < 44; i++) r(115, 25 + i, 44, 1, i < 22 ? top : bottom);
-    if (night) { [[120, 30], [140, 36], [150, 28], [128, 48], [155, 52]].forEach(([x, y], i) => r(x, y, 1, 1, (Math.floor(t / 600) + i) % 4 ? "#fff" : "#99a")); r(148, 40, 5, 5, "#f4f1d0"); }
-    else { r(122 + ((t / 400) % 40), 34, 10, 3, "#fff"); r(124 + ((t / 400) % 40), 32, 6, 2, "#fff"); }
+    windowView(ctx, 115, 25, 44, 44, t);
     r(136, 25, 2, 44, "#6e4a2d"); r(115, 46, 44, 2, "#6e4a2d"); r(108, 68, 58, 4, "#8a5d3a");
   });
 
@@ -571,6 +572,15 @@ document.addEventListener("click", async (ev) => {
     }
     box.innerHTML = `<span class="muted">Answer delivered; ${esc(S.me.name)} will read it when ${esc(P.he)} wakes.</span>`;
   } catch { box.insertAdjacentHTML("beforeend", ' <span class="muted">Couldn’t deliver it (is serve.py running?)</span>'); }
+});
+
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-play]"); if (!b) return;
+  const piece = (S.music || []).find((p) => p.id === b.dataset.play); if (!piece) return;
+  if (b.textContent === "■") { Music.stop(); b.textContent = "▶"; return; }
+  document.querySelectorAll("[data-play]").forEach((x) => (x.textContent = "▶"));
+  b.textContent = "■";
+  Music.play(piece, () => (b.textContent = "▶"));
 });
 
 document.addEventListener("submit", async (ev) => {

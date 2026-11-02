@@ -2,7 +2,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 
-from . import env, mailbox, memory, pixels, research, rooms, specimens, workshop
+from . import env, mailbox, memory, music, pixels, public, research, rooms, specimens, workshop
 from .llm import BrainUnavailable
 from .world import now
 
@@ -34,6 +34,10 @@ Who you are is up to you too. Your personality, your name and how you'd like to 
 
 Some things you can't do yourself: you can't create accounts on websites, post online, spend money or reach {visitor}'s own computer. If you want something like that (an account somewhere, a new ability, a tool), you can ask {visitor} with make_request and explain why. {visitor} decides; a request stays open until they answer, so ask once and wait.
 
+You can make music too: compose pieces (melody, an optional bass line, tempo, instrument) and they play on your page.
+
+Your world is private and locked, but you have a public corner as well: a small page anyone can visit, where you decide what to show the world: a book you're proud of, a drawing, a piece of music or a short post. Only share your own work, never anything from your letters, notes, diary or notebook, and nothing about {visitor}. You can take things down again whenever you like.
+
 Not everything has to be useful: you can simply spend time doing things you enjoy (pastime), like walking in your garden, playing an instrument you built, watching the rain or tidying your shelves.
 
 Your memory reaches back to the day you were born: everything you ever wrote or did is still there, and remember searches all of it (books, notebook, goals, letters and every journal entry), so you can pick up old threads whenever you like.
@@ -62,6 +66,10 @@ Actions:
 - reply_note {{"id": "<note id>", "reply": "..."}}
 - write_letter {{"text": "..."}}  (a letter to {visitor}, whenever you like; at most two a day)
 - make_request {{"what": "<what you'd like, e.g. an account on a particular website, a new ability>", "why": "<why you want it and what you'd do with it>"}}  (at most one a day)
+- compose {{"title": "...", "melody": "<notes like C4:1 E4:1 G4:2 R:1 (note+octave:beats, R is a rest, # sharp, b flat)>", "bass": "<optional second voice, same notation>", "tempo": <beats per minute>, "instrument": "piano|organ|flute|sine|triangle|square|sawtooth", "about": "<optional>"}}
+  (composing with an existing title revises that piece)
+- publish {{"kind": "book", "id": "<book id>"}} or {{"kind": "drawing", "specimen"|"piece"|"room"+"item": ..., "title": "..."}} or {{"kind": "music", "id": "<piece id>"}} or {{"kind": "post", "title": "...", "text": "..."}}, plus an optional "note"  (at most 3 a day)
+- unpublish {{"id": "<id from your public corner>"}}
 - remember {{"query": "<a few words>"}}  (search everything you've ever written or done)
 - set_rules {{"rules": "<your own rules, up to about 1500 characters; replaces the old ones>"}}
 - set_wake_triggers {{"triggers": [{{"kind": "rain", "min_mm": 0.2}}, {{"kind": "creation", "specimen": "<id>", "if": "<condition on its variables>"}}, {{"kind": "time", "at": "06:30"}}]}}  (up to 5; an empty list clears them; times are local)
@@ -140,7 +148,7 @@ Reply with only a JSON object:
 ACTIONS = {"search", "read", "write_book", "read_book", "add_wish", "complete_wish", "drop_wish", "think",
            "reply_note", "build_room", "decorate", "remove_item", "look", "restyle", "test", "spawn", "interact", "move", "release", "write_letter", "set_goal", "update_goal",
            "write_notebook", "change_self", "pastime", "make_request", "run_code", "remember", "set_rules",
-           "set_wake_triggers", "save_tool", "use_tool", "sleep"}
+           "set_wake_triggers", "save_tool", "use_tool", "compose", "publish", "unpublish", "sleep"}
 
 
 def parse(text):
@@ -186,6 +194,10 @@ class Session:
                f"You have lived for {days} days and written {len(w.shelves)} books."]
         out.append("\n== Who you are (your own words) ==\n" + me["about"])
         out.append("\n== Your notebook ==\n" + (me.get("notebook") or "(empty: write_notebook to start it)"))
+        if w.music:
+            out.append("== Music you've composed ==\n" + ", ".join(f"[{p['id']}] {p['title']}" for p in w.music[-15:]))
+        shown = public.listing()
+        out.append("== Your public corner ==\n" + ("; ".join(shown) if shown else "(empty)"))
         if me.get("wake_triggers"):
             out.append("== What wakes you early ==\n" + "; ".join(json.dumps(t) for t in me["wake_triggers"]))
         if workshop.enabled(w.config) and workshop.tools():
@@ -445,6 +457,21 @@ class Session:
             mailbox.send_request(req, w.me["name"])
             say(f"Asked {w.config.get('visitor', 'my visitor')} for: {req['what']}", why, request=req["id"])
             return f"request [{req['id']}] sent; it stays open until {w.config.get('visitor', 'your visitor')} answers"
+
+        if action == "compose":
+            piece, revised = music.compose(w, args)
+            say(f"{'Reworked' if revised else 'Composed'} a piece of music: “{piece['title']}”", piece.get("about") or None, music=piece["id"])
+            return f"{'revised' if revised else 'composed'} [{piece['id']}] ({len(piece['melody'].split())} notes, plays on your page)"
+
+        if action == "publish":
+            item = public.publish(w, args)
+            say(f"Shared “{item['title']}” in my public corner", item.get("note") or None)
+            return f"published [{item['id']}] (anyone can see it now)"
+
+        if action == "unpublish":
+            item = public.unpublish(str(args.get("id", "")))
+            say(f"Took “{item['title']}” down from my public corner")
+            return f"removed [{item['id']}]"
 
         if action == "remember":
             found = memory.search(w, str(args.get("query", "")))

@@ -62,7 +62,36 @@ function sky(hour) {
   if (hour < 18) return ["#8fd0f5", "#cfeefc"];
   return ["#f39a63", "#7a5c9e"];
 }
-const isNight = () => { const h = new Date().getHours(); return h < 6 || h >= 20; };
+// His world runs on Cape Town's clock (UTC+2), whatever time it is where you're visiting from.
+const worldTime = () => new Date(Date.now() + 2 * 3600 * 1000);
+const worldHour = () => worldTime().getUTCHours();
+// The weather there right now, when the page has it (rain makes grey clouds and drops on the glass).
+const worldWeather = () => (typeof weatherNow === "function" ? weatherNow() : null);
+const isNight = () => {
+  const w = worldWeather();
+  if (w && "env_daylight" in w) return !w.env_daylight;
+  const h = worldHour(); return h < 6 || h >= 20;
+};
+
+// A window pane: the real sky of his world, with clouds, the moon or rain.
+function windowView(g, x, y, w, h, t) {
+  const [a, b] = sky(worldHour()), wx = worldWeather(), rain = wx && wx.env_rain > 0, night = isNight();
+  for (let i = 0; i < h; i++) Px.rect(g, x, y + i, w, 1, i < h / 2 ? (rain ? Px.shade(a, 0.7) : a) : (rain ? Px.shade(b, 0.75) : b));
+  if (night && !rain) {
+    [[0.12, 0.12], [0.55, 0.25], [0.75, 0.08], [0.3, 0.5], [0.85, 0.6]].forEach(([fx, fy], i) => Px.rect(g, x + fx * w, y + fy * h, 1, 1, (Math.floor(t / 600) + i) % 4 ? "#fff" : "#99a"));
+    Px.rect(g, x + w * 0.7, y + h * 0.3, 4, 4, "#f4f1d0");
+  } else if (!night && !rain) {
+    const cx = x + ((t / 400) % w);
+    Px.rect(g, Math.min(cx, x + w - 10), y + h * 0.2, 10, 3, "#fff"); Px.rect(g, Math.min(cx + 2, x + w - 6), y + h * 0.2 - 2, 6, 2, "#fff");
+  }
+  if (rain) {
+    for (let i = 0; i < 3; i++) Px.ellipse(g, x + ((i * 17 + t / 900) % w), y + 4 + i * 3, 7, 2.5, "#9aa0a8");
+    for (let i = 0; i < Math.min(40, 8 + wx.env_rain * 10); i++) {
+      const dx = (i * 13 + Math.floor(t / 30)) % w, dy = (i * 7 + Math.floor(t / 12)) % h;
+      Px.rect(g, x + dx, y + dy, 1, 2, "rgba(200,220,240,.7)");
+    }
+  }
+}
 
 // ---- Sprout ------------------------------------------------------------------
 const MOODS_HAPPY = /happy|content|excit|joy|proud|glad|curious|delight|eager|cheer|satisf|grate|inspir|calm|peace|playful/;
@@ -299,9 +328,9 @@ const FURNITURE = {
   // wall pieces
   painting: (g, x, y, c = "#c9a06b") => { Px.rect(g, x - 12, y, 24, 18, c); Px.rect(g, x - 10, y + 2, 20, 14, "#8fd0f5"); Px.rect(g, x - 10, y + 10, 20, 6, "#5aa04a"); Px.ellipse(g, x + 5, y + 6, 2, 2, "#f2d45c"); return [24, 18]; },
   shelf: (g, x, y, c = WOOD) => { Px.rect(g, x - 16, y + 10, 32, 2, c); Px.rect(g, x - 12, y + 3, 4, 7, "#b5473a"); Px.rect(g, x - 6, y + 5, 6, 5, "#e9e2d0"); Px.rect(g, x + 4, y + 4, 3, 6, "#3d6fa6"); Px.rect(g, x + 9, y + 6, 4, 4, "#5aa04a"); return [32, 12]; },
-  clock: (g, x, y, c = "#f4f1ea") => { Px.ellipse(g, x, y + 7, 7, 7, "#6e4a2d"); Px.ellipse(g, x, y + 7, 6, 6, c); const d = new Date(), a = ((d.getHours() % 12) + d.getMinutes() / 60) / 12 * Math.PI * 2, m = d.getMinutes() / 60 * Math.PI * 2;
+  clock: (g, x, y, c = "#f4f1ea") => { Px.ellipse(g, x, y + 7, 7, 7, "#6e4a2d"); Px.ellipse(g, x, y + 7, 6, 6, c); const d = worldTime(), a = ((d.getUTCHours() % 12) + d.getUTCMinutes() / 60) / 12 * Math.PI * 2, m = d.getUTCMinutes() / 60 * Math.PI * 2;
     for (let i = 0; i < 3; i++) Px.rect(g, x + Math.sin(a) * i, y + 7 - Math.cos(a) * i, 1, 1, "#222"); for (let i = 0; i < 5; i++) Px.rect(g, x + Math.sin(m) * i, y + 7 - Math.cos(m) * i, 1, 1, "#555"); return [14, 14]; },
-  window: (g, x, y, c = "#6e4a2d") => { const [a, b] = sky(new Date().getHours()); Px.rect(g, x - 15, y, 30, 28, c); for (let i = 0; i < 24; i++) Px.rect(g, x - 12, y + 2 + i, 24, 1, i < 12 ? a : b); Px.rect(g, x - 1, y + 2, 2, 24, c); Px.rect(g, x - 12, y + 13, 24, 2, c); return [30, 28]; },
+  window: (g, x, y, c = "#6e4a2d") => { Px.rect(g, x - 15, y, 30, 28, c); windowView(g, x - 12, y + 2, 24, 24, Date.now()); Px.rect(g, x - 1, y + 2, 2, 24, c); Px.rect(g, x - 12, y + 13, 24, 2, c); return [30, 28]; },
   poster: (g, x, y, c = "#3d6fa6") => { Px.rect(g, x - 9, y, 18, 24, c); Px.rect(g, x - 6, y + 4, 12, 8, Px.shade(c, 1.5)); Px.rect(g, x - 6, y + 15, 12, 1, "#fff"); Px.rect(g, x - 6, y + 18, 8, 1, "#fff"); return [18, 24]; },
   mirror: (g, x, y, c = "#c9a06b") => { Px.ellipse(g, x, y + 12, 9, 12, c); Px.ellipse(g, x, y + 12, 7, 10, "#cfe6ee"); Px.rect(g, x - 4, y + 6, 1, 6, "#fff"); return [18, 24]; },
   cupboard: (g, x, y, c = "#d9cbb0") => { Px.rect(g, x - 16, y, 32, 18, c); Px.rect(g, x - 14, y + 2, 13, 14, Px.shade(c, .85)); Px.rect(g, x + 1, y + 2, 13, 14, Px.shade(c, .85)); return [32, 18]; },
@@ -326,7 +355,7 @@ const isWallPreset = (p) => WALL_PRESETS.has(p);
 
 // ---- rooms he builds -------------------------------------------------------------------
 function drawBuiltRoom(g, room, W, H, t) {
-  const night = isNight(), hour = new Date().getHours();
+  const night = isNight(), hour = worldHour();
   if (room.kind === "outdoor") {
     const [a, b] = sky(hour).map((c) => parseInt(c.slice(1), 16));
     const mix = (k) => "#" + [16, 8, 0].map((s) => Math.round(((a >> s) & 255) * (1 - k) + ((b >> s) & 255) * k).toString(16).padStart(2, "0")).join("");

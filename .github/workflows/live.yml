@@ -98,7 +98,7 @@ jobs:
           python -m brain lock
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A docs/vault
+          git add -A docs/vault docs/public
           if git diff --cached --quiet; then echo "nothing new"; exit 0; fi
           git commit -q -m "His world, $(date -u +'%Y-%m-%d %H:%M') UTC"
           # the token is used only here, after his session has finished

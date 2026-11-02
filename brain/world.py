@@ -34,7 +34,7 @@ PLACES = {
     "build_room": "room", "decorate": "item", "remove_item": "room",
     "look": "computer", "restyle": "room", "test": "computer",
     "set_goal": "board", "update_goal": "board", "write_letter": "mailbox",
-    "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer",
+    "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer", "compose": "armchair", "publish": "computer", "unpublish": "computer",
     "remember": "shelves", "set_rules": "armchair", "set_wake_triggers": "bed", "save_tool": "computer", "use_tool": "computer",
 }
 
@@ -85,6 +85,7 @@ class World:
         self.notes = load("notes.json", [])
         self.goals = load("goals.json", [])
         self.requests = load("requests.json", [])
+        self.music = load("music.json", [])
         self.specimens = load("specimens.json", [])
         from .rooms import STUDY
         self.rooms = load("rooms.json", None) or [{**STUDY, "items": []}]
@@ -175,6 +176,7 @@ class World:
         save("notes.json", self.notes)
         save("goals.json", self.goals)
         save("requests.json", self.requests)
+        save("music.json", self.music)
         save("specimens.json", self.specimens)
         save("rooms.json", self.rooms)
         save("recent.json", self.recent)
