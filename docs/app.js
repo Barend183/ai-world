@@ -602,6 +602,12 @@ document.addEventListener("submit", async (ev) => {
   } catch (e) { msg.textContent = S.locked ? `Couldn't send it (${e.message}).` : "Couldn't deliver it (is serve.py running?)"; }
 });
 $("replay").addEventListener("click", startReplay);
+$("hear").addEventListener("click", () => {
+  if (Ambience.on) { Ambience.stop(); $("hear").textContent = "🔊 Hear his world"; return; }
+  // what he hears: the real weather outside, muffled when you're looking at an indoor room
+  Ambience.start(() => ({ ...(weatherNow() || {}), outdoors: roomOf(S.view).kind === "outdoor" }));
+  $("hear").textContent = "🔇 Quiet";
+});
 window.addEventListener("resize", placeBubble);
 
 // ---------- starting up: his plain world (on your PC) or the locked one (online) -------------------------
