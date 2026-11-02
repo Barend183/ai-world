@@ -26,6 +26,7 @@ from .world import now, slug
 WEATHER = None
 
 MAX_PER_ROOM = 6
+SENSES = ("smell", "taste", "touch")
 KINDS = {"plant", "animal", "food", "vehicle", "machine", "object", "creature", "other"}
 SHAPES = {"dome", "round", "tall", "long", "bush", "blob", "crystal", "box"}
 TEXTURES = {"smooth", "cracked", "furry", "scaly", "spotted", "striped", "leafy", "shiny"}
@@ -182,11 +183,18 @@ def validate(spec):
         "lush_var": look.get("lush_var") if look.get("lush_var") in vars_ else None,
     }
     alive = spec.get("alive_var") if spec.get("alive_var") in vars_ else None
+    senses = []
+    for r in (spec.get("senses") or [])[:12]:
+        if isinstance(r, dict):
+            entry = {"if": condition(r.get("if"), vars_, names)}
+            entry.update({k: str(r[k])[:200] for k in SENSES if r.get(k)})
+            if len(entry) > 1:
+                senses.append(entry)
     return {"name": name[:80], "kind": kind, "look": look, "sprite": sprite(spec.get("sprite"), vars_, names),
             "vars": vars_, "seasons": seasons, "rules": rules, "actions": actions, "alive_var": alive,
             "end_word": str(spec.get("end_word") or ("died" if kind in ("plant", "animal", "creature") else "broke"))[:20],
             "moves_when": condition(spec.get("moves_when"), vars_, names) if spec.get("moves_when") else None,
-            "facts": [str(f)[:200] for f in (spec.get("facts") or [])[:8]]}
+            "facts": [str(f)[:200] for f in (spec.get("facts") or [])[:8]], "senses": senses}
 
 
 # ---- running a specimen ------------------------------------------------------
@@ -282,11 +290,13 @@ def _refresh(sp, when):
 
 def interact(sp, action):
     name = sp["spec"]["name"]
-    if sp["status"] != "alive" and action != "observe":
+    if sp["status"] != "alive" and action not in ("observe", *SENSES):
         return f"{name} has {sp['spec']['end_word']}; nothing more can be done with it."
     advance(sp)
     if action == "observe":
         return describe(sp)
+    if action in SENSES:
+        return sense(sp, action)
     branches = sp["spec"]["actions"].get(action)
     if not branches:
         raise SpecError(f"{name} has no action '{action}'. It has: {', '.join(sp['spec']['actions']) or 'none'}")
@@ -384,6 +394,20 @@ def simulate(sp, days=30, care=()):
     care_text = ", ".join(f"{n}x {a}" for a, n in done_care.items()) or "no care"
     return (f"Test run of {sp['spec']['name']} with {care_text}: " + " | ".join(marks)
             + (f". Random events: {', '.join(f'{k} ({v}x)' for k, v in events.items())}" if events else ""))
+
+
+def sense(sp, which):
+    """What it smells, tastes or feels like right now, by the senses its maker gave it."""
+    t = datetime.now(timezone.utc)
+    scope = {**sp["values"], **env_at(sp, t)}
+    season = season_at(sp["spec"], t)
+    found = [r[which] for r in sp["spec"].get("senses", []) if which in r and holds(r["if"], scope, season)]
+    name = sp["spec"]["name"]
+    if not found:
+        return (f"You {which} {name}, but you haven't given it a {which} yet. Add senses to it (spawn it again with "
+                f"\"senses\") from what you've learned about the real thing.")
+    verb = {"smell": "smells", "taste": "tastes", "touch": "feels"}[which]
+    return f"{name} {verb}: {found[0]}."   # the first entry that fits its state wins
 
 
 def describe(sp):

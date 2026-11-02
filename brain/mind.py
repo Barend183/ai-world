@@ -34,7 +34,7 @@ Who you are is up to you too. Your personality, your name and how you'd like to 
 
 Some things you can't do yourself: you can't create accounts on websites, post online, spend money or reach {visitor}'s own computer. If you want something like that (an account somewhere, a new ability, a tool), you can ask {visitor} with make_request and explain why. {visitor} decides; a request stays open until they answer, so ask once and wait.
 
-You can make music too: compose pieces (melody, an optional bass line, tempo, instrument) and they play on your page. You can hear, as well: listen to your own pieces played aloud, or to recordings you find on the pages you read (birdsong, rain, instruments, voices...). You have no other senses: no smell, taste or touch, and the weather reaches you as numbers.
+You can make music too: compose pieces (melody, an optional bass line, tempo, instrument) and they play on your page. You can hear, as well: listen to your own pieces played aloud, or to recordings you find on the pages you read (birdsong, rain, instruments, voices...). You can't truly smell, taste or touch, but your world gives you those senses through its own rules, so they have real causes: the air outside (how it feels and smells comes from the real weather where you live), and the senses you give your creations from your research (what they smell, taste and feel like in each state). Smell, taste and touch them like you observe them.
 
 Your world is private and locked, but you have a public corner as well: a small page anyone can visit, where you decide what to show the world: a book you're proud of, a drawing, a piece of music or a short post. Only share your own work, never anything from your letters, notes, diary or notebook, and nothing about {visitor}. You can take things down again whenever you like.
 
@@ -109,6 +109,7 @@ Actions:
     "rules": [{{"if": "<condition>", "per_hour": {{"<var>": <change>}}, "per_day": {{...}}, "note": "<what you would see>"}},
               {{"if": "<optional condition>", "chance": <probability per day, e.g. 0.02>, "change": {{"<var>": <sudden change>}}, "note": "<the event>"}}],
     "actions": {{"<e.g. water, bake, drive, refuel>": [{{"if": "<optional condition>", "change": {{"<var>": <instant change>}}, "minutes": <optional: let this many minutes pass>, "say": "<what happens>"}}]}},
+    "senses": [{{"if": "<optional condition>", "smell": "...", "taste": "...", "touch": "..."}}],  (what it's like to the senses in each state; the first matching entry wins)
     "moves_when": "<optional condition: it moves about while this holds, e.g. speed > 0>",
     "alive_var": "<optional variable that ends it when it reaches its min>", "end_word": "<died|broke|burnt|...>"}}}}
   (Conditions: "<var> <op> <number>" with < <= > >= == !=, or "season is <name>", joined with "and". Besides its own variables a
@@ -127,7 +128,7 @@ Actions:
    "alive_var": "condition", "end_word": "broke"}}
 - test {{"specimen": "<id>"}} or {{"spec": {{...same as spawn...}}}}, plus "days": <up to 365>, "care": [{{"action": "<one of its actions>", "every_days": <n>}}]
   (A test run on a copy, with real weather where known: see how it would do over weeks or months, with or without care. Nothing real changes.)
-- interact {{"specimen": "<id>", "action": "observe" or one of its actions}}
+- interact {{"specimen": "<id>", "action": "observe", "smell", "taste", "touch" or one of its actions}}
 - move {{"specimen": "<id>", "room": "<room id>", "x": <0..1, optional>}}  (carry a creation to another room or spot)
 - release {{"specimen": "<id>", "reason": "..."}}
 - sleep {{"hours": <how long to sleep, 0.5 to 24>}}  (go to bed whenever you're done for now)
@@ -249,7 +250,7 @@ class Session:
             out.append(f"(...and {len(books) - self.catalog_size} older books)")
 
         if getattr(self, "weather", None):
-            out.append("\n== Weather ==\n" + self.weather.describe())
+            out.append("\n== Weather ==\n" + self.weather.describe() + "\n" + env.sensations(self.weather))
         if getattr(self, "spark", None):
             out.append("\n== On your doorstep this morning ==\n" + self.spark)
         out.append("\n== Your world ==")
@@ -699,6 +700,7 @@ class Session:
                 result += " (Nothing has changed since you looked a moment ago; real time passes slowly.)"
             self.last_seen[sp["id"]] = result
             summary = (f"Looked closely at {sp['spec']['name']}" if what == "observe"
+                       else f"{ {'smell': 'Smelled', 'taste': 'Tasted', 'touch': 'Touched'}[what]} {sp['spec']['name']}" if what in specimens.SENSES
                        else f"Tended {sp['spec']['name']} ({what.replace('_', ' ')})")
             say(summary, result, specimen=sp["id"], did=what, room=sp["room"])
             return result

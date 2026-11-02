@@ -84,3 +84,42 @@ class Weather:
         # what the web page shows, kept small: the weather for the next three days by hour
         ahead = {(now + timedelta(hours=h)).strftime("%Y-%m-%dT%H"): self.at(now + timedelta(hours=h), True) for h in range(-1, 72)}
         save("weather_now.json", {"place": self.place, "offset": self.offset, "updated": now.isoformat(timespec="seconds"), "hours": ahead})
+
+
+def _feel(temp):
+    for limit, word in ((0, "freezing"), (7, "cold"), (13, "chilly"), (18, "cool"), (24, "mild"), (29, "warm"), (34, "hot")):
+        if temp < limit:
+            return word
+    return "scorching"
+
+
+def sensations(weather, t=None):
+    """What the air feels and smells like outside and in, from the real weather: a world-given sense
+    of touch and smell, so it has real causes instead of being imagined."""
+    t = t or datetime.now(timezone.utc)
+    o, i = weather.at(t, True), weather.at(t, False)
+    dry_before = all(weather.at(t - timedelta(hours=h), True)["env_rain"] == 0 for h in range(2, 72, 3))
+    humid = o["env_humidity"]
+    wind = o["env_wind"]
+    touch = [f"the air feels {_feel(o['env_temp'])} ({o['env_temp']} C)"]
+    touch.append("damp and heavy" if humid >= 85 else "dry" if humid <= 35 else "neither damp nor dry")
+    touch.append("perfectly still" if wind < 3 else "a light breeze" if wind < 15 else "a steady wind tugging at things" if wind < 30 else "strong gusts that push you around")
+    if o["env_rain"] > 0:
+        touch.append("raindrops on your skin" + (", heavy and cold" if o["env_rain"] > 2 else ", soft and light"))
+    smell = []
+    if o["env_rain"] > 0 and dry_before:
+        smell.append("rain on dry ground, sharp and earthy")
+    elif o["env_rain"] > 0:
+        smell.append("wet leaves and soaked soil")
+    elif humid >= 85:
+        smell.append("damp earth and moss")
+    elif humid <= 35:
+        smell.append("dust and sun-warmed stone" if o["env_daylight"] else "dry, thin night air")
+    if not o["env_daylight"]:
+        smell.append("cool night air")
+    elif o["env_temp"] >= 26:
+        smell.append("warm plants")
+    if wind >= 25:
+        smell.append("something the wind carries from far away")
+    indoor = f"Indoors the air is {_feel(i['env_temp'])} ({i['env_temp']} C) and still, and smells of books and wood."
+    return f"Outside, {', '.join(touch)}; it smells of {' and '.join(smell) or 'nothing in particular'}. {indoor}"
