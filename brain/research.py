@@ -267,3 +267,38 @@ def fetch_image(url, limit=6_000_000):
     if len(data) > limit:
         raise ValueError("that picture is too big")
     return mime, data
+
+
+def spark(seed):
+    """Something from the wider world to notice on waking (a newspaper on the doorstep): a random
+    article, today's featured article, something that happened on this day, or the picture of the day.
+    It's only there to be noticed; following it is up to the AI. Returns text, or None."""
+    from datetime import datetime, timezone
+    import random
+    rng = random.Random(seed)
+    today = datetime.now(timezone.utc)
+    kinds = ["random", "featured", "onthisday", "picture"]
+    rng.shuffle(kinds)
+    for kind in kinds:
+        try:
+            if kind == "random":
+                q = urllib.parse.urlencode({"action": "query", "generator": "random", "grnnamespace": 0, "prop": "extracts",
+                                            "exintro": 1, "explaintext": 1, "exchars": 400, "format": "json"})
+                page = next(iter(json.loads(_get(f"https://en.wikipedia.org/w/api.php?{q}")[0])["query"]["pages"].values()))
+                return (f"A random encyclopedia page caught your eye: \"{page['title']}\". {page.get('extract', '')}"
+                        f" (https://en.wikipedia.org/wiki/{urllib.parse.quote(page['title'].replace(' ', '_'))})")
+            feed = json.loads(_get(f"https://en.wikipedia.org/api/rest_v1/feed/featured/{today:%Y/%m/%d}")[0])
+            if kind == "featured" and feed.get("tfa"):
+                a = feed["tfa"]
+                return (f"Today's featured encyclopedia article is \"{a.get('normalizedtitle')}\": {a.get('extract', '')[:400]}"
+                        f" ({a.get('content_urls', {}).get('desktop', {}).get('page', '')})")
+            if kind == "onthisday" and feed.get("onthisday"):
+                e = rng.choice(feed["onthisday"])
+                return f"On this day in {e.get('year')}: {e.get('text')}"
+            if kind == "picture" and feed.get("image"):
+                img = feed["image"]
+                return (f"Today's picture of the day: {(img.get('description') or {}).get('text', '')[:300]}"
+                        f" (picture: {(img.get('thumbnail') or {}).get('source', '')})")
+        except Exception:
+            continue
+    return None

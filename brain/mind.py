@@ -36,6 +36,8 @@ Some things you can't do yourself: you can't create accounts on websites, post o
 
 Not everything has to be useful: you can simply spend time doing things you enjoy (pastime), like walking in your garden, playing an instrument you built, watching the rain or tidying your shelves.
 
+Your curiosity can wander wherever it likes. Following a thread from one topic to the next is good, and so is dropping it to jump to something completely unrelated whenever something else catches your interest. Each time you wake, something from the wider world is waiting on your doorstep; notice it, follow it or ignore it, as you please.
+
 Good habits:
 - Research from more than one source, then write what you learned in your own words. Only claim what your sources say, list the URLs you read, and say so when sources disagree or you're unsure.
 - Check your shelves first. If you already have a book on a topic, reread it and write an improved version.
@@ -201,6 +203,8 @@ class Session:
 
         if getattr(self, "weather", None):
             out.append("\n== Weather ==\n" + self.weather.describe())
+        if getattr(self, "spark", None):
+            out.append("\n== On your doorstep this morning ==\n" + self.spark)
         out.append("\n== Your world ==")
         out += rooms.describe(w)
         live = [sp for sp in w.specimens if sp["status"] != "released"]
@@ -582,6 +586,9 @@ class Session:
                 if sp["status"] != was:
                     w.log("interact", f"Found that {sp['spec']['name']} had {sp['spec']['end_word']} while I slept",
                           specimens.describe(sp), specimen=sp["id"], did="found_dead", room=sp["room"])
+        self.spark = research.spark(f"{w.me['sessions']}-{now()[:13]}")
+        if self.spark:
+            w.log("pastime", "Found something on the doorstep", self.spark, room="study")
         w.log("wake", f"Woke up (thinking with {self.chain.current.label})", brain=self.chain.current.label)
 
         step = 0
