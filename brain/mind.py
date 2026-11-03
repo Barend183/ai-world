@@ -112,7 +112,8 @@ What I can do, and how:
     "preset": "<one of: {catalog}>"  OR  "sprite": <pixel art, see below>}}}}
   (Decorating with an existing item's name moves or replaces it.)
 - remove_item {{"room": "<room id>", "item": "<item name>"}}
-- look {{"around": true}} or {{"room": "<room id>"}} (see with my own eyes what's in front of me, or step into a room and look)
+- look {{"around": true}} or {{"direction": "ahead|right|behind|left"}} or {{"room": "<room id>"}} (turn my head without moving, or step into a room and look)
+  ("around" gives me four views from where my eyes are: ahead and right on top, behind and left below.)
   or {{"url": "<a picture URL from a page I read>"}} or {{"specimen": "<id>"}} or {{"piece": "<study piece>"}} or {{"room": "<room id>", "item": "<item name>"}}
   (I see a photo, or one of my own drawings, with my next thought; I can keep two pictures in view to compare.)
 - restyle {{"specimen": "<id>"}} or {{"piece": "<one of: {pieces}>"}} or {{"room": "<room id>", "item": "<item name>"}}, plus "sprite": <new pixel art, or null to go back to the old look>
@@ -587,14 +588,23 @@ class Session:
         if action == "look":
             if not getattr(self.chain.current, "sees", False):
                 raise ValueError("my eyes are too tired to make anything out right now (this brain can't see images)")
-            if args.get("around") or (args.get("room") and not args.get("item")):
+            if args.get("around") or args.get("direction") or (args.get("room") and not args.get("item")):
                 room = w.room(args.get("room") or w.me.get("room") or "study") or w.room("study")
-                data = pixels.see(w, room["id"], around=True)
+                direction = str(args.get("direction") or "").strip().lower().replace(" ", "_")
+                direction = {"forward": "ahead", "front": "ahead", "back": "behind"}.get(direction, direction)
+                if direction and direction not in ("ahead", "right", "behind", "left"):
+                    raise ValueError("I can look ahead, right, behind or left, or look all around")
+                around = bool(args.get("around") or not direction)
+                data = pixels.see(w, room["id"], around=around, direction=direction)
                 if not data:
                     raise ValueError("everything is a blur for a moment; try looking again later")
-                self.pictures = (self.pictures + [(f"what I see in the {room['name']}", "image/png", data)])[-2:]
-                w.log("look_around", f"Looked around the {room['name']}", thought=thought, room=room["id"])
-                return f"I'm taking in the {room['name']} (I can see it now)"
+                label = (f"what I see in the {room['name']}, ahead and right above, behind and left below" if around
+                         else f"what I see looking {direction} in the {room['name']}")
+                self.pictures = (self.pictures + [(label, "image/png", data)])[-2:]
+                place = w.me.get("place") if room["id"] == w.me.get("room") else "room"
+                w.log("look_around", f"Looked {'around' if around else direction} in the {room['name']}",
+                      thought=thought, room=room["id"], place=place)
+                return f"I'm looking {'around' if around else direction} in the {room['name']} (I can see it now)"
             elif args.get("url"):
                 url = str(args["url"]).strip()
                 mime, data = research.fetch_image(url)

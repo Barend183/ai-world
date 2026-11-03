@@ -2,12 +2,12 @@
 // as a real room around him: the back wall with its window, shelves and door, a floor that stretches away, side
 // walls and a ceiling (or the open sky outdoors), and his furniture, creations and companion standing in the
 // space at their own distances. Everything is drawn by the page's own code (docs/sprites.js, docs/app.js), so it
-// looks like his world, then rebuilt in perspective from where his eyes are. Never his own face: only his hands
-// (or his blanket, in bed) at the bottom of the view.
-// Usage: node scene.js <world folder> [room id] [home|companion] [around] > view.png
+// looks like his world, then rebuilt in perspective from where his eyes are. Never his own face; single views
+// show his hands (or his blanket, in bed) at the bottom.
+// Usage: node scene.js <world folder> [room id] [home|companion] [around|ahead|right|behind|left] > view.png
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
-const { Canvas, png } = require("./canvas.js");
+const { Canvas, png, parseColor } = require("./canvas.js");
 
 const [dir, roomArg, who = "home", mode = ""] = process.argv.slice(2);
 const read = (name, fallback) => { try { return JSON.parse(fs.readFileSync(path.join(dir, name), "utf8")); } catch { return fallback; } };
@@ -100,6 +100,7 @@ const data = sandbox.__world({
 // x runs along the room (as on the page), z from the back wall (0) towards the front (D), y up from the floor.
 // One pixel on the page is one unit here; how far down the page something stands is how far into the room it is.
 const { W, top, back } = data, D = data.outdoor ? 240 : 150, HW = top;
+const frontWall = parseColor(data.wall).slice(0, 3);
 const zOf = (ground) => Math.max(1, Math.min(D - 1, ((ground - top) / (180 - top)) * D));
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const norm = (a) => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
@@ -110,7 +111,7 @@ const e = data.eye, ANCHOR = { computer: [202, 32, 17], shelves: [37, 50, 0], bo
 let cam = [e.x, 22, zOf(e.ground)], look = [e.x, 26, 0], fov = 72;
 const atSomething = data.study && (ANCHOR[e.place] || e.place === "bed" || e.place === "armchair");
 const near = data.things.filter((t) => t.kind !== "someone").map((t) => [t.x + t.w / 2, Math.min(t.h, 40) / 2, zOf(t.ground)]);
-if (e.entered || mode === "around") {   // taking in a whole room: from the front, far enough back to see all of it
+if (e.entered) {   // I step into another room at its doorway
   const back = data.outdoor ? Math.max(...near.map((p) => p[2]), D * 0.6) + W * 0.42 : D - 6;
   cam = [W / 2, 26, back]; look = [W / 2, 8, D * 0.35]; fov = 92;
 } else if (!atSomething && near.length) {   // just standing somewhere: I'm with the nearest thing here
@@ -127,10 +128,7 @@ else if (data.study && ANCHOR[e.place]) {
 }
 else if (e.place === "armchair") { cam[1] = 17; look = [cam[0], 26, 0]; }
 cam[0] = Math.max(6, Math.min(W - 6, cam[0])); cam[2] = Math.max(6, Math.min(data.outdoor ? D + 400 : D - 4, cam[2]));
-const fwd = norm(sub(look, cam)), right = norm(cross(fwd, [0, 1, 0])), up = cross(right, fwd);
-const F = 160 / Math.tan((fov * Math.PI) / 360);
-
-const SW = 320, SH = 180, out = new Float32Array(SW * SH * 4), zb = new Float32Array(SW * SH).fill(1e9);
+const SW = 320, SH = 180;
 const tex = (u, v) => {   // the painted room, as the page draws it
   const x = Math.max(0, Math.min(W - 1, Math.floor(u))), y = Math.max(0, Math.min(179, Math.floor(v))), i = (y * W + x) * 4;
   const a = back[i + 3] || 1;
@@ -154,12 +152,17 @@ const shade = (c, p) => {
   return [Math.min(255, c[0] * k * 0.92 + warm[0]), Math.min(255, c[1] * k * 0.94 + warm[1]), Math.min(255, c[2] * k + warm[2])];
 };
 
-const put = (i, c, depth) => { out[i * 4] = c[0]; out[i * 4 + 1] = c[1]; out[i * 4 + 2] = c[2]; out[i * 4 + 3] = 1; zb[i] = depth; };
 const sky = (d) => {   // outdoors: the sky and hills all around, from the painted backdrop
   const yaw = Math.atan2(d[0], -d[2]), el = Math.atan2(d[1], Math.hypot(d[0], d[2]));
   const u = (yaw / (2 * Math.PI) + 0.5) * W;   // the backdrop wraps all the way round; the seam is behind me
   return tex(u, Math.max(0, Math.min(top - 1, top * (1 - el / 0.6))));
 };
+
+function render(cam, look, fov, hands = true) {
+const fwd = norm(sub(look, cam)), right = norm(cross(fwd, [0, 1, 0])), up = cross(right, fwd);
+const F = 160 / Math.tan((fov * Math.PI) / 360);
+const out = new Float32Array(SW * SH * 4), zb = new Float32Array(SW * SH).fill(1e9);
+const put = (i, c, depth) => { out[i * 4] = c[0]; out[i * 4 + 1] = c[1]; out[i * 4 + 2] = c[2]; out[i * 4 + 3] = 1; zb[i] = depth; };
 
 for (let py = 0; py < SH; py++) for (let px = 0; px < SW; px++) {
   const sx = (px + 0.5 - SW / 2) / F, sy = (SH / 2 - (py + 0.5)) / F;
@@ -184,6 +187,7 @@ for (let py = 0; py < SH; py++) for (let px = 0; px < SW; px++) {
     if (data.outdoor) c = mix(c, Math.min(1, best / 900), sky([d[0], 0.02, d[2]]));   // the far field fades into the horizon
   } else if (hit === "back") c = tex(p[0], HW - p[1]);
   else if (hit === "ceiling") c = mix(tex(W / 2, 2), 0.25, [40, 30, 25]);
+  else if (hit === "front") c = frontWall;
   else c = tex(hit === "left" ? 1 : hit === "right" ? W - 2 : 1, HW - p[1]);   // plain wall, skirting and all
   put(i, shade(c, p), dot(sub(p, cam), fwd));
 }
@@ -214,7 +218,8 @@ for (let i = 0; i < SW * SH; i++) {
   pic.px[i * 4] = c[0]; pic.px[i * 4 + 1] = c[1]; pic.px[i * 4 + 2] = c[2]; pic.px[i * 4 + 3] = 1;
 }
 
-// What's always in front of my eyes: my hands, or the edge of my blanket when I'm lying in bed.
+// What's in front of my eyes in a single view: my hands, or my blanket when I'm lying in bed.
+if (hands) {
 const Px = sandbox.__Px, g = pic.getContext(), dim = (c) => (data.night ? Px.shade(c, 0.55) : c);
 if (e.place === "bed" && mode !== "around" && !e.entered) {
   Px.rect(g, 0, 150, 320, 30, dim("#5b7fa6")); Px.rect(g, 0, 150, 320, 3, dim("#7097c4"));
@@ -227,4 +232,33 @@ if (e.place === "bed" && mode !== "around" && !e.entered) {
     Px.ellipse(g, hx - 5, hy - 6, 5, 3, dim(Px.shade(data.body, 1.3)));
   }
 }
-process.stdout.write(png(pic, 3, "#000000"));
+}
+return pic;
+}
+
+// Turning my head changes the direction, never the place where my eyes are.
+const turning = ["ahead", "right", "behind", "left"].includes(mode) || mode === "around";
+const eyeCam = e.entered ? cam : [e.x, e.place === "bed" ? 14 : e.place === "armchair" ? 17 : 22, zOf(e.ground)];
+const aim = e.place === "armchair" && !e.entered ? [0, 1] : [look[0] - eyeCam[0], look[2] - eyeCam[2]];
+const length = Math.hypot(...aim) || 1, forward = [aim[0] / length, aim[1] / length];
+const facing = {
+  ahead: forward, right: [-forward[1], forward[0]],
+  behind: [-forward[0], -forward[1]], left: [forward[1], -forward[0]],
+};
+const sight = (direction) => [eyeCam[0] + facing[direction][0] * 100, eyeCam[1], eyeCam[2] + facing[direction][1] * 100];
+if (mode === "around") {
+  const all = new Canvas(SW * 2, SH * 2); all.px = new Float32Array(all.width * all.height * 4);
+  for (const [n, direction] of ["ahead", "right", "behind", "left"].entries()) {
+    const view = render(eyeCam, sight(direction), 90, false);
+    const x = (n % 2) * SW, y = Math.floor(n / 2) * SH;
+    for (let row = 0; row < SH; row++) {
+      const from = row * SW * 4, to = ((y + row) * all.width + x) * 4;
+      all.px.set(view.px.subarray(from, from + SW * 4), to);
+    }
+  }
+  const seam = all.getContext(); seam.fillStyle = "#382c26";
+  seam.fillRect(SW - 1, 0, 2, SH * 2); seam.fillRect(0, SH - 1, SW * 2, 2);
+  process.stdout.write(png(all, 2, "#000000"));
+} else {
+  process.stdout.write(png(turning ? render(eyeCam, sight(mode), 80) : render(cam, look, fov), 3, "#000000"));
+}

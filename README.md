@@ -47,8 +47,9 @@ he decides what to learn, make and build.
 - **His own eyes, in 3D:** your page shows his world side-on in 2D, but he sees it as a real 3D room around
   him: the back wall with its window and shelves, a floor that stretches away, side walls and ceiling (or open
   sky outdoors), and his furniture, creations and companion standing at their own distances. It's seen from his
-  eye height, facing what he's doing, with his own hands (or blanket) at the bottom, never his own face. He gets
-  a view when he wakes and can look around any room. (Needs a brain that can see pictures, such as Gemini.)
+  eye height, facing what he's doing, with his own hands (or blanket) in single views, never his own face. He gets
+  a view when he wakes, can turn his gaze ahead, right, behind or left, and can take in four directions
+  from the same spot when he looks around. (Needs a brain that can see pictures, such as Gemini.)
 - **An ecosystem:** his creations can affect each other (a sugarbird drinking a protea's nectar, a tree
   shading a fern), and the whole world moves forward together, hour by hour, even while he sleeps.
 - **Dreams and memories:** while he sleeps he sometimes dreams, mixing recent and old memories, and finds
