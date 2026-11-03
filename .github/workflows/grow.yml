@@ -21,14 +21,15 @@ jobs:
     timeout-minutes: 350
     env:
       KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}               # from kaggle.json (the older kind of key)
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}   # or Kaggle's newer single API token
       MIN_LESSONS: "150"
     steps:
       - name: Is Kaggle connected?
         id: kaggle
         run: |
-          if [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"
-          else echo "Kaggle isn't connected yet (secrets KAGGLE_USERNAME and KAGGLE_KEY), so his brain can't grow this week."; fi
+          if [ -n "$KAGGLE_USERNAME" ] && { [ -n "$KAGGLE_KEY" ] || [ -n "$KAGGLE_API_TOKEN" ]; }; then echo "ok=true" >> "$GITHUB_OUTPUT"
+          else echo "Kaggle isn't connected yet (secrets KAGGLE_USERNAME plus KAGGLE_KEY or KAGGLE_API_TOKEN), so his brain can't grow this week."; fi
 
       - uses: actions/checkout@v7
         if: steps.kaggle.outputs.ok == 'true'
@@ -49,6 +50,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pip install --quiet -r requirements.txt kaggle
+          # first make sure the key really opens Kaggle, so a wrong key shows up now and not on training day
+          kaggle datasets list --mine > /dev/null && echo "Kaggle key works." || { echo "::error::Kaggle didn't accept the key; check the KAGGLE_ secrets."; exit 1; }
           mkdir -p work/data work/kernel
           python -m brain lessons work/data/lessons.jsonl | tee work/count.txt
           n=$(grep -o '^[0-9]*' work/count.txt)

@@ -173,8 +173,9 @@ password; after that, delete `WORLD_PASSWORD_OLD` and unlock the page with the n
 
 **Growing his own brain (optional, one-time):** make a free account at [kaggle.com](https://www.kaggle.com)
 and verify your phone number (Kaggle needs that before it allows GPUs and internet in notebooks). Then
-*Settings → API → Create New Token*, which downloads `kaggle.json`. Add two GitHub secrets from it:
-`KAGGLE_USERNAME` and `KAGGLE_KEY`. Every Sunday night the **Grow** workflow then sends his lessons to a
+*Settings → API → Create New Token*. Add GitHub secrets: `KAGGLE_USERNAME` (your Kaggle username) and
+either `KAGGLE_KEY` (the "key" from a downloaded `kaggle.json`) or `KAGGLE_API_TOKEN` (a newer
+single API token). Run the **Grow** workflow once by hand to check the key works. Every Sunday night the **Grow** workflow then sends his lessons to a
 *private* Kaggle dataset, trains on them (about an hour of the 30 free GPU hours a week) and adopts the result
 if it passes. Note: his lessons include what he took in each moment (his notebook, his creations and your
 letters), so they leave GitHub for your private Kaggle space while training. Until there are 150 lessons it
