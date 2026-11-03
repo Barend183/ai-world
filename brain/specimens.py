@@ -34,7 +34,11 @@ PARTS = {"vine", "leaves", "flowers", "legs", "wings", "tail", "ears", "eyes", "
          "wheels", "windows", "chimney", "lights", "steam", "plate", "pot"}
 COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 NAME = re.compile(r"^[a-z][a-z0-9_]{0,23}$")
-CLAUSE = re.compile(r"^\s*(?:season\s+is\s+([a-z0-9_ -]+?)|([a-z][a-z0-9_]*)\s*(<=|>=|==|!=|<|>)\s*(-?\d+(?:\.\d+)?))\s*$", re.I)
+CLAUSE = re.compile(r"^\s*(?:season\s+is\s+([a-z0-9_ -]+?)|([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)?)\s*(<=|>=|==|!=|<|>)\s*(-?\d+(?:\.\d+)?))\s*$", re.I)
+OTHER = re.compile(r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")   # another creation's variable: king_protea.nectar
+
+# The world the creations live in, set when the AI wakes, so they can affect each other.
+WORLD = None
 OPS = {"<": float.__lt__, "<=": float.__le__, ">": float.__gt__, ">=": float.__ge__,
        "==": lambda a, b: abs(a - b) < 1e-9, "!=": lambda a, b: abs(a - b) >= 1e-9}
 
@@ -58,8 +62,8 @@ def _rates(d, vars_, what):
         if not isinstance(part, dict):
             raise SpecError(f"{what}.{unit} must be an object of variable: number")
         for k, v in part.items():
-            if k not in vars_:
-                raise SpecError(f"{what} mentions '{k}', which isn't one of its variables")
+            if k not in vars_ and not OTHER.match(k):
+                raise SpecError(f"{what} mentions '{k}', which isn't one of its variables (another creation's is written like king_protea.nectar)")
             out[k] = out.get(k, 0) + _num(v, f"{what}.{k}") * mult
     return out
 
@@ -82,7 +86,7 @@ def condition(text, vars_, seasons):
             raise SpecError(f"can't understand the condition '{clause.strip()}'")
         if m.group(1) and m.group(1).strip().lower() not in seasons:
             raise SpecError(f"condition mentions season '{m.group(1)}', which isn't defined")
-        if m.group(2) and m.group(2) not in vars_ and m.group(2) not in ENV_NAMES:
+        if m.group(2) and m.group(2) not in vars_ and m.group(2) not in ENV_NAMES and not OTHER.match(m.group(2)):
             raise SpecError(f"condition mentions '{m.group(2)}', which isn't one of its variables or {', '.join(ENV_NAMES)}")
     return str(text)
 
@@ -222,7 +226,7 @@ def holds(cond, values, season):
         if m.group(1):
             if not season or season["name"] != m.group(1).strip().lower():
                 return False
-        elif not OPS[m.group(3)](float(values[m.group(2)]), float(m.group(4))):
+        elif m.group(2) not in values or not OPS[m.group(3)](float(values[m.group(2)]), float(m.group(4))):
             return False
     return True
 
@@ -232,6 +236,71 @@ def _clamp(spec, values):
         values[k] = round(min(max(values[k], v["min"]), v["max"]), 4)
 
 
+def _key(sp):
+    return sp["id"].replace("-", "_")
+
+
+def _others(world, sp):
+    """The other living creations' variables, as king_protea.nectar, plus where to send changes."""
+    scope, owners = {}, {}
+    for o in (world.specimens if world else []):
+        if o is not sp and o["status"] == "alive":
+            owners[_key(o)] = o
+            for k, v in o["values"].items():
+                scope[f"{_key(o)}.{k}"] = v
+    return scope, owners
+
+
+def _step(sp, t, step, world=None):
+    spec, values = sp["spec"], sp["values"]
+    season = season_at(spec, t)
+    others, owners = _others(world, sp)
+    scope = {**others, **values, **env_at(sp, t)}
+    rate = {k: v["per_day"] for k, v in spec["vars"].items()}
+    for k, d in (season["per_day"] if season else {}).items():
+        rate[k] = rate.get(k, 0) + d
+    for i, r in enumerate(spec["rules"]):
+        if not holds(r["if"], scope, season):
+            continue
+        for k, d in r["per_day"].items():
+            rate[k] = rate.get(k, 0) + d
+        if r.get("chance") and _chance(sp["id"], t.isoformat(), i) < r["chance"] * step / 1440:
+            for k, d in r["change"].items():
+                values[k] = values.get(k, 0) + d
+            sp.setdefault("events", []).append({"t": t.isoformat(timespec="minutes"), "note": r["note"] or "something happened"})
+            sp["events"] = sp["events"][-12:]
+    for k, d in rate.items():
+        if "." in k:   # an effect on another creation
+            who, var = k.split(".", 1)
+            o = owners.get(who)
+            if o and var in o["values"]:
+                o["values"][var] += d * step / 1440
+                _clamp(o["spec"], o["values"])
+                _check_end(o, t)
+        elif k in values:
+            values[k] += d * step / 1440
+    _clamp(spec, values)
+    _check_end(sp, t)
+
+
+def advance_all(world, until=None):
+    """Every living creation moves forward together, hour by hour, so they can affect one another."""
+    until = until or datetime.now(timezone.utc)
+    alive = [s for s in world.specimens if s["status"] == "alive"]
+    if not alive:
+        return
+    t = max(min(datetime.fromisoformat(s["updated"]) for s in alive), until - timedelta(days=60))
+    while t + timedelta(hours=1) <= until:
+        t += timedelta(hours=1)
+        for sp in alive:
+            if sp["status"] == "alive" and datetime.fromisoformat(sp["updated"]) < t:
+                _step(sp, t, 60, world)
+                sp["updated"] = t.isoformat(timespec="seconds")
+    for sp in world.specimens:
+        if sp["status"] != "released":
+            _refresh(sp, until)
+
+
 def _live(sp, start, minutes, step):
     """Run the rules forward from `start` for `minutes`, in steps of `step` minutes."""
     spec, values, t = sp["spec"], sp["values"], start
@@ -239,25 +308,7 @@ def _live(sp, start, minutes, step):
         if sp["status"] != "alive":
             break
         t += timedelta(minutes=step)
-        season = season_at(spec, t)
-        scope = {**values, **env_at(sp, t)}
-        rate = {k: v["per_day"] for k, v in spec["vars"].items()}
-        for k, d in (season["per_day"] if season else {}).items():
-            rate[k] += d
-        for i, r in enumerate(spec["rules"]):
-            if not holds(r["if"], scope, season):
-                continue
-            for k, d in r["per_day"].items():
-                rate[k] += d
-            if r.get("chance") and _chance(sp["id"], t.isoformat(), i) < r["chance"] * step / 1440:
-                for k, d in r["change"].items():
-                    values[k] += d
-                sp.setdefault("events", []).append({"t": t.isoformat(timespec="minutes"), "note": r["note"] or "something happened"})
-                sp["events"] = sp["events"][-12:]
-        for k, d in rate.items():
-            values[k] += d * step / 1440
-        _clamp(spec, values)
-        _check_end(sp, t)
+        _step(sp, t, step, WORLD if sp.get("id") != "test" and any(o is sp for o in (WORLD.specimens if WORLD else [])) else None)
     return t
 
 
@@ -292,7 +343,10 @@ def interact(sp, action):
     name = sp["spec"]["name"]
     if sp["status"] != "alive" and action not in ("observe", *SENSES):
         return f"{name} has {sp['spec']['end_word']}; nothing more can be done with it."
-    advance(sp)
+    if WORLD and any(o is sp for o in WORLD.specimens):
+        advance_all(WORLD)
+    else:
+        advance(sp)
     if action == "observe":
         return describe(sp)
     if action in SENSES:

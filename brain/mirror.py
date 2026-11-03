@@ -31,7 +31,8 @@ def _events():
 
 
 def reflect(world, days=None):
-    events = list(_events())
+    who = world.me.get("id") if world.me is not world.home else None
+    events = [e for e in _events() if e.get("who") == who]   # only what this one did
     if days:
         since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         events = [e for e in events if e["t"] >= since]

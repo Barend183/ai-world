@@ -74,6 +74,44 @@ const isNight = () => {
   const h = worldHour(); return h < 6 || h >= 20;
 };
 
+const worldHourF = () => { const d = worldTime(); return d.getUTCHours() + d.getUTCMinutes() / 60; };
+// The season where his world is: the hemisphere comes from where he lives (south unless he moved north).
+const worldSeason = () => {
+  const k = Math.floor(((worldTime().getUTCMonth() + 1) % 12) / 3);   // 0 Dec-Feb, 1 Mar-May, 2 Jun-Aug, 3 Sep-Nov
+  const north = typeof S !== "undefined" && S.weather && S.weather.lat > 0;
+  return (north ? ["winter", "spring", "summer", "autumn"] : ["summer", "autumn", "winter", "spring"])[k];
+};
+const GRASS = { spring: "#74b955", summer: "#93a94a", autumn: "#9c9a52", winter: "#6a9466" };
+const SPECKS = { spring: ["#f6d55c", "#f39ac0", "#ffffff"], autumn: ["#c8752f", "#a34f22", "#d9a441"] };
+
+// The light of the hour: warm at dawn and dusk, dark at night except around lamps, screens and fires.
+const _dark = typeof document !== "undefined" ? document.createElement("canvas") : null;
+function lighting(g, room, W, H, t, lights) {
+  const h = worldHourF(), night = isNight(), outdoor = room.kind === "outdoor";
+  if (!night) {
+    const a = h < 9 ? 0.14 * Math.max(0, 1 - (h - 5) / 4) : h >= 16.5 ? Math.min(0.2, (h - 16.5) * 0.07) : 0;
+    if (a > 0.01) { g.fillStyle = `rgba(255,140,80,${a.toFixed(3)})`; g.fillRect(0, 0, W, H); }
+    return;
+  }
+  const c = _dark; c.width = W; c.height = H;
+  const s = c.getContext("2d");
+  s.fillStyle = `rgba(10,14,40,${outdoor ? 0.5 : 0.42})`; s.fillRect(0, 0, W, H);
+  s.globalCompositeOperation = "destination-out";
+  for (const L of lights) {
+    const gr = s.createRadialGradient(L.x, L.y, 0, L.x, L.y, L.r);
+    gr.addColorStop(0, "rgba(0,0,0,.85)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+    s.fillStyle = gr; s.fillRect(L.x - L.r, L.y - L.r, L.r * 2, L.r * 2);
+  }
+  s.globalCompositeOperation = "source-over";
+  g.drawImage(c, 0, 0);
+  for (const L of lights) {   // and a little warmth (or a screen's cool glow) where the light falls
+    const f = L.flicker ? 0.85 + 0.15 * Math.sin(t / 90 + L.x) : 1;
+    const gr = g.createRadialGradient(L.x, L.y, 0, L.x, L.y, L.r * 0.8);
+    gr.addColorStop(0, L.cool ? `rgba(120,240,170,${0.12 * f})` : `rgba(255,190,110,${0.2 * f})`); gr.addColorStop(1, "rgba(255,190,110,0)");
+    g.fillStyle = gr; g.fillRect(L.x - L.r, L.y - L.r, L.r * 2, L.r * 2);
+  }
+}
+
 // A window pane: the real sky of his world, with clouds, the moon or rain.
 function windowView(g, x, y, w, h, t) {
   const [a, b] = sky(worldHour()), wx = worldWeather(), rain = wx && wx.env_rain > 0, night = isNight();
@@ -363,14 +401,14 @@ function drawBuiltRoom(g, room, W, H, t) {
     for (let y = 0; y < 100; y++) Px.rect(g, 0, y, W, 1, mix(y / 100));
     if (night) { for (let i = 0; i < 30; i++) Px.rect(g, (i * 97) % W, (i * 31) % 70, 1, 1, (Math.floor(t / 700) + i) % 5 ? "#fff" : "#88a"); Px.ellipse(g, W - 40, 24, 6, 6, "#f4f1d0"); }
     else { Px.ellipse(g, W - 40, 24, 8, 8, "#fff3b0"); for (let i = 0; i < 3; i++) { const cx = ((t / 300) + i * 130) % (W + 40) - 20; Px.ellipse(g, cx, 20 + i * 12, 14, 4, "#ffffff"); } }
-    Px.ellipse(g, W * 0.25, 104, W * 0.35, 18, "#7aa86a", true); Px.ellipse(g, W * 0.75, 104, W * 0.3, 14, "#6c9a5d", true);
+    const hill = GRASS[worldSeason()];
+    Px.ellipse(g, W * 0.25, 104, W * 0.35, 18, Px.shade(hill, 1.05), true); Px.ellipse(g, W * 0.75, 104, W * 0.3, 14, Px.shade(hill, 0.92), true);
   } else {
     drawWall(g, room, W);
     const n = room.windows || 0;
     for (let i = 0; i < n; i++) FURNITURE.window(g, (W * (i + 1)) / (n + 1), 24);
   }
   drawFloor(g, room, W, room.kind === "outdoor" ? 100 : 118, H);
-  if (night && room.kind === "outdoor") { g.fillStyle = "rgba(10,14,40,.4)"; g.fillRect(0, 0, W, H); }
 }
 
 function drawWall(g, room, W) {
@@ -392,13 +430,17 @@ function drawWall(g, room, W) {
 
 function drawFloor(g, room, W, top, H) {
   if (room.floor_tile) { Px.tile(g, room.floor_tile, 0, top, W, H - top); return; }
-  const floorCol = room.floor_color || { wood: "#a0714b", tile: "#d9d4c7", carpet: "#8a6f9e", stone: "#9a968d", grass: "#6fae55", dirt: "#8a6a45", sand: "#dcc58e", checks: "#e8e4dc", concrete: "#a7a7a2" }[room.floor];
+  const season = worldSeason(), seasonal = room.floor === "grass" && !room.floor_color;
+  const floorCol = room.floor_color || { wood: "#a0714b", tile: "#d9d4c7", carpet: "#8a6f9e", stone: "#9a968d", grass: GRASS[season], dirt: "#8a6a45", sand: "#dcc58e", checks: "#e8e4dc", concrete: "#a7a7a2" }[room.floor];
   Px.rect(g, 0, top, W, H - top, floorCol);
   const dk = Px.shade(floorCol, 0.88);
   if (room.floor === "wood") for (let y = top + 6; y < H; y += 9) { Px.rect(g, 0, y, W, 1, dk); for (let x = (y % 2) * 20; x < W; x += 40) Px.rect(g, x, y - 8, 1, 8, dk); }
   if (room.floor === "tile" || room.floor === "concrete") for (let y = top; y < H; y += 12) { Px.rect(g, 0, y, W, 1, dk); for (let x = 0; x < W; x += room.floor === "tile" ? 16 : 48) Px.rect(g, x, y, 1, 12, dk); }
   if (room.floor === "checks") for (let y = top; y < H; y += 10) for (let x = ((y - top) / 10 % 2) * 10; x < W; x += 20) Px.rect(g, x, y, 10, 10, "#3a3a40");
   if (room.floor === "grass") for (let i = 0; i < W * 1.2; i++) Px.rect(g, (i * 37) % W, top + ((i * 53) % (H - top)), 1, 2, Px.shade(floorCol, i % 2 ? 0.8 : 1.2));
+  if (seasonal && SPECKS[season]) for (let i = 0; i < W / 4; i++) Px.rect(g, (i * 71 + 13) % W, top + 3 + ((i * 43) % (H - top - 4)), 2, 1, SPECKS[season][i % 3]);   // spring flowers, autumn leaves
+  const wx = worldWeather();
+  if (seasonal && season === "winter" && wx && wx.env_temp < 3) for (let i = 0; i < W / 2; i++) Px.rect(g, (i * 59) % W, top + ((i * 31) % (H - top)), 1, 1, "rgba(255,255,255,.7)");   // frost
   if (room.floor === "stone") for (let i = 0; i < W / 3; i++) Px.ellipse(g, (i * 41) % W, top + 4 + ((i * 29) % (H - top - 6)), 6, 2, dk);
   if (room.floor === "dirt" || room.floor === "sand" || room.floor === "carpet") for (let i = 0; i < W; i++) Px.rect(g, (i * 37) % W, top + ((i * 53) % (H - top)), 1, 1, dk);
 }

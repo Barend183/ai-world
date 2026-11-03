@@ -27,8 +27,15 @@ const S = {
   cfg: {}, me: {}, shelves: [], wishes: [], notes: [], recent: [], specimens: [], rooms: [{ id: "study", name: "Study", builtin: true, width: 320, items: [] }],
   view: "study", boxes: [],
   bot: { room: "study", x: STUDY_PLACES.bed.x, y: STUDY_PLACES.bed.y, tx: STUDY_PLACES.bed.x, ty: STUDY_PLACES.bed.y, pose: "sleep", walking: false, prop: null },
+  bot2: { room: "study", x: 256, y: 146, tx: 256, ty: 146, pose: "sleep", walking: false, prop: null },   // a companion, if one lives here
+  comp: null,
   queue: [], current: null, holdUntil: 0, replaying: false, lastKey: null, journalFilter: null,
 };
+// A companion who never chose colours of their own still shouldn't look like him.
+const COMP_COLORS = { body: "#e3a35c", belly: "#f5d6a6", leaf: "#c75b3f", cheeks: "#f08f80" };
+const compLook = (c) => ({ ...(c.look || {}), colors: { ...COMP_COLORS, ...((c.look || {}).colors || {}) } });
+const actorOf = (e) => (e && e.who && S.comp ? S.bot2 : S.bot);
+const whoName = (e) => (e.who && S.comp ? S.comp.name : S.me.name);
 let P = { he: "it", him: "it", his: "its" };
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -55,7 +62,9 @@ async function load(first) {
     getJSON("notes.json", []), getJSON("recent.json", []), getJSON("specimens.json", []), getJSON("rooms.json", null),
   ]);
   S.weather = await getJSON("weather_now.json", null);
-  const sig = JSON.stringify([cfg, me, shelves, wishes, notes, specimens, rooms, recent.length && recent[recent.length - 1]]);
+  const companions = await getJSON("companions.json", []);
+  const comp = companions.find((c) => c.status === "living") || null;
+  const sig = JSON.stringify([cfg, me, comp, shelves, wishes, notes, specimens, rooms, recent.length && recent[recent.length - 1]]);
   if (!first && sig === S.sig) { renderStatus(); return; }   // nothing new: keep the panels as the visitor left them
   S.sig = sig;
   Object.assign(S, { cfg, shelves, wishes, notes, specimens });
@@ -68,6 +77,9 @@ async function load(first) {
     return;
   }
   S.me = me;
+  const newcomer = comp && !S.comp;
+  S.comp = comp;
+  if (comp && (first || newcomer)) { const c = restSpot(); Object.assign(S.bot2, { room: c.room, x: c.x, y: c.y, tx: c.x, ty: c.y, pose: c.pose }); }
   const prevKey = S.lastKey;
   S.recent = recent;
   S.lastKey = recent.length ? key(recent[recent.length - 1]) : null;
@@ -122,6 +134,17 @@ function spotFor(e) {   // where he stands for an event: {room, x, y, pose}
   return { room: room.id, x: Math.round(W / 2), y: room.builtin ? 150 : 158, pose: "stand" };
 }
 
+function restSpot() {
+  const c = S.comp;
+  if (c.state === "asleep" || !c.room) return { room: "study", x: 256, y: 146, pose: "sleep" };
+  const s = spotFor({ room: c.room, place: c.place });
+  return (s.room === S.bot.room && Math.abs(s.x - S.bot.x) < 14) ? { ...s, x: s.x > 40 ? s.x - 20 : s.x + 20, pose: s.pose === "type" ? "stand" : s.pose } : s;
+}
+function talkSpot(e) {   // walk over to whoever they're talking to
+  const o = e.who ? S.bot : S.bot2;
+  return { room: o.room, x: o.x > 40 ? o.x - 20 : o.x + 20, y: Math.min(o.y, 168), pose: "stand" };
+}
+
 function setView(id) {
   S.view = id;
   canvas.width = roomW(id);
@@ -141,7 +164,7 @@ function renderRoomBar() {
   if (S.rooms.length < 2) { bar.hidden = true; return; }
   bar.hidden = false;
   bar.innerHTML = S.rooms.map((r) => `<button type="button" data-room="${esc(r.id)}" class="${r.id === S.view ? "on" : ""}"
-    title="${esc(r.purpose || r.name)}">${r.id === S.bot.room && S.me.name ? "🌱 " : ""}${esc(r.name)}</button>`).join("");
+    title="${esc(r.purpose || r.name)}">${r.id === S.bot.room && S.me.name ? "🌱 " : ""}${S.comp && r.id === S.bot2.room ? "🍂 " : ""}${esc(r.name)}</button>`).join("");
 }
 
 // ---------- status & panels ------------------------------------------------
@@ -195,6 +218,10 @@ function renderTabs() {
     </div>
     <h3>In ${esc(P.his)} own words</h3>
     <p class="about">${esc(me.about)}</p>
+    ${S.comp ? `<h3>Living with ${esc(P.him)}</h3><div class="hero"><canvas id="portrait2" width="64" height="52" aria-label="${esc(S.comp.name)}"></canvas>
+      <div><div class="hero-name">${esc(S.comp.name)}</div><div class="muted">Feeling <b>${esc(S.comp.mood)}</b> · moved in ${ago(S.comp.born)}</div>
+      <div>${S.comp.state === "asleep" ? "Sleeping" : "Right now"}: ${esc(S.comp.activity || "—")}</div></div></div>
+      <p class="about">${esc(S.comp.about)}</p>` : ""}
     ${(me.moods || []).length > 1 ? `<h3>${esc(cap(P.his))} mood lately</h3><p class="muted">${me.moods.slice(-10).map((m) => `${esc(m.mood)}`).join(" → ")}</p>` : ""}
     ${(me.life_story || []).length ? `<h3>${esc(cap(P.his))} life story</h3>${me.life_story.map((c, i) => `<details${i === me.life_story.length - 1 ? " open" : ""}>
       <summary><b>${i + 1}. ${esc(c.title)}</b> <span class="muted">${when(c.at)}</span></summary><p class="about" style="white-space:pre-wrap">${esc(c.text)}</p></details>`).join("")}` : ""}
@@ -268,7 +295,7 @@ function renderJournal() {
   for (const e of list) {
     if (e.session !== session) { session = e.session; html += `<li class="session-head">Session ${session}</li>`; }
     html += `<li class="ev ${e.action === "diary" ? "diary" : ""}" data-key="${esc(key(e))}">
-      <div>${esc(e.summary)}</div><div class="when">${when(e.t)}${e.thought ? ` · “${esc(e.thought)}”` : ""}</div>
+      <div>${S.comp ? `<b>${esc(whoName(e))}:</b> ` : ""}${esc(e.summary)}</div><div class="when">${when(e.t)}${e.thought ? ` · “${esc(e.thought)}”` : ""}</div>
       ${e.image && /^https?:\/\//.test(e.image) ? `<img class="seen" src="${esc(e.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}
       ${e.detail ? `<div class="detail">${esc(e.detail)}</div>` : ""}</li>`;
   }
@@ -293,7 +320,7 @@ function renderMail() {
   const notes = [...S.notes].reverse().map((n) => n.outgoing ? `<div class="note letter"><div>✉ <b>A letter from ${name}</b> <span class="muted">${ago(n.at)}</span></div><div>${esc(n.text)}</div></div>` : `<div class="note"><div><b>${esc(n.from)}</b> <span class="muted">${ago(n.at)}</span></div>
     <div>${esc(n.text)}</div>${n.reply ? `<div class="reply"><b>${name}</b> <span class="muted">${ago(n.replied)}</span><div>${esc(n.reply)}</div></div>` : '<div class="muted">Not read yet</div>'}</div>`).join("");
   const status = { waiting: "⏳ waiting for your answer", granted: "✅ you said yes", declined: "❌ you said no", answered: "💬 you answered" };
-  const reqs = [...(S.requests || [])].reverse().map((r) => `<div class="note request"><div>🙋 <b>${name} asks: ${esc(r.what)}</b> <span class="muted">${ago(r.asked)}</span></div>
+  const reqs = [...(S.requests || [])].reverse().map((r) => `<div class="note request"><div>${r.kind === "companion" ? "🏡" : "🙋"} <b>${name} asks: ${esc(r.what)}</b> <span class="muted">${ago(r.asked)}</span></div>
     <div>${esc(r.why)}</div><div class="muted">${status[r.status] || esc(r.status)}${r.answer ? `: “${esc(r.answer)}”` : ""}</div>
     ${r.status === "waiting" && (cfg.mode !== "github" || S.locked) ? `<div class="answer" data-req="${esc(r.id)}"><input placeholder="Your answer (optional)">
       <button class="btn" data-decision="yes">Yes</button> <button class="btn" data-decision="no">No</button> <button class="btn" data-decision="later">Later</button></div>` : ""}
@@ -362,9 +389,9 @@ function stopReplay() {
   $("replay").textContent = "▶ Replay last session"; $("replay").classList.remove("stop"); $("replay-pos").textContent = "";
   const asleep = S.me.state === "asleep";
   walkTo(asleep ? { room: "study", ...STUDY_PLACES.bed } : spotFor({ room: S.me.room, place: S.me.place }), null);
+  if (S.comp) walkTo(restSpot(), null, S.bot2);
 }
-function walkTo(spot, prop) {
-  const b = S.bot;
+function walkTo(spot, prop, b = S.bot) {
   if (spot.room !== b.room) {   // he walks in through the door of the other room
     b.room = spot.room;
     const entry = spot.room === "study" ? { x: 256, y: 124 } : { x: 6, y: spot.y };
@@ -381,23 +408,27 @@ function playNext() {
   const e = S.queue.shift();
   if (!e) { if (S.replaying) stopReplay(); S.current = null; return; }
   S.current = e; S.holdUntil = 0;
-  walkTo(spotFor(e), propFor(e));
+  const spot = e.action === "talk" && S.comp ? talkSpot(e) : e.who && S.comp && e.action === "wake" ? { room: "study", x: 256, y: 146, pose: "stand" } : spotFor(e);
+  const other = actorOf(e) === S.bot ? S.bot2 : S.bot;   // two can't stand in the same spot
+  if (S.comp && e.action !== "talk" && spot.room === other.room && Math.abs(spot.x - other.x) < 12) spot.x += spot.x > 40 ? -20 : 20;
+  walkTo(spot, propFor(e), actorOf(e));
   if (S.replaying) { const all = lastSession(); $("replay-pos").textContent = `${all.length - S.queue.length} / ${all.length} · ${when(e.t)}`; }
 }
 function showBubble(e) {
   const b = $("bubble");
-  b.innerHTML = esc(e.summary) + (e.thought ? `<span class="t">“${esc(e.thought)}”</span>` : "");
+  b.innerHTML = (S.comp ? `<b>${esc(whoName(e))}</b>: ` : "") + esc(e.summary) + (e.thought ? `<span class="t">“${esc(e.thought)}”</span>` : "");
   b.hidden = false; placeBubble();
 }
 function hideBubble() { $("bubble").hidden = true; }
 function placeBubble() {
   const b = $("bubble"); if (b.hidden) return;
-  if (S.bot.room !== S.view) { b.style.visibility = "hidden"; return; }
+  const a = actorOf(S.current);
+  if (a.room !== S.view) { b.style.visibility = "hidden"; return; }
   b.style.visibility = "";
   const s = canvas.clientWidth / canvas.width;
   const st = $("stage"), lo = st.scrollLeft + b.offsetWidth / 2 + 4, hi = st.scrollLeft + st.clientWidth - b.offsetWidth / 2 - 4;
-  const x = Math.min(Math.max(S.bot.x * s, lo), hi);
-  b.style.left = x + "px"; b.style.top = Math.max((S.bot.y - 30) * s, b.offsetHeight + 4) + "px";
+  const x = Math.min(Math.max(a.x * s, lo), hi);
+  b.style.left = x + "px"; b.style.top = Math.max((a.y - 30) * s, b.offsetHeight + 4) + "px";
 }
 
 // ---------- drawing ---------------------------------------------------------------
@@ -486,19 +517,38 @@ function drawView(t) {
     if (box) S.boxes.push({ ...box, label: it.name });
   });
   const botFront = S.bot.room === room.id && S.bot.y >= 166;
+  const compHere = S.comp && S.bot2.room === room.id, compFront = compHere && S.bot2.y >= 166;
+  if (compHere && !compFront) drawBot(t, S.bot2);
   if (S.bot.room === room.id && !botFront) drawBot(t);
   liveIn(room.id).forEach((sp) => {
     const box = drawSpecimen(ctx, sp, specimenX(sp), 166, t);
     S.boxes.push({ ...box, label: sp.spec.name, specimen: sp.id });
   });
+  if (compFront) drawBot(t, S.bot2);
   if (botFront) drawBot(t);
-  if (room.builtin && isNight()) { ctx.fillStyle = "rgba(10,14,40,.35)"; ctx.fillRect(0, 0, W, H); }
+  lighting(ctx, room, W, H, t, lightsIn(room, fy));
 }
 
-function drawBot(t) {
+// What gives light at night: the study's computer, and any lamp, candle, fire or screen he put in a room.
+const GLOWS = /lamp|light|candle|lantern|fire|torch|neon|glow|screen|tv|computer|monitor|stove|oven/i;
+function lightsIn(room, fy) {
+  const out = [];
+  if (room.builtin) {
+    const busy = S.bot.room === "study" && !S.bot.walking && Math.abs(S.bot.x - STUDY_PLACES.computer.x) < 2;
+    out.push({ x: 202, y: 86, r: busy ? 70 : 34, cool: true });
+  }
+  for (const it of room.items) {
+    if (!GLOWS.test(`${it.name} ${it.preset || ""}`)) continue;
+    out.push({ x: itemX(it, room), y: it.place === "wall" ? 50 : fy - 22, r: 70, flicker: /candle|fire|lantern|torch/i.test(`${it.name} ${it.preset || ""}`) });
+  }
+  return out;
+}
+
+function drawBot(t, b = S.bot) {
   if (!S.me.name) return;
-  const b = S.bot;
-  drawSprout(ctx, Math.round(b.x), Math.round(b.y), { t, pose: b.walking ? "stand" : b.pose, walking: b.walking, mood: S.me.mood, prop: b.walking ? null : b.prop, look: S.me.look });
+  const who = b === S.bot2 ? S.comp : S.me;
+  drawSprout(ctx, Math.round(b.x), Math.round(b.y), { t, pose: b.walking ? "stand" : b.pose, walking: b.walking, mood: who.mood, prop: b.walking ? null : b.prop,
+    look: b === S.bot2 ? compLook(who) : S.me.look });
 }
 
 function drawPanels(t) {
@@ -510,6 +560,13 @@ function drawPanels(t) {
     const asleep = S.me.state === "asleep";
     drawSprout(g, 32, 46, { t, pose: "stand", mood: S.me.mood, closed: asleep, look: S.me.look });
     if (asleep) { g.fillStyle = "#6b6156"; g.font = "7px monospace"; g.fillText("z", 44 + (Math.floor(t / 700) % 3) * 3, 16); }
+  }
+  const p2 = $("portrait2");
+  if (p2 && S.comp && p2.offsetParent) {
+    const g = p2.getContext("2d");
+    g.clearRect(0, 0, 64, 52);
+    Px.ellipse(g, 32, 28, 26, 24, "#efe0c8"); Px.ellipse(g, 32, 48, 22, 3, "#d9c6a6");
+    drawSprout(g, 32, 46, { t, pose: "stand", mood: S.comp.mood, closed: S.comp.state === "asleep", look: compLook(S.comp) });
   }
   document.querySelectorAll("canvas.mini").forEach((c) => {
     if (!c.offsetParent) return;
@@ -523,12 +580,15 @@ function drawPanels(t) {
 let lastT = performance.now();
 function frame(t) {
   const dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
-  const b = S.bot, dx = b.tx - b.x, dy = b.ty - b.y, d = Math.hypot(dx, dy);
-  if (d > 0.5) { const step = Math.min(d, 60 * dt); b.x += (dx / d) * step; b.y += (dy / d) * step; b.walking = true; }
-  else if (b.walking) {
-    b.x = b.tx; b.y = b.ty; b.walking = false; b.pose = b.targetPose || "stand";
-    if (S.current) { showBubble(S.current); S.holdUntil = t + Number($("speed").value) * 1000; }
+  for (const b of S.comp ? [S.bot, S.bot2] : [S.bot]) {
+    const dx = b.tx - b.x, dy = b.ty - b.y, d = Math.hypot(dx, dy);
+    if (d > 0.5) { const step = Math.min(d, 60 * dt); b.x += (dx / d) * step; b.y += (dy / d) * step; b.walking = true; }
+    else if (b.walking) {
+      b.x = b.tx; b.y = b.ty; b.walking = false; b.pose = b.targetPose || "stand";
+      if (S.current && actorOf(S.current) === b) { showBubble(S.current); S.holdUntil = t + Number($("speed").value) * 1000; }
+    }
   }
+  const b = actorOf(S.current);
   if (S.current && S.holdUntil && t > S.holdUntil) { hideBubble(); S.current = null; S.holdUntil = 0; }
   if (!S.current && S.queue.length && !b.walking) playNext();
   else if (!S.current && !S.queue.length && S.replaying && !b.walking) stopReplay();

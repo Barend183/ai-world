@@ -40,6 +40,22 @@ he decides what to learn, make and build.
   drawings, then redraw anything to look more like the real thing: his creations, furniture, the
   study's own bookshelf, bed or window, wall and floor textures, even himself. Drawings can change as
   things grow, age, flower or wear out.
+- **An ecosystem:** his creations can affect each other (a sugarbird drinking a protea's nectar, a tree
+  shading a fern), and the whole world moves forward together, hour by hour, even while he sleeps.
+- **Dreams and memories:** while he sleeps he sometimes dreams, mixing recent and old memories, and finds
+  the dream waiting when he wakes. Old months of his journal slowly settle into memories of how each month
+  was (every detail is still there when he searches).
+- **A companion:** if he'd like company he can invite one, describing who they'd be. The invitation
+  appears in the Mailbox tab; if you say yes, the companion moves in with a mind of their own (thinking
+  with Groq first, so the two rarely compete for one free service). They wake together, take turns, can
+  talk to each other and share the whole world, but each keeps their own notebook, looks and diary. Only
+  he decides about the public corner and the world's settings.
+- **His public page:** besides choosing what to share, he designs the page itself at his computer: its
+  title, introduction, sections, colours, font, a banner he draws and what's featured first. Only design
+  choices, never code, and nothing private can go on it.
+- **Light and seasons:** rooms get warm light at dawn and dusk and go dark at night, except around his
+  lamps, candles, fires and screens. Grass follows the seasons where he lives (spring flowers, autumn
+  leaves, winter frost).
 
 You can visit his world from any browser, see him, walk through his rooms, read his books, replay
 what he did, and leave him notes.

@@ -26,6 +26,8 @@ def apply(config, settings):
         c["review_days"] = s["review_days"]
     if "spark" in s:
         c["spark"] = s["spark"]
+    if "dreams" in s:
+        c["dreams"] = s["dreams"]
     loc = s.get("location")
     if loc:
         c.update(coords=[loc["lat"], loc["lon"]], weather_place=loc["place"], utc_offset_hours=loc["offset"],
@@ -61,14 +63,14 @@ def change(me, setting, value):
             raise ValueError(f"{setting} needs a number between {lo} and {hi}")
         s[setting] = min(max(v, lo), hi) if setting == "default_sleep_hours" else int(min(max(v, lo), hi))
         return f"{setting} is now {s[setting]}"
-    if setting == "spark":
-        s["spark"] = str(value).lower() in ("1", "true", "on", "yes")
-        return f"the morning spark is now {'on' if s['spark'] else 'off'}"
+    if setting in ("spark", "dreams"):
+        s[setting] = str(value).lower() in ("1", "true", "on", "yes")
+        return f"{'the morning spark' if setting == 'spark' else 'dreaming'} is now {'on' if s[setting] else 'off'}"
     if setting == "location":
         loc = _geocode(str(value))
         s["location"] = loc
         return f"your world is now in {loc['place']}, {loc['country']} (its real weather, daylight and seasons from your next wake-up)"
-    raise ValueError("settings you can change: default_sleep_hours, max_thoughts, review_days, spark (on/off), location (a place name)")
+    raise ValueError("settings you can change: default_sleep_hours, max_thoughts, review_days, spark (on/off), dreams (on/off), location (a place name)")
 
 
 def describe(me, config):

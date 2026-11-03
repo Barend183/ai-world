@@ -106,3 +106,62 @@ def unpublish(item_id):
 
 def listing():
     return [f"{i['id']} ({i['kind']}): {i['title']}" for i in _load()["items"]]
+
+
+# ---- his own design for the page ---------------------------------------------------
+FONTS = {"plain": "system-ui, sans-serif", "serif": "Georgia, 'Times New Roman', serif", "mono": "ui-monospace, Consolas, monospace",
+         "rounded": "'Trebuchet MS', 'Segoe UI', sans-serif", "handwritten": "'Comic Sans MS', 'Segoe Print', cursive"}
+
+
+def design(world, args):
+    """He shapes his public page: title, introduction, sections, colours, font, banner, what's featured.
+    Only design choices (no code), so nothing harmful can ever end up on a page anyone can visit."""
+    from .specimens import COLOR, sprite
+    data = _load()
+    d = data.setdefault("design", {})
+    texts = []
+    if args.get("title"):
+        d["title"] = str(args["title"]).strip()[:80]
+        texts.append(d["title"])
+    if "intro" in args:
+        d["intro"] = str(args.get("intro") or "").strip()[:2000]
+        texts.append(d["intro"])
+    if isinstance(args.get("sections"), list):
+        d["sections"] = [{"heading": str(s.get("heading", ""))[:80], "text": str(s.get("text", ""))[:2000]}
+                         for s in args["sections"][:6] if isinstance(s, dict) and (s.get("heading") or s.get("text"))]
+        texts += [s["heading"] + " " + s["text"] for s in d["sections"]]
+    if isinstance(args.get("colors"), dict):
+        d["colors"] = {k: v for k, v in args["colors"].items() if k in ("background", "card", "text", "accent") and isinstance(v, str) and COLOR.match(v)}
+    if args.get("font") in FONTS:
+        d["font"] = args["font"]
+    if args.get("banner"):
+        art = sprite(args["banner"])
+        if max(len(r) for r in art["pixels"]) > 160 or len(art["pixels"]) > 48:
+            raise ValueError("the banner can be at most 160 wide and 48 tall")
+        d["banner"] = art
+    if "featured" in args:
+        d["featured"] = str(args.get("featured") or "")[:80] or None
+    if args.get("order") in ("newest", "oldest"):
+        d["order"] = args["order"]
+    _private_check(world, *texts)
+    data["name"] = world.me.get("name", data.get("name", ""))
+    data["fonts"] = FONTS
+    _save(data)
+    return d
+
+
+def preview(world):
+    """What his public page looks like right now, described, plus its banner (pixel art) if he drew one."""
+    data = _load()
+    d = data.get("design", {})
+    items = data.get("items", [])
+    if d.get("featured"):
+        items = sorted(items, key=lambda i: i["id"] != d["featured"])
+    lines = [f"Your public page (anyone can visit it): title \"{d.get('title') or (world.me.get('name', '') + chr(39) + 's Public Corner')}\", "
+             f"font {d.get('font', 'plain')}, colours {d.get('colors') or 'the default colours (light or dark, following the visitor’s device)'}, "
+             f"{'a banner you drew' if d.get('banner') else 'no banner'}."]
+    lines.append("Introduction: " + (d.get("intro") or "(the default one I wrote for you)"))
+    for s in d.get("sections", []):
+        lines.append(f"Section \"{s['heading']}\": {s['text'][:300]}")
+    lines.append("Shared, in the order shown: " + ("; ".join(f"{i['kind']} \"{i['title']}\"" for i in items) or "nothing yet"))
+    return "\n".join(lines), d.get("banner")

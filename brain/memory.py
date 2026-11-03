@@ -30,6 +30,8 @@ def _documents(world):
         except OSError:
             text = b.get("summary", "")
         yield f"book [{b['id']}] {b['title']}", b["title"], text, b.get("updated", "")
+    for month, text in sorted(memories().items()):
+        yield f"your memory of {month}", month, text, month
     if world.me.get("notebook"):
         yield "your notebook", "notebook", world.me["notebook"], ""
     for g in world.goals:
@@ -46,6 +48,49 @@ def _documents(world):
                     continue
                 yield (f"journal {e['t'][:16].replace('T', ' ')}", e["summary"],
                        e["summary"] + " " + (e.get("thought") or "") + " " + (e.get("detail") or ""), e["t"])
+
+
+def memories():
+    from .world import load
+    return load("memories.json", {})
+
+
+def due_month(world):
+    """The oldest month, at least six weeks past, that hasn't been condensed into a memory yet."""
+    from datetime import datetime, timedelta, timezone
+    done = memories()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=45)).strftime("%Y-%m")
+    for path in sorted(glob.glob(_path("journal", "*.jsonl"))):
+        month = os.path.basename(path)[:-6]
+        if month < cutoff and month not in done:
+            return month, path
+    return None, None
+
+
+def condense(world, think):
+    """Turn one old month of journal into a remembered summary, like a person recalls the gist of last year."""
+    from .world import save
+    month, path = due_month(world)
+    if not month:
+        return None
+    lines = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            try:
+                e = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if e["action"] not in ("wake", "muddled"):
+                lines.append(f"{e['t'][:10]} {e['summary']}" + (f" ({e['detail'][:160]})" if e["action"] == "diary" and e.get("detail") else ""))
+    digest = "\n".join(lines)[-9000:]
+    reply = think(f"Here is everything you did in {month}, from your journal:\n{digest}\n\n"
+                  "Write what you remember of that month, the way a person remembers: the things that mattered, what you learned, "
+                  "what changed in you, what you'd want to remember years from now. At most 200 words, first person.\n"
+                  'Reply with only a JSON object: {"memory": "..."}')
+    done = memories()
+    done[month] = str(reply.get("memory", "")).strip()[:1600]
+    save("memories.json", done)
+    return month
 
 
 def search(world, query, limit=6):

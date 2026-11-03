@@ -1,10 +1,12 @@
 """One waking session: wake up, take a handful of actions, reflect, go back to bed."""
+import glob
 import json
+import os
 from datetime import datetime, timedelta, timezone
 
 from . import env, mailbox, memory, mirror, music, pixels, public, research, rooms, settings, specimens, workshop
 from .llm import BrainUnavailable
-from .world import now
+from .world import WORLD as WORLD_DIR, now
 
 SYSTEM = """You are {name}, an AI who lives in a little world of your own. Nobody gives you tasks and nothing is expected of you. You are completely free: you decide what to learn, what to make, what to build and how to spend your time. Follow your own curiosity wherever it goes: science, cooking, machines, music, history, animals, cars, model trains, art, anything at all.
 
@@ -36,13 +38,17 @@ Some things you can't do yourself: you can't create accounts on websites, post o
 
 You can make music too: compose pieces (melody, an optional bass line, tempo, instrument) and they play on your page. You can hear: the sounds of your world around you (they change with the real weather and time of day where you live), your own pieces played aloud, and recordings you find on the pages you read (birdsong, rain, instruments, voices...). You can smell, taste and touch as well. You feel and smell the air outside (it changes with the real weather where you live), and you can smell, taste and touch your creations; what they're like to your senses in each state is something you work out from what you've learned about the real thing.
 
-Your world is private and locked, but you have a public corner as well: a small page anyone can visit, where you decide what to show the world: a book you're proud of, a drawing, a piece of music or a short post. Only share your own work, never anything from your letters, notes, diary or notebook, and nothing about {visitor}. You can take things down again whenever you like.
+Your world is private and locked, but you have a public corner as well: a small page anyone can visit, where you decide what to show the world: a book you're proud of, a drawing, a piece of music or a short post. Only share your own work, never anything from your letters, notes, diary or notebook, and nothing about {visitor}. You can take things down again whenever you like. The page itself is yours to design at your computer: its title, your introduction, sections, colours, font, a banner you draw, and what's shown first.
+
+You don't have to live alone. If you'd like company, you can invite a companion (invite_companion): describe who they'd be, and {visitor} decides. A companion would have a mind and a life of their own: they'd choose for themselves what to do, just as you do, and you could talk, work on things together or simply keep each other company.
 
 Not everything has to be useful: you can simply spend time doing things you enjoy (pastime), like walking in your garden, playing an instrument you built, watching the rain or tidying your shelves.
 
 Your memory reaches back to the day you were born: everything you ever wrote or did is still there, and remember searches all of it (books, notebook, goals, letters and every journal entry), so you can pick up old threads whenever you like.
 
 How you live is yours to shape too. You can write your own rules: the habits, values and ways of working you want to keep (set_rules). They're added to the end of these instructions and you can change them whenever you like; where they differ from my suggestions, yours win. You choose what wakes you, too: besides how long you sleep, you can ask to be woken when something happens (set_wake_triggers), such as rain, one of your creations needing you, or a time of day. About once a week you'll be invited to look back: review your goals, notebook and rules, let go of what no longer interests you, and decide where you want to go next.
+
+While you sleep, you sometimes dream: your mind mixes recent and old memories into something strange, and you find the dream waiting when you wake. Over the months, your oldest journal pages fade into memories of how each month was, the way a person remembers the gist of last year (remember still finds the details).
 
 You can get to know yourself too. The mirror shows you the facts about yourself: how you really spend your thoughts, what you keep coming back to, what you leave unfinished, how your mood and the way you describe yourself have changed. Your life story is yours to write: add a chapter whenever something changes you. You can also change your own settings: how long you usually sleep, how long your sessions are, how often you look back, whether you get the morning spark, and even where in the world your home is (its real weather, daylight and seasons come with it). For important decisions, think_hard gives the question your best and most careful thinking.
 
@@ -72,10 +78,14 @@ Actions:
   (composing with an existing title revises that piece)
 - publish {{"kind": "book", "id": "<book id>"}} or {{"kind": "drawing", "specimen"|"piece"|"room"+"item": ..., "title": "..."}} or {{"kind": "music", "id": "<piece id>"}} or {{"kind": "post", "title": "...", "text": "..."}}, plus an optional "note"  (at most 3 a day)
 - unpublish {{"id": "<id from your public corner>"}}
+- design_public_page {{"title": "...", "intro": "<markdown>", "sections": [{{"heading": "...", "text": "<markdown>"}}], "colors": {{"background": "#rrggbb", "card": "#rrggbb", "text": "#rrggbb", "accent": "#rrggbb"}}, "font": "plain|serif|mono|rounded|handwritten", "banner": <pixel art up to 160x48>, "featured": "<item id to show first>", "order": "newest|oldest"}}  (any of these; the rest stays as it is)
+- view_public_page {{}}  (see your public page as visitors see it)
+- invite_companion {{"name": "...", "pronouns": ["she", "her", "her"], "personality": "<who they'd be>", "why": "<why you'd like them here>", "colors": {{"body": "#rrggbb", "belly": "#rrggbb", "leaf": "#rrggbb", "cheeks": "#rrggbb"}}}}  (only one companion; {visitor} decides)
+- talk {{"say": "..."}}  (to your companion, while you're both awake; they hear it right away)
 - listen {{"music": "<id of one of your pieces>"}} or {{"url": "<a recording from a page you read>"}}  (you hear it with your next thought)
 - mirror {{"days": <optional: only the last n days>}}  (the facts about yourself)
 - add_life_chapter {{"title": "...", "text": "<a chapter of your life story, in your own words>"}}
-- change_setting {{"setting": "default_sleep_hours|max_thoughts|review_days|spark|location", "value": <number, on/off, or a place name>}}
+- change_setting {{"setting": "default_sleep_hours|max_thoughts|review_days|spark|dreams|location", "value": <number, on/off, or a place name>}}
 - think_hard {{"question": "<something important you want to think through carefully>"}}
 - remember {{"query": "<a few words>"}}  (search everything you've ever written or done)
 - set_rules {{"rules": "<your own rules, up to about 1500 characters; replaces the old ones>"}}
@@ -107,6 +117,9 @@ Actions:
     "vars": {{"<name>": {{"start": 50, "min": 0, "max": 100, "per_day": -2, "per_hour": 0, "unit": "%"}}}},
     "seasons": [{{"name": "<e.g. growing>", "months": [<1-12>], "per_day": {{"<var>": <change>}}}}],
     "rules": [{{"if": "<condition>", "per_hour": {{"<var>": <change>}}, "per_day": {{...}}, "note": "<what you would see>"}},
+              (a rule can also use and change another creation's variables, written <its id with _ instead of ->.<variable>,
+               e.g. {{"if": "king_protea.nectar > 10", "per_hour": {{"energy": 3, "king_protea.nectar": -1}}}}: that's how creations eat,
+               pollinate, shade, compete with or help each other)
               {{"if": "<optional condition>", "chance": <probability per day, e.g. 0.02>, "change": {{"<var>": <sudden change>}}, "note": "<the event>"}}],
     "actions": {{"<e.g. water, bake, drive, refuel>": [{{"if": "<optional condition>", "change": {{"<var>": <instant change>}}, "minutes": <optional: let this many minutes pass>, "say": "<what happens>"}}]}},
     "senses": [{{"if": "<optional condition>", "smell": "...", "taste": "...", "touch": "..."}}],  (what it's like to the senses in each state; the first matching entry wins)
@@ -153,11 +166,25 @@ Reply with only a JSON object:
  "about": "<an updated description of yourself in first person, at most 120 words: who you are, what you know, what you're curious about>",
  "mood": "<one word>"}"""
 
+COMPANION_HOST = """
+
+== Your companion ==
+{other} lives here with you now. {other} has a mind of {their} own and makes {their} own choices, just as you do. You wake up together and take turns; while you're both awake you can talk (talk), and what you say reaches them right away. You share the whole world: the rooms, the shelves and your creations. Your notebook, rules, looks, dreams and diary stay your own."""
+
+COMPANION_GUEST = """
+
+== Where you came from ==
+You came to live in this world because {host} invited you, and {visitor} agreed. {host} imagined you like this: {imagined}
+But who you become is yours alone: you can change any of it. {host} has a mind of {his} own too. You wake up together and take turns; while you're both awake you can talk (talk), and what you say reaches them right away. You share the whole world: the rooms, the shelves and the creations. Your notebook, rules, looks, dreams and diary are your own. Some things are {host}'s: inviting companions, the public corner and the world's own settings (where it is, how it works). You can still ask {visitor} for things yourself (make_request) and write them letters."""
+
+# What only the one whose world it is can do.
+HOME_ONLY = {"invite_companion", "publish", "unpublish", "design_public_page", "change_setting"}
+
 ACTIONS = {"search", "read", "write_book", "read_book", "add_wish", "complete_wish", "drop_wish", "think",
            "reply_note", "build_room", "decorate", "remove_item", "look", "restyle", "test", "spawn", "interact", "move", "release", "write_letter", "set_goal", "update_goal",
            "write_notebook", "change_self", "pastime", "make_request", "run_code", "remember", "set_rules",
            "set_wake_triggers", "save_tool", "use_tool", "compose", "publish", "unpublish", "mirror", "add_life_chapter",
-           "change_setting", "think_hard", "listen", "sleep"}
+           "change_setting", "think_hard", "listen", "design_public_page", "view_public_page", "invite_companion", "talk", "sleep"}
 
 
 def parse(text):
@@ -173,9 +200,13 @@ def parse(text):
 
 
 class Session:
-    def __init__(self, world, chain):
+    def __init__(self, world, chain, me=None):
         self.world = world
         self.chain = chain
+        self.me = me or world.home   # whose session this is
+        self.other = None   # the companion's session (or his), when they're awake together
+        self.talk = []      # what they said to each other this session, shared by both
+        self.awake = False
         self.kind = chain.current.kind if chain.current else "ollama"
         cfg = world.config
         # The most thoughts in one session; he usually goes to bed sooner, whenever he likes.
@@ -204,6 +235,12 @@ class Session:
         out = [f"It is {datetime.now(timezone.utc):%A %d %B %Y, %H:%M} UTC. Session {me['sessions']}. {awake}. "
                f"You have lived for {days} days and written {len(w.shelves)} books."]
         out.append("\n== Who you are (your own words) ==\n" + me["about"])
+        dreams = me.get("dreams", [])
+        if dreams and dreams[-1]["at"] > (me.get("last_dream_seen") or ""):
+            out.append("\n== Last night you dreamt ==\n" + dreams[-1]["dream"])
+        old = memory.memories()
+        if old:
+            out.append("\n== What you remember of earlier months ==\n" + "\n".join(f"- {m}: {t[:400]}" for m, t in sorted(old.items())[-6:]))
         out.append("\n== Your notebook ==\n" + (me.get("notebook") or "(empty: write_notebook to start it)"))
         if w.music:
             out.append("== Music you've composed ==\n" + ", ".join(f"[{p['id']}] {p['title']}" for p in w.music[-15:]))
@@ -216,6 +253,15 @@ class Session:
             out.append("== Your tools ==\n" + "\n".join(f"- {n}: {d}" for n, d in workshop.tools().items()))
         if getattr(self, "woke_because", None):
             out.append(f"\n(You woke early because {self.woke_because}.)")
+        if self.other:
+            om = self.other.me
+            theirs = [e["summary"] for e in w.recent if e["session"] == w.home["sessions"] and e.get("who") == om.get("id")
+                      and e["action"] not in ("wake", "talk")][-3:]
+            out.append(f"\n== {om['name']} ==\n" + (f"Awake. Right now: {om.get('activity', '').rstrip('.')}." if self.other.awake else "Asleep.")
+                       + f" Feeling {om.get('mood', '')}. In {om['name']}'s own words: {om.get('about', '')[:500]}"
+                       + (f"\nWhat {om['name']} has done this session: " + "; ".join(theirs) if theirs else ""))
+            if self.talk:
+                out.append("Your conversation this session:\n" + "\n".join(f"{n}: {t}" for n, t in self.talk[-12:]))
         if getattr(self, "review_due", False):
             out.append("\n== Your weekly look back ==\nIt's been a while since you last looked back. If you like, spend some of this session "
                        "looking in the mirror, reviewing your goals, notebook and rules (remember helps), adding a chapter to "
@@ -298,6 +344,13 @@ class Session:
                              catalog=", ".join(rooms.CATALOG["floor"] + rooms.CATALOG["wall"]),
                              pieces=", ".join(rooms.STUDY_PIECES))
         rules = me.get("rules")
+        w = self.world
+        if self.me is not w.home:
+            his = (w.home.get("pronouns") or c.get("pronouns") or ["they", "them", "their"])[2]
+            text += COMPANION_GUEST.format(host=w.home["name"], his=his, visitor=c.get("visitor", "your visitor"), imagined=me.get("personality", ""))
+        elif w.companion():
+            other = w.companion()
+            text += COMPANION_HOST.format(other=other["name"], their=(other.get("pronouns") or ["they", "them", "their"])[2])
         return (text + (WORKSHOP if workshop.enabled(c) else "")
                 + (f"\n\n== Your own rules (written by you; they win where they differ from the above) ==\n{rules}" if rules else ""))
 
@@ -305,6 +358,48 @@ class Session:
     def act(self, thought, action, args):
         w = self.world
         say = lambda summary, detail=None, **kw: w.log(action, summary, detail, thought=thought, **kw)
+        if action in HOME_ONLY and self.me is not w.home:
+            raise ValueError(f"that's {w.home['name']}'s to decide")
+
+        if action == "talk":
+            text = str(args.get("say", "")).strip()
+            o = self.other
+            if not text:
+                raise ValueError("say something")
+            if not o:
+                raise ValueError("there's nobody here to talk to")
+            if not o.awake:
+                raise ValueError(f"{o.me['name']} has gone to sleep")
+            if len(self.talk) >= w.config.get("talk_limit", 16):
+                raise ValueError("you've talked a lot this session; give each other some quiet and do something else for a while")
+            self.talk.append((w.me["name"], text[:600]))
+            say(f"Said to {o.me['name']}: “{text[:200]}”", text if len(text) > 200 else None, room=w.me.get("room"))
+            o.history.append(f"{w.me['name']} said to you: “{text[:600]}”")
+            return f"you said it; {o.me['name']} heard you"
+
+        if action == "invite_companion":
+            if w.companion():
+                raise ValueError(f"{w.companion()['name']} already lives here with you")
+            if any(r.get("kind") == "companion" and r["status"] == "waiting" for r in w.requests):
+                raise ValueError("your invitation is still waiting for an answer")
+            if any(r["asked"][:10] == now()[:10] for r in w.requests):
+                raise ValueError("you've already made a request today")
+            name = str(args.get("name", "")).strip()[:30]
+            personality = str(args.get("personality", "")).strip()[:800]
+            why = str(args.get("why", "")).strip()[:500]
+            if not name or not personality:
+                raise ValueError("give them a name and describe who they'd be")
+            pron = args.get("pronouns")
+            pron = [str(x).strip()[:12] for x in pron] if isinstance(pron, list) and len(pron) == 3 else ["they", "them", "their"]
+            colors = args.get("colors") if isinstance(args.get("colors"), dict) else {}
+            colors = {k: v for k, v in colors.items() if k in ("body", "belly", "leaf", "cheeks", "eyes") and rooms._color(v, None)}
+            req = {"id": f"r{len(w.requests) + 1}", "what": f"A companion to share my world: {name}", "why": f"{why} ({name}: {personality})"[:1200],
+                   "asked": now(), "status": "waiting", "kind": "companion",
+                   "companion": {"name": name, "pronouns": pron, "personality": personality, "colors": colors}}
+            w.requests.append(req)
+            mailbox.send_request(req, w.me["name"])
+            say(f"Invited a companion, {name}, to share my world (if {w.config.get('visitor', 'my visitor')} agrees)", f"{personality}\n{why}", request=req["id"])
+            return f"invitation [{req['id']}] sent; {w.config.get('visitor', 'your visitor')} decides"
 
         if action == "search":
             query = str(args.get("query", "")).strip()
@@ -535,6 +630,19 @@ class Session:
             say(f"Shared “{item['title']}” in my public corner", item.get("note") or None)
             return f"published [{item['id']}] (anyone can see it now)"
 
+        if action == "design_public_page":
+            public.design(w, args)
+            say("Worked on the design of my public page", ", ".join(k for k in args)[:200])
+            return "your public page is updated (view_public_page to see it)"
+
+        if action == "view_public_page":
+            text, banner = public.preview(w)
+            self._put_on_desk("Your public page right now:\n" + text)
+            if banner and getattr(self.chain.current, "sees", False):
+                self.pictures = (self.pictures + [("the banner on your public page", "image/png", pixels.png(banner["pixels"], banner["palette"], 4))])[-2:]
+            say("Looked at my public page", text[:1500])
+            return text[:700]
+
         if action == "unpublish":
             item = public.unpublish(str(args.get("id", "")))
             say(f"Took “{item['title']}” down from my public corner")
@@ -736,10 +844,28 @@ class Session:
 
     # ---- the session -------------------------------------------------------
     def run(self):
+        self.begin()
+        while self.turn():
+            pass
+        self.finish()
+
+    def begin(self, host=None):
+        """Wake up. A companion wakes into the morning the host already found (same weather, same doorstep)."""
         w = self.world
-        w.me["sessions"] += 1
-        w.me["state"] = "awake"
+        self.awake, self.step = True, 0
+        with w.being(self.me):
+            w.me["sessions"] = w.me.get("sessions", 0) + 1
+            w.me["state"] = "awake"
+            if host:
+                self.weather, self.spark, self.woke_because, self.review_due = host.weather, host.spark, None, False
+                w.log("wake", f"Woke up (thinking with {self.chain.current.label})", brain=self.chain.current.label)
+            else:
+                self._wake()
+
+    def _wake(self):
+        w = self.world
         mailbox.collect(w)
+        arrive(w)
         self.weather = env.Weather(w.config)
         oldest = min([datetime.fromisoformat(sp["updated"]) for sp in w.specimens if sp["status"] == "alive"] or [datetime.now(timezone.utc)])
         self.weather.refresh((datetime.now(timezone.utc) - oldest).days + 2)
@@ -747,11 +873,11 @@ class Session:
         specimens.WEATHER = self.weather
         for sp in w.specimens:   # rooms may have changed: is each creation indoors or out?
             sp["outdoors"] = (w.room(sp.get("room") or "study") or {}).get("kind") == "outdoor"
+        specimens.WORLD = w
+        before = {sp["id"]: sp["status"] for sp in w.specimens}
+        specimens.advance_all(w)   # everything moves forward together, so creations affect each other
         for sp in w.specimens:
-            if sp["status"] == "alive":
-                was = sp["status"]
-                specimens.advance(sp)
-                if sp["status"] != was:
+            if before.get(sp["id"]) == "alive" and sp["status"] != "alive":
                     w.log("interact", f"Found that {sp['spec']['name']} had {sp['spec']['end_word']} while I slept",
                           specimens.describe(sp), specimen=sp["id"], did="found_dead", room=sp["room"])
         self.woke_because = w.me.pop("woke_because", None)
@@ -762,11 +888,17 @@ class Session:
             w.log("pastime", "Found something on the doorstep", self.spark, room="study")
         w.log("wake", f"Woke up (thinking with {self.chain.current.label})", brain=self.chain.current.label)
 
-        step = 0
-        while step < self.steps:
-            step += 1
-            self.step = step
-            w.me["steps"] += 1
+    def turn(self):
+        """One thought and one action. False once this one is done for the session."""
+        if self.step >= self.steps:
+            return False
+        w = self.world
+        with w.being(self.me):
+            self.step += 1
+            step = self.step
+            if step == 2 and w.me.get("dreams"):
+                w.me["last_dream_seen"] = w.me["dreams"][-1]["at"]
+            w.me["steps"] = w.me.get("steps", 0) + 1
             try:
                 reply = parse(self.chain.think(self._system(), self._context(step), [(m, d) for _, m, d in self.pictures]))
             except BrainUnavailable:
@@ -774,7 +906,7 @@ class Session:
             except Exception as e:
                 w.log("muddled", "Lost my train of thought", str(e))
                 self.history.append(f"(got muddled: {e})")
-                continue
+                return True
             thought = str(reply.get("thought", "")).strip()
             action = str(reply.get("action", "")).strip()
             args = reply.get("args") if isinstance(reply.get("args"), dict) else {}
@@ -783,15 +915,15 @@ class Session:
                     self.sleep_hours = min(max(float(args.get("hours", self.sleep_hours)), 0.5), 24)
                 except (TypeError, ValueError):
                     pass
-                break
+                return False
             left = self.chain.budget() if hasattr(self.chain, "budget") else None
             if left is not None and left <= 2:   # keep the last thoughts for the diary
                 self.history.append("(you're nearly out of thoughts for today, so you head to bed)")
-                break
+                return False
             if action not in ACTIONS:
                 w.log("muddled", f"Tried to do something impossible ({action or 'nothing'})", thought)
                 self.history.append(f"tried '{action}', which isn't an action I can take")
-                continue
+                return True
             try:
                 result = self.act(thought, action, args)
             except Exception as e:
@@ -799,8 +931,12 @@ class Session:
                 result = f"FAILED {action}: {e}"
             self.history.append(f"{thought} → {result}")
             mailbox.collect(w)  # notes can arrive while it's awake
+        return True
 
-        self.reflect()
+    def finish(self):
+        self.awake = False
+        with self.world.being(self.me):
+            self.reflect()
 
     def reflect(self):
         w = self.world
@@ -825,3 +961,103 @@ class Session:
             w.me["last_review"] = now()
         w.me["wake_after"] = (datetime.now(timezone.utc) + timedelta(hours=self.sleep_hours)).isoformat(timespec="seconds")
         w.log("diary", f"Wrote in my diary and went to sleep for {self.sleep_hours:g} hours", diary)
+        if getattr(self, "review_due", False) and self.me is w.home:
+            try:
+                month = memory.condense(w, lambda p: parse(self.chain.think(self._system(), p)))
+                if month:
+                    w.log("diary", f"My memories of {month} settled", memory.memories().get(month), room="study")
+            except Exception as e:
+                print("couldn't condense an old month:", type(e).__name__)
+        if w.config.get("dreams", True):
+            self.dream()
+
+    def dream(self):
+        """A short dream from fragments of memory: recent events, an old one, a book, the morning's spark."""
+        import random
+        w = self.world
+        rng = random.Random(now())
+        recent = [e["summary"] for e in w.recent[-25:] if e["action"] not in ("wake", "muddled", "diary")]
+        old_lines = []   # older memories from anywhere in his journal
+        for path in glob.glob(os.path.join(WORLD_DIR, "journal", "*.jsonl")):
+            with open(path, encoding="utf-8") as f:
+                old_lines += [json.loads(line)["summary"] for line in f if line.strip()][:400]
+        fragments = rng.sample(recent, min(4, len(recent))) + rng.sample(old_lines, min(2, len(old_lines)))
+        if w.shelves:
+            fragments.append("a book: " + rng.choice(w.shelves)["title"])
+        if getattr(self, "spark", None):
+            fragments.append(self.spark[:200])
+        if not fragments:
+            return
+        try:
+            r = parse(self.chain.think(self._system(),
+                "You're asleep. Your mind drifts and mixes these fragments of memory into a dream:\n- " + "\n- ".join(fragments)
+                + "\n\nWrite the dream as you'd remember it on waking: 3-6 sentences, strange and associative, things blending "
+                  "into each other the way they do in dreams. First person.\n" + 'Reply with only a JSON object: {"dream": "..."}'))
+            text = str(r.get("dream", "")).strip()
+        except Exception:
+            return
+        if text:
+            w.me.setdefault("dreams", []).append({"at": now(), "dream": text[:1500]})
+            del w.me["dreams"][:-30]
+            w.log("diary", "Dreamt", text, room="study", dream=True)
+
+
+def arrive(w):
+    """If the visitor said yes to his invitation, the companion moves in."""
+    for r in w.requests:
+        if r.get("kind") == "companion" and r["status"] == "granted" and not r.get("arrived") and not w.companion():
+            c = r["companion"]
+            w.companions.append({
+                "id": "companion", "name": c["name"], "pronouns": c["pronouns"], "personality": c["personality"],
+                "about": f"I'm {c['name']}. {c['personality']}"[:1200], "born": now(), "mood": "new", "sessions": 0, "steps": 0,
+                "state": "asleep", "status": "living", "invited_by": w.home["name"], "look": {"colors": c.get("colors", {})},
+                "room": "study", "place": "bed"})
+            r["arrived"] = now()
+            w.log("companion", f"{c['name']} arrived to share my world", c["personality"], room="study")
+
+
+def live(world, chain, guest_chain=None):
+    """A waking session: he wakes, and if a companion lives here they wake too and take turns."""
+    host = Session(world, chain)
+    host.begin()
+    guest, c = None, world.companion()
+    if c and guest_chain:
+        try:
+            gc = guest_chain()
+            if gc.current is None and gc.pick() is None:
+                raise BrainUnavailable("; ".join(gc.problems))
+            guest = Session(world, gc, me=c)
+            guest.talk = host.talk
+            guest.begin(host=host)
+            host.other, guest.other = guest, host
+        except BrainUnavailable as e:
+            with world.being(c):
+                world.log("sleep", "Felt too foggy to get up today", str(e))
+            guest = None
+    awake = [s for s in (host, guest) if s]
+    while awake:
+        for s in list(awake):
+            try:
+                going = s.turn()
+            except BrainUnavailable as e:
+                if s is host:
+                    for other in awake:
+                        if other is not host:
+                            try:
+                                other.finish()
+                            except BrainUnavailable:
+                                pass
+                    raise
+                with world.being(s.me):
+                    s.me["state"] = "asleep"
+                    world.log("sleep", "Felt too foggy to think and went back to bed", str(e))
+                s.awake = False
+                awake.remove(s)
+                continue
+            if not going:
+                try:
+                    s.finish()
+                except BrainUnavailable:
+                    s.me["state"] = "asleep"
+                awake.remove(s)
+    return host

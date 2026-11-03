@@ -8,6 +8,7 @@
   rooms.json     the study it started in, plus rooms and yards it built and decorated
   goals.json     long-term projects it set itself
   requests.json  things it asked its visitor for (an account, a new ability...) and the answers
+  companions.json  a companion who came to share the world, with a mind and a self of its own
   recent.json    the last few hundred things it did (the page replays these)
   journal/       every event ever, one file per month
   brain.json     which brains are out of free requests
@@ -16,6 +17,7 @@ import json
 import os
 import re
 import tempfile
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -34,7 +36,8 @@ PLACES = {
     "build_room": "room", "decorate": "item", "remove_item": "room",
     "look": "computer", "restyle": "room", "test": "computer",
     "set_goal": "board", "update_goal": "board", "write_letter": "mailbox",
-    "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer", "compose": "armchair", "mirror": "room", "add_life_chapter": "armchair", "change_setting": "armchair", "think_hard": "armchair", "listen": "armchair", "publish": "computer", "unpublish": "computer",
+    "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer", "compose": "armchair", "mirror": "room", "add_life_chapter": "armchair", "change_setting": "armchair", "think_hard": "armchair", "listen": "armchair", "publish": "computer", "unpublish": "computer", "design_public_page": "computer", "view_public_page": "computer",
+    "talk": "talk", "invite_companion": "mailbox", "companion": "door",
     "remember": "shelves", "set_rules": "armchair", "set_wake_triggers": "bed", "save_tool": "computer", "use_tool": "computer",
 }
 
@@ -75,6 +78,8 @@ class World:
             "name": config["name"], "born": now(), "about": config["personality"],
             "mood": "curious", "sessions": 0, "steps": 0,
         }
+        self.home = self.me   # whose world it is; `me` is whoever is thinking right now
+        self.companions = load("companions.json", [])
         from .settings import apply
         self.config = apply(config, self.me.get("settings"))
         self.shelves = load("shelves.json", [])
@@ -95,11 +100,13 @@ class World:
 
     # ---- journal -------------------------------------------------------
     def log(self, action, summary, detail=None, **extra):
-        event = {"t": now(), "session": self.me["sessions"], "action": action, "room": extra.pop("room", None) or "study",
+        event = {"t": now(), "session": self.home["sessions"], "action": action, "room": extra.pop("room", None) or "study",
                  "place": PLACES.get(action, "armchair"), "summary": summary[:300]}
         if detail:
             event["detail"] = detail[:4000]
         event.update({k: v for k, v in extra.items() if v is not None})
+        if self.me is not self.home:
+            event["who"] = self.me.get("id", "companion")
         self.recent.append(event)
         self.recent = self.recent[-RECENT_LIMIT:]
         self.me.update(activity=summary[:160], place=event["place"], room=event["room"], last_seen=event["t"])
@@ -108,6 +115,18 @@ class World:
             f.write(json.dumps(event, ensure_ascii=False) + "\n")
         self.save()  # save as we go so the page can watch live
         return event
+
+    @contextmanager
+    def being(self, me):
+        """Lend the world to whoever is thinking: everything they do is theirs (their notebook, their look, their journal)."""
+        was, self.me = self.me, me
+        try:
+            yield me
+        finally:
+            self.me = was
+
+    def companion(self):
+        return next((c for c in self.companions if c.get("status") == "living"), None)
 
     # ---- books ---------------------------------------------------------
     def book(self, book_id):
@@ -171,7 +190,8 @@ class World:
         return next((r for r in self.rooms if r["id"] == key or slug(r["name"]) == key), None)
 
     def save(self):
-        save("self.json", self.me)
+        save("self.json", self.home)
+        save("companions.json", self.companions)
         save("shelves.json", self.shelves)
         save("wishlist.json", self.wishes)
         save("notes.json", self.notes)

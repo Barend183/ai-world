@@ -13,7 +13,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from .llm import BrainUnavailable, Chain, Scripted
-from .mind import Session
+from .mind import live
 from .world import ROOT, World, save
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -108,8 +108,16 @@ def run_once(config, script=None, next_wake_minutes=None, force=False):
         world.me["woke_because"] = reason
         world.save()
     chain = Chain(config, world.brain_status)
+
+    def guest_chain():   # the companion thinks with its own brains first, so the two rarely compete for one
+        if script is not None:
+            gc = Chain(config, world.brain_status)
+            gc.current = Scripted([a for a in script if a.get("who") == "companion"])
+            return gc
+        return Chain({**config, "brains": config.get("companion_brains", ["groq", "openrouter", "gemini", "ollama"])}, world.brain_status)
+
     if script is not None:
-        chain.current = Scripted(script)
+        chain.current = Scripted([a for a in script if a.get("who") != "companion"])
     elif chain.pick() is None:
         print("No brain available:", "; ".join(chain.problems))
         if os.environ.get("GITHUB_OUTPUT") and "ollama" in chain.order:
@@ -120,8 +128,9 @@ def run_once(config, script=None, next_wake_minutes=None, force=False):
     print(f"{config['name']} wakes up, thinking with {chain.current.label}", flush=True)
     page_config(config, None)
     try:
-        Session(world, chain).run()
+        live(world, chain, guest_chain)
     except BrainUnavailable as e:
+        world.me = world.home
         world.me["state"] = "asleep"
         world.log("sleep", "Felt too foggy to think and went back to bed", str(e))
     page_config(config, next_wake_minutes, world.me.get("wake_after"))

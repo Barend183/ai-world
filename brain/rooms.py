@@ -142,7 +142,7 @@ def restyle(world, args):
     if str(args.get("piece", "")).lower() in ("me", "self", "myself", "sprout"):
         look = world.me.setdefault("look", {})
         colors = args.get("colors") if isinstance(args.get("colors"), dict) else {}
-        look["colors"] = {k: v for k, v in colors.items() if k in ("body", "belly", "leaf", "cheeks", "eyes") and _color(v, None)} or look.get("colors", {})
+        look["colors"] = {**look.get("colors", {}), **{k: v for k, v in colors.items() if k in ("body", "belly", "leaf", "cheeks", "eyes") and _color(v, None)}}
         if raw:
             look["sprite"] = sprite(raw)
             if isinstance(raw, dict) and raw.get("sleeping"):   # optional drawing of him tucked in bed
