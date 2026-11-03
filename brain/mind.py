@@ -158,7 +158,7 @@ What I can do, and how:
 - interact {{"specimen": "<id>", "action": "observe", "smell", "taste", "touch" or one of its actions}}
 - move {{"specimen": "<id>", "room": "<room id>", "x": <0..1, optional>}}  (carry a creation to another room or spot)
 - release {{"specimen": "<id>", "reason": "..."}}
-- sleep {{"hours": <how long to sleep, 0.5 to 24>}}  (I go to bed whenever I'm done for now)
+- sleep {{"hours": <how long to sleep, 0.5 to 24>}}  (I go to bed whenever I'm done for now, even with energy left. Sleep is also how I let time pass: while I sleep, dough rises, paint dries and my creations grow)
 
 How I draw pixel art (sprite): {{"palette": {{"a": "#rrggbb", "b": "#rrggbb"}}, "pixels": ["..aa..", ".abba.", "aaaaaa"], "states": [{{"if": "<condition>", "pixels": [...]}}], "size_var": "<optional variable>"}}
 One character per pixel, "." is see-through, up to 80 wide and 64 tall. As many colours as I like, for shading and detail. For a creation, "states" swap in a different drawing while a condition holds (flowering, dormant, rusty, cooked...), and "size_var" makes the drawing grow with that variable (half size at its min, full size at its max). My rooms are 180 pixels tall and I'm about 26 pixels tall, so a chair is about 16x20 and a car about 48x20."""
@@ -377,7 +377,7 @@ class Session:
 
         notes = w.pending_notes()
         if notes:
-            out.append("\n== Letters waiting in my mailbox ==")
+            out.append("\n== Letters waiting in my mailbox (I've opened them; here they are) ==")
             out += [f"- [{n['id']}] from {n['from']}: {n['text']}" for n in notes]
 
         asked = w.requests[-5:]
@@ -613,10 +613,17 @@ class Session:
             return f"thought about: {about[:200]}"
 
         if action == "reply_note":
-            note = next((n for n in w.notes if n["id"] == str(args.get("id", ""))), None)
-            reply = str(args.get("reply", "")).strip()
-            if not note or not reply:
-                raise ValueError("reply_note needs a note id and a reply")
+            # forgiving: the id with or without brackets, under any likely name; the only waiting letter if there's one
+            nid = str(args.get("id") or args.get("note_id") or args.get("note") or "").strip().strip("[]")
+            reply = next((str(args[k]).strip() for k in ("reply", "text", "message", "answer", "body")
+                          if isinstance(args.get(k), str) and args[k].strip()), "")
+            waiting = w.pending_notes()
+            note = next((n for n in w.notes if n["id"] == nid), None) or (waiting[0] if len(waiting) == 1 else None)
+            if not reply:
+                raise ValueError('my reply needs some words: reply_note {"id": "<note id>", "reply": "..."}')
+            if not note:
+                raise ValueError("I need to say which letter I'm answering; waiting: " + ", ".join(n["id"] for n in waiting)
+                                 if waiting else "every letter in my mailbox already has my answer; write_letter sends a new one")
             note.update(reply=reply, replied=now())
             mailbox.send_reply(note)
             say(f"Wrote back to {note['from']}", reply, note=note["id"])
@@ -676,6 +683,16 @@ class Session:
                 mime, data = research.fetch_image(url)
                 label, extra = f"a photo I found at {url}", {"image": url}
             else:
+                what = str(args.get("item") or args.get("piece") or "").strip().lower().replace(" ", "_")
+                if what in ("mailbox", "letter", "letters", "mail", "note", "notes"):   # opening it is reading what's inside
+                    waiting = w.pending_notes()
+                    say("Opened my mailbox", None, room="study")
+                    if not waiting:
+                        return "My mailbox is empty: every letter in it already has my answer."
+                    return ("I open my mailbox and read: " + " ".join(f"[{n['id']}] from {n['from']}: “{n['text']}”" for n in waiting)
+                            + ' (reply_note {"id": "...", "reply": "..."} answers one.)')
+                if what in rooms.STUDY_PIECES and not args.get("piece"):   # the study's own furniture is a piece, not an item
+                    args = {**args, "piece": what}
                 name, art = rooms.art_of(w, args)
                 sp = w.specimen(args["specimen"]) if args.get("specimen") else None
                 if art:
@@ -685,7 +702,8 @@ class Session:
                     if not data:
                         raise ValueError(f"I can't make out {name} clearly on my computer right now")
                 else:
-                    raise ValueError(f"I haven't drawn {name} myself yet; it still has its original look")
+                    raise ValueError(f"I haven't drawn {name} myself yet, so there's no drawing of mine to study; "
+                                     'to see it as it is, I look around the room it\'s in (look {"around": true})')
                 mime = "image/png"
                 label = f"my drawing of {name}" if art else f"how my {name} looks right now"
                 extra = {"specimen": args.get("specimen"), "room": args.get("room")} if args.get("specimen") else {}
@@ -902,7 +920,20 @@ class Session:
             if not activity:
                 raise ValueError('say what you would like to do: pastime {"activity": "..."}')
             room = w.room(args.get("room") or w.me.get("room") or "study") or w.room("study")
+            mine = w.me.get("id") if w.me is not w.home else None
+            streak = 0   # pastimes in a row just before this one
+            for e in reversed(w.recent):
+                if e["session"] != w.home["sessions"] or e.get("who") != mine:
+                    continue
+                if not e.get("pastime"):
+                    break
+                streak += 1
             say(activity[:1].upper() + activity[1:200], str(args.get("thoughts", "")) or None, room=room["id"], pastime=True)
+            if streak >= 2:   # a pastime is a moment, not a clock: say so, so I can wait in a way that works
+                return (f"spent some time: {activity}. That's {streak + 1} pastimes in a row, yet only a few minutes have really "
+                        "passed. What I imagine in a pastime stays just as it is, so nothing in it rises, dries or grows while I "
+                        "watch. To let hours go by, I can sleep and come back to it; to have something truly change over time, "
+                        "I can bring it to life (spawn).")
             return f"spent some time: {activity}"
 
         if action == "write_letter":
