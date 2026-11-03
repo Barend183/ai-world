@@ -98,7 +98,7 @@ jobs:
           ollama pull "$(python -c "import json; print(json.load(open('config.json'))['own_brain']['base'])")" > /dev/null
           # the version that has grown from his lessons, once there is one (kept as a private Kaggle dataset)
           if [ -f brain/own_brain.json ] && [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY$KAGGLE_API_TOKEN" ] && ! ollama list | grep -q '^sprout'; then
-            pip install --quiet kaggle
+            pip install --quiet kaggle six
             kaggle datasets download "$KAGGLE_USERNAME/sprout-brain" -p "$HOME/sprout" --unzip -q \
               && (cd "$HOME/sprout" && ollama create sprout -f Modelfile > /dev/null) || echo "couldn't fetch his grown brain this time"
           fi

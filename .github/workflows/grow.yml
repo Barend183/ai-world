@@ -49,7 +49,7 @@ jobs:
           WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pip install --quiet -r requirements.txt kaggle
+          pip install --quiet -r requirements.txt kaggle six   # six: a helper the Kaggle tool needs but doesn't install
           # first make sure the key really opens Kaggle, so a wrong key shows up now and not on training day
           kaggle datasets list --mine > /dev/null && echo "Kaggle key works." || { echo "::error::Kaggle didn't accept the key; check the KAGGLE_ secrets."; exit 1; }
           mkdir -p work/data work/kernel
