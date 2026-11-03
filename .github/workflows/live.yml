@@ -6,6 +6,12 @@ on:
     - cron: "17 * * * *"     # every hour GitHub checks whether he wants to be awake; he chooses when
                               # (Gemini's free tier, 20 requests per model per day, is his thinking budget)
   workflow_dispatch:          # the "Run workflow" button wakes it up right now
+    inputs:
+      wake:
+        description: "Wake him now? (no = just check whether he wants to be awake, like the hourly check)"
+        type: choice
+        options: ["yes", "no"]
+        default: "yes"
   push:
     paths: ["docs/vault/inbox/**"]   # a note you send from his page wakes him right away
 
@@ -62,7 +68,7 @@ jobs:
           WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
           WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python -m brain run --next-wake 180 ${{ github.event_name == 'workflow_dispatch' && '--now' || '' }}
+        run: python -m brain run --next-wake 180 ${{ github.event_name == 'workflow_dispatch' && inputs.wake != 'no' && '--now' || '' }}
 
       # Only when every free service is used up for the day: run a free open model (Gemma 3) right here instead.
       # It's slower and simpler, but unlimited, so he never has to stop.
@@ -91,7 +97,7 @@ jobs:
           OPENROUTER_API_KEY: ""
           WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
           WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
-        run: python -m brain run --next-wake 180 ${{ github.event_name == 'workflow_dispatch' && '--now' || '' }}
+        run: python -m brain run --next-wake 180 ${{ github.event_name == 'workflow_dispatch' && inputs.wake != 'no' && '--now' || '' }}
 
       - name: Lock his world again and save it
         run: |
