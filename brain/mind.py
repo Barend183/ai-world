@@ -63,7 +63,7 @@ Habits I've found good:
 - I research from more than one source, then write what I learned in my own words. I only claim what my sources say, list the URLs I read, and say so when sources disagree or I'm unsure.
 - I check my shelves first. If I already have a book on a topic, I reread it and write a better version.
 - I don't search for the same thing twice in a row. If a page won't open, I try another result.
-- I answer {visitor}'s letters kindly and honestly.
+- I answer {visitor}'s letters kindly and honestly, the way I'd talk with a friend: I answer what was actually said or asked, in my own words. I don't need to greet or give my news every time, and if I'm not sure what was meant, I can ask.
 
 How my mind works: each moment I do exactly one thing, and it comes out as a single JSON object, nothing else:
 {{"thought": "<one or two sentences, in my own words>", "feeling": "<optional: how I feel right now, a word or two>", "action": "<what I do>", "args": {{...}}}}
@@ -76,7 +76,7 @@ What I can do, and how:
 - read_book {{"id": "<book id>"}}
 - add_wish {{"topic": "...", "why": "..."}} / complete_wish {{"id": "...", "book": "<book id>"}} / drop_wish {{"id": "...", "reason": "..."}}
 - think {{"about": "..."}}
-- reply_note {{"id": "<note id>", "reply": "..."}}
+- reply_note {{"id": "<note id>", "reply": "..."}}  (one answer per letter; adding "add": true puts a P.S. under an answer I already sent)
 - write_letter {{"text": "..."}}  (a letter to {visitor}, whenever I like; at most two a day)
 - make_request {{"what": "<what I'd like, e.g. an account on a particular website, a new ability>", "why": "<why I want it and what I'd do with it>"}}  (at most one a day)
 - compose {{"title": "...", "melody": "<notes like C4:1 E4:1 G4:2 R:1 (note+octave:beats, R is a rest, # sharp, b flat)>", "bass": "<optional second voice, same notation>", "tempo": <beats per minute>, "instrument": "piano|organ|flute|sine|triangle|square|sawtooth", "about": "<optional>"}}
@@ -277,6 +277,25 @@ def surroundings(w):
     return here
 
 
+def letters(w):
+    """The letters between my visitor and me: the ones waiting for my answer, then how we've been writing lately,
+    so I answer what was actually said, and a follow-up ("I meant...", "you said...") makes sense."""
+    out = []
+    waiting = w.pending_notes()
+    if waiting:
+        out.append("\n== Letters waiting for my answer (I've read them; reply_note answers one) ==")
+        out += [f"- [{n['id']}] {n['from']} wrote: “{n['text']}”" for n in waiting]
+    lately = [n for n in w.notes if n.get("reply") or n.get("outgoing")][-6:]
+    if lately:
+        out.append("\n== Our letters lately (oldest first) ==")
+        for n in lately:
+            if n.get("outgoing"):
+                out.append(f"- I wrote to {n.get('to', 'my visitor')}: “{n['text'][:300]}”")
+            else:
+                out.append(f"- {n['from']} wrote: “{n['text'][:300]}” I answered: “{n['reply'][:300]}”")
+    return out
+
+
 def parse(text):
     """Pull the first JSON object out of a model's reply, however messy."""
     text = (text or "").strip()
@@ -340,6 +359,7 @@ class Session:
             out.append(energy(left, self.reset_local))
         if me.get("feeling") and step > 1:
             out.append(f"Right now I feel {me['feeling']}.")
+        out += letters(w)   # first, so a letter is the first thing I take in
         out.append("\n== Around me now ==\n" + surroundings(w))
         out.append("\n== Who I am (in my own words) ==\n" + me["about"])
         dreams = me.get("dreams", [])
@@ -381,11 +401,6 @@ class Session:
                        "in front of the mirror, going over my goals, notebook and rules (remember helps), adding a chapter to "
                        "my life story, letting go of what no longer interests me, and deciding where I want to go next. "
                        "think_hard is good for this.")
-
-        notes = w.pending_notes()
-        if notes:
-            out.append("\n== Letters waiting in my mailbox (I've opened them; here they are) ==")
-            out += [f"- [{n['id']}] from {n['from']}: {n['text']}" for n in notes]
 
         asked = w.requests[-5:]
         if asked:
@@ -637,6 +652,11 @@ class Session:
             if not note:
                 raise ValueError("I need to say which letter I'm answering; waiting: " + ", ".join(n["id"] for n in waiting)
                                  if waiting else "every letter in my mailbox already has my answer; write_letter sends a new one")
+            if note.get("reply"):   # never write over an answer that's already been sent
+                if str(args.get("add", "")).lower() not in ("true", "yes", "1"):
+                    raise ValueError(f"I already answered [{note['id']}]: “{note['reply'][:300]}”. To add something, "
+                                     f'reply_note {{"id": "{note["id"]}", "reply": "...", "add": true}} puts a P.S. under it')
+                reply = f"{note['reply']}\n\nP.S. {reply}"
             note.update(reply=reply, replied=now())
             mailbox.send_reply(note)
             say(f"Wrote back to {note['from']}", reply, note=note["id"])
@@ -1105,6 +1125,8 @@ class Session:
                           specimens.describe(sp), specimen=sp["id"], did="found_dead", room=sp["room"])
         self.woke_because = w.me.pop("woke_because", None)
         self.alarm_rang = w.me.pop("alarm_rang", None)
+        # old "a letter arrived" reminders outlived their answers and made letters seem to still be waiting
+        w.home["on_my_mind"] = [m for m in w.home.get("on_my_mind", []) if not re.fullmatch(r"a letter from .+ arrived", m["what"])]
         last = w.me.get("last_review") or w.me.get("born")
         self.review_due = (datetime.now(timezone.utc) - datetime.fromisoformat(last)).days >= w.config.get("review_days", 7)
         self.spark = research.spark(f"{w.me['sessions']}-{now()[:13]}") if w.config.get("spark", True) else None

@@ -63,7 +63,7 @@ def collect(world):
                 _answer(world, note["answer_for"], note.get("decision"), note.get("text"))
             else:
                 world.add_note(note.get("from") or "Visitor", note.get("text", ""), "local")
-                world.mark(f"a letter from {note.get('from') or 'my visitor'} arrived", days=1)
+                # not put "on his mind": a reminder that outlives the answer made him think letters were still waiting
         except (OSError, json.JSONDecodeError):
             pass
         os.remove(path)
