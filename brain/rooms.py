@@ -22,7 +22,7 @@ CATALOG = {
 PRESETS = set(CATALOG["floor"]) | set(CATALOG["wall"])
 
 # The study's own furniture, which the AI can redraw with pixel art (drawn standing on its anchor).
-STUDY_PIECES = ["bookshelf", "wishboard", "window", "armchair", "desk", "computer", "door", "mailbox", "bed", "plant", "rug"]
+STUDY_PIECES = ["bookshelf", "wishboard", "window", "armchair", "desk", "computer", "door", "mailbox", "bed", "alarm_clock", "plant", "rug"]
 
 STUDY = {"id": "study", "name": "Study", "builtin": True, "kind": "indoor", "width": 320, "items": [],
          "purpose": "Where I live: my shelves, computer, wishlist board and bed."}
@@ -200,7 +200,7 @@ def art_of(world, args):
         room = world.room(args.get("room") or "study")
         return f"the {args['surface']} texture", room and room.get(str(args["surface"]).lower() + "_tile")
     if args.get("piece"):
-        return f"the study's {args['piece']}", world.room("study").get("skins", {}).get(str(args["piece"]).lower())
+        return f"the study's {args['piece']}", world.room("study").get("skins", {}).get(str(args["piece"]).lower().replace(" ", "_"))
     room = world.room(args.get("room") or "study")
     item = room and next((i for i in room["items"] if i["id"] == slug(str(args.get("item", "")))), None)
     if not item:

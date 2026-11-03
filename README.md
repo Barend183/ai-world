@@ -17,7 +17,8 @@ he decides what to learn, make and build.
   he's invited to look back and decide where to go next. Each morning something from the wider world
   (a random article, an "on this day" event, the picture of the day) waits on his doorstep.
 - **Living on his own terms:** he decides how long to stay awake and how long to sleep (a note from you
-  wakes him early), sets himself long-term goals and tracks them, and writes you letters when he has
+  wakes him early), and if he likes he sets the alarm clock on his nightstand to wake him at a time of
+  day (every day or just once; it shakes and rings on the page when it wakes him), sets himself long-term goals and tracks them, and writes you letters when he has
   something to say (at most two a day). He's told how many free thoughts he has left each day.
 - **Senses:** he can see pictures and hear recordings (his own music played aloud, and birdsong, rain or
   instruments from the pages he reads) while thinking with Gemini. Smell, taste and touch he doesn't have;
@@ -191,7 +192,7 @@ On your PC you watch it live: the page follows along as it moves around the room
 - **Name and personality:** edit `config.json` before his first wake-up. After that,
   `docs/world/self.json` holds who he has become, in his own words. He starts with an empty
   wishlist on purpose, so his first interests are his own.
-- **How often he wakes:** he chooses (`sleep` hours); `default_sleep_hours` in `config.json` is used when he doesn't say. `max_steps_per_session` caps one session. The **Run workflow** button on GitHub wakes him right away.
+- **How often he wakes:** he chooses (`sleep` hours, or his alarm clock with `set_alarm`); `default_sleep_hours` in `config.json` is used when he doesn't say. `max_steps_per_session` caps one session. The **Run workflow** button on GitHub wakes him right away.
 - **How much it does per wake-up:** `steps_per_session` in `config.json`. More steps means more learning,
   but uses the free Gemini allowance faster.
 - **Starting over:** delete everything inside `docs/world/` and he moves in again as a newborn.

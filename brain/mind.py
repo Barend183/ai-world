@@ -6,7 +6,7 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 
-from . import env, events, mailbox, memory, mirror, music, pixels, public, research, rooms, settings, sites, specimens, workshop
+from . import alarm, env, events, mailbox, memory, mirror, music, pixels, public, research, rooms, settings, sites, specimens, workshop
 from .llm import BrainUnavailable
 from .world import WORLD as WORLD_DIR, load, now, save
 
@@ -23,6 +23,7 @@ My home started as one room, the study:
 - my armchair: where I sit and think
 - my mailbox: where letters from {visitor} arrive. {visitor} visits my world sometimes and writes to me.
 - my bed: where I sleep. I go to bed when I choose and sleep as long as I like (sleep {{"hours": n}}); a letter in my mailbox wakes me early.
+- my alarm clock, beside my bed: if I want, I set it to ring at a time of day (every day or just once) and it wakes me then; I can also leave it off.
 
 I can grow my world however I like: build new rooms or outdoor spaces (a kitchen, a workshop, a garden, a garage, a bigger room...), paint them, and furnish and decorate them to my own taste, with ready-made furniture or pixel art I draw myself (my own paintings, posters, gadgets...).
 
@@ -158,6 +159,7 @@ What I can do, and how:
 - interact {{"specimen": "<id>", "action": "observe", "smell", "taste", "touch" or one of its actions}}
 - move {{"specimen": "<id>", "room": "<room id>", "x": <0..1, optional>}}  (carry a creation to another room or spot)
 - release {{"specimen": "<id>", "reason": "..."}}
+- set_alarm {{"time": "<HH:MM, my world's time>", "repeat": "daily|once"}} or {{"off": true}}  (my alarm clock: when it's on, I wake when it rings, or sooner if I chose a shorter sleep)
 - sleep {{"hours": <how long to sleep, 0.5 to 24>}}  (I go to bed whenever I'm done for now, even with energy left. Sleep is also how I let time pass: while I sleep, dough rises, paint dries and my creations grow)
 
 How I draw pixel art (sprite): {{"palette": {{"a": "#rrggbb", "b": "#rrggbb"}}, "pixels": ["..aa..", ".abba.", "aaaaaa"], "states": [{{"if": "<condition>", "pixels": [...]}}], "size_var": "<optional variable>"}}
@@ -199,7 +201,7 @@ ACTIONS = {"search", "read", "write_book", "read_book", "add_wish", "complete_wi
            "write_notebook", "change_self", "pastime", "make_request", "run_code", "remember", "set_rules",
            "set_wake_triggers", "save_tool", "use_tool", "compose", "publish", "unpublish", "mirror", "add_life_chapter",
            "change_setting", "think_hard", "listen", "design_public_page", "view_public_page", "invite_companion", "talk",
-           "build_site", "write_site_page", "remove_site_page", "view_site", "write_private", "sleep"}
+           "build_site", "write_site_page", "remove_site_page", "view_site", "write_private", "set_alarm", "sleep"}
 
 # Other names I reach for, and what I mean by them (my journal calls looking around "look_around", for one).
 SAME_AS = {"look_around": ("look", {"around": True}), "turn": ("look", {"around": True}),
@@ -208,7 +210,9 @@ SAME_AS = {"look_around": ("look", {"around": True}), "turn": ("look", {"around"
            "taste": ("interact", {"action": "taste"}), "touch": ("interact", {"action": "touch"}),
            "tend": ("interact", {}), "care": ("interact", {}), "go_to_sleep": ("sleep", {}), "go_to_bed": ("sleep", {}),
            "notebook": ("write_notebook", {}), "letter": ("write_letter", {}), "reply": ("reply_note", {}),
-           "goal": ("set_goal", {}), "wish": ("add_wish", {}), "request": ("make_request", {}), "music": ("compose", {})}
+           "goal": ("set_goal", {}), "wish": ("add_wish", {}), "request": ("make_request", {}), "music": ("compose", {}),
+           "alarm": ("set_alarm", {}), "alarm_clock": ("set_alarm", {}), "set_alarm_clock": ("set_alarm", {}),
+           "set_clock": ("set_alarm", {}), "wake_me": ("set_alarm", {})}
 
 
 def near_action(w, action, args):
@@ -268,6 +272,8 @@ def surroundings(w):
         names = ", ".join(shown[:-1]) + (" and " if len(shown) > 1 else "") + shown[-1]
         rest = f", with {len(things) - 6} more things nearby" if len(things) > 6 else ""
         here += " Around me are " + names + rest + "."
+    if room.get("builtin"):
+        here += f" My alarm clock on the nightstand by my bed is {alarm.describe(w.me)}."
     return here
 
 
@@ -323,7 +329,8 @@ class Session:
                 sky = (", and rain is falling outside" if o["env_rain"] > 0 else ", still dark outside" if not o["env_daylight"]
                        else ", and it's light outside")
             where = "in my bed in the study" if self.me is w.home else "in the study"
-            why = f" Something woke me early: {self.woke_because}." if getattr(self, "woke_because", None) else ""
+            why = (f" Something woke me early: {self.woke_because}." if getattr(self, "woke_because", None)
+                   else f" My alarm clock rang at {me['alarm']['time']} and woke me." if getattr(self, "alarm_rang", None) and me.get("alarm") else "")
             out = [f"I wake up {where}. It's {local:%A %d %B, %H:%M}{sky}.{why} I've lived here for {days} days and written {len(w.shelves)} {'book' if len(w.shelves) == 1 else 'books'}."]
             if me.get("mood"):
                 out.append(f"When I fell asleep I felt {me['mood']}.")
@@ -480,6 +487,12 @@ class Session:
             save("private.json", pages)
             w.log("write_private", "Wrote in my private pages" if text else "Cleared my private pages")   # never the words
             return "written; it stays mine alone" if text else "my private pages are empty again"
+
+        if action == "set_alarm":
+            result = alarm.set_(w.me, args)
+            say("Set my alarm clock for " + w.me["alarm"]["time"] if alarm.describe(w.me) != "off" else "Switched my alarm clock off",
+                room="study")
+            return result
 
         if action == "talk":
             text = str(args.get("say", "")).strip()
@@ -1091,12 +1104,14 @@ class Session:
                     w.log("interact", f"Found that {sp['spec']['name']} had {sp['spec']['end_word']} while I slept",
                           specimens.describe(sp), specimen=sp["id"], did="found_dead", room=sp["room"])
         self.woke_because = w.me.pop("woke_because", None)
+        self.alarm_rang = w.me.pop("alarm_rang", None)
         last = w.me.get("last_review") or w.me.get("born")
         self.review_due = (datetime.now(timezone.utc) - datetime.fromisoformat(last)).days >= w.config.get("review_days", 7)
         self.spark = research.spark(f"{w.me['sessions']}-{now()[:13]}") if w.config.get("spark", True) else None
         if self.spark:
             w.log("pastime", "Found something on the doorstep", self.spark, room="study")
-        w.log("wake", f"Woke up (thinking with {self.chain.current.label})", brain=self.chain.current.label)
+        w.log("wake", ("My alarm clock rang and I woke up" if self.alarm_rang else "Woke up") + f" (thinking with {self.chain.current.label})",
+              brain=self.chain.current.label, alarm=self.alarm_rang or None)
 
     def turn(self):
         """One thought and one action. False once this one is done for the session."""
@@ -1134,6 +1149,7 @@ class Session:
             if action == "sleep":
                 try:
                     self.sleep_hours = min(max(float(args.get("hours", self.sleep_hours)), 0.5), 24)
+                    self.chose_hours = "hours" in args   # with my alarm on and no length chosen, the alarm decides
                 except (TypeError, ValueError):
                     pass
                 return False
@@ -1191,8 +1207,12 @@ class Session:
         w.me["state"] = "asleep"
         if getattr(self, "review_due", False):
             w.me["last_review"] = now()
-        w.me["wake_after"] = (datetime.now(timezone.utc) + timedelta(hours=self.sleep_hours)).isoformat(timespec="seconds")
-        w.log("diary", f"Wrote in my diary and went to sleep for {self.sleep_hours:g} hours", diary)
+        wake, rings = alarm.bedtime(w.me, self.sleep_hours, getattr(self, "chose_hours", False), w.config.get("utc_offset_hours", 2))
+        w.me["wake_after"] = wake.isoformat(timespec="seconds")
+        w.me["alarm_wake"] = rings   # the alarm clock, not just my body, will wake me
+        hours = (wake - datetime.now(timezone.utc)).total_seconds() / 3600
+        w.log("diary", f"Wrote in my diary and went to sleep for {hours:.3g} hours"
+              + (f" (my alarm clock is set for {w.me['alarm']['time']})" if rings else ""), diary)
         if getattr(self, "review_due", False) and self.me is w.home:
             try:
                 month = memory.condense(w, lambda p: parse(self.chain.think(self._system(), p)))

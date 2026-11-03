@@ -136,6 +136,12 @@ def run_once(config, script=None, next_wake_minutes=None, force=False):
             return None
         world.me["woke_because"] = reason
         world.save()
+    # his alarm clock rings only when it's what wakes him (not a note, nor someone waking him early)
+    if world.me.pop("alarm_wake", False) and wake_after and not world.me.get("woke_because") \
+            and datetime.fromisoformat(wake_after) <= datetime.now(timezone.utc):
+        world.me["alarm_rang"] = True
+        if (world.me.get("alarm") or {}).get("repeat") == "once":
+            world.me["alarm"]["on"] = False
     chain = Chain(config, world.brain_status)
 
     def guest_chain():   # the companion thinks with its own brains first, so the two rarely compete for one

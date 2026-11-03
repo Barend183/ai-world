@@ -63,7 +63,8 @@ this.__world = function (input) {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) for (let c = 0; c < 4; c++) img[(y * w + x) * 4 + c] = px[((y + y0) * W + x + x0) * 4 + c];
     things.push({ img, w, h, x: x0, y: y0, ground, kind, name });
   };
-  const STAND = { bed: [["bed"], 164], armchair: [["armchair"], 132], desk: [["desk"], 125], computer: [["computer"], 125] };
+  const STAND = { bed: [["bed"], 164], armchair: [["armchair"], 132], desk: [["desk"], 125], computer: [["computer"], 125],
+                  nightstand: [["nightstand", "alarm_clock"], 150] };
   const chairModel = !!rm.builtin && !rm.skins?.armchair;
   const full = rm.builtin ? paint([]) : null;
   const back = rm.builtin ? paint(Object.values(STAND).flatMap(([n]) => n)) : paint([]);

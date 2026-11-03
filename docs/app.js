@@ -225,6 +225,7 @@ function renderTabs() {
       <div><div class="hero-name">${esc(me.name)}</div>
       <div class="muted">Feeling <b>${esc(me.mood)}</b></div>
       <div>${me.state === "asleep" ? "Sleeping" : "Right now"}: ${esc(me.activity || "—")}</div>
+      ${me.alarm && me.alarm.on ? `<div class="muted" style="font-size:12px">⏰ Alarm clock set for ${esc(me.alarm.time)}${me.alarm.repeat === "once" ? " (once)" : " every day"}</div>` : ""}
       <div class="muted" style="font-size:12px">Thinks with ${esc(lastWake?.brain || "—")}</div></div></div>
     <div class="stats">
       <div class="stat"><b>${S.shelves.length}</b><span>books</span></div>
@@ -464,6 +465,7 @@ const r = (x, y, w, h, c) => Px.rect(ctx, x, y, w, h, c);
 const STUDY_ANCHORS = {
   bookshelf: [37, 118], wishboard: [90, 66], window: [137, 72], armchair: [132, 132], desk: [202, 125],
   computer: [202, 101], door: [257, 112], mailbox: [282, 88], bed: [275, 164], plant: [304, 116], rug: [160, 170],
+  alarm_clock: [227, 131], nightstand: [227, 150],
 };
 
 function drawStudy(t) {
@@ -528,6 +530,26 @@ function drawStudy(t) {
   });
   piece("plant", () => { r(298, 104, 12, 12, "#b5653a"); r(301, 92, 2, 12, "#3e7a3a"); r(296, 90, 7, 4, "#4f9a49"); r(303, 95, 7, 4, "#4f9a49"); r(300, 86, 5, 4, "#5fae57"); });
   piece("bed", () => { r(236, 136, 78, 28, "#6e4a2d"); r(238, 132, 74, 16, "#e9e2d0"); r(286, 130, 24, 10, "#fdfbf5"); r(238, 140, 50, 20, "#5b7fa6"); r(238, 140, 50, 2, "#7097c4"); });
+  piece("nightstand", () => { r(220, 131, 15, 16, "#5b3a22"); r(221, 132, 13, 5, "#7a5230"); r(227, 134, 2, 1, "#e3c15b"); r(221, 147, 2, 3, "#3a2a1c"); r(232, 147, 2, 3, "#3a2a1c"); });
+  piece("alarm_clock", () => alarmClock(ctx, 227, 131, t));
+}
+
+// His alarm clock: it shows his world's time, wears a red dot while it's set, and shakes and rings when it wakes him.
+function alarmClock(g, x, y, t) {
+  const a = S.me.alarm || {}, lastWake = [...S.recent].reverse().find((e) => e.action === "wake");
+  const ringing = lastWake && lastWake.alarm && Date.now() - Date.parse(lastWake.t) < 90000;
+  const dx = ringing ? (Math.floor(t / 70) % 2 ? 1 : -1) : 0, cx = x + dx, cy = y - 6;
+  Px.rect(g, cx - 5, y - 1, 2, 1, "#3a2a1c"); Px.rect(g, cx + 3, y - 1, 2, 1, "#3a2a1c");   // feet
+  Px.ellipse(g, cx - 4, cy - 5, 2, 2, "#c9a24a"); Px.ellipse(g, cx + 4, cy - 5, 2, 2, "#c9a24a");   // bells
+  Px.ellipse(g, cx, cy, 5, 5, "#b23a3a"); Px.ellipse(g, cx, cy, 4, 4, "#f4f1ea");
+  const d = worldTime(), hr = ((d.getUTCHours() % 12) + d.getUTCMinutes() / 60) / 12 * Math.PI * 2, mn = d.getUTCMinutes() / 60 * Math.PI * 2;
+  if (a.on && /^\d\d:\d\d$/.test(a.time || "")) {   // the red alarm hand points at the time it's set for
+    const [ah, am] = a.time.split(":").map(Number), al = ((ah % 12) + am / 60) / 12 * Math.PI * 2;
+    for (let i = 1; i <= 3; i++) Px.rect(g, Math.round(cx + Math.sin(al) * i), Math.round(cy - Math.cos(al) * i), 1, 1, "#e33");
+  }
+  for (let i = 1; i <= 3; i++) Px.rect(g, Math.round(cx + Math.sin(mn) * i), Math.round(cy - Math.cos(mn) * i), 1, 1, "#222");
+  for (let i = 1; i <= 2; i++) Px.rect(g, Math.round(cx + Math.sin(hr) * i), Math.round(cy - Math.cos(hr) * i), 1, 1, "#222");
+  if (ringing) for (let i = 0; i < 3; i++) Px.rect(g, cx + (i % 2 ? 8 : -9), cy - 6 + i * 3, 2, 1, Math.floor(t / 140) % 2 ? "#f2d45c" : "#fff");
 }
 
 function drawView(t) {
