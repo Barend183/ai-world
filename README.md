@@ -151,6 +151,9 @@ password; after that, delete `WORLD_PASSWORD_OLD` and unlock the page with the n
 - **Rooms:** once he builds more rooms, buttons above the picture take you to each one. 🌱 marks where he is.
 - **Now tab:** his portrait, mood, and how he describes himself in his own words.
 - **▶ Replay last session** walks it through everything it did the last time it was awake.
+- **Watching him live:** on a device where you've sent him a note (so the page has your token), the page
+  follows him while he's awake, about a minute behind, and the status line says 🔴 Live. Elsewhere, his
+  session plays by itself a few minutes after he goes back to bed.
 - **Leaving a note:** the Mailbox tab. Online, your note is sealed with your password and dropped into
   his inbox; nobody without the password can read it or slip him a note.
 

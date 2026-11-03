@@ -54,6 +54,7 @@ const key = (e) => e.t + "|" + e.summary;
 
 async function load(first) {
   if (S.locked && !first && !(await Vault.refresh())) return showLock("Your password changed; please unlock again.");
+  if (S.locked) { try { await Vault.refreshLive(JSON.parse(Vault.files["config.json"] || "{}").repo); } catch {} }
   S.goals = await getJSON("goals.json", []);
   S.requests = await getJSON("requests.json", []);
   S.music = await getJSON("music.json", []);
@@ -206,6 +207,7 @@ function renderStatus() {
   const w = weatherNow();
   if (w) line = `${w.env_rain > 0 ? "🌧" : w.env_daylight ? "☀️" : "🌙"} ${Math.round(w.env_temp)}°C in ${S.weather.place} · ` + line;
   if (me.state === "asleep" && S.cfg.next_wake) line += ` Next wake-up ${ago(S.cfg.next_wake)}.`;
+  if (S.locked && Vault.liveOn && me.state !== "asleep") line = "🔴 Live · " + line;
   const h = happening();
   line = [h.storm && "⛈ Storm", h.power && "⚡ Power cut", h.heat && "🔥 Heat wave", h.cold && "❄ Cold snap"].filter(Boolean).concat(line).join(" · ");
   $("status").textContent = line;
@@ -730,6 +732,7 @@ async function start() {
   await load(true);
   setView(S.view);
   requestAnimationFrame(frame);
-  setInterval(() => load(false), S.locked || S.cfg.mode === "github" ? 60000 : 4000);
+  // online: every 20 s with your token (he can be watched live), otherwise every minute
+  setInterval(() => load(false), !S.locked && S.cfg.mode !== "github" ? 4000 : S.locked && Vault.token() ? 20000 : 60000);
 }
 start();

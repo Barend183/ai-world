@@ -115,6 +115,8 @@ class World:
         with open(_path("journal", event["t"][:7] + ".jsonl"), "a", encoding="utf-8") as f:
             f.write(json.dumps(event, ensure_ascii=False) + "\n")
         self.save()  # save as we go so the page can watch live
+        from . import live
+        live.push()   # online: a sealed snapshot for the owner's page, about once a minute
         return event
 
     @contextmanager

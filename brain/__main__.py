@@ -154,6 +154,8 @@ def run_once(config, script=None, next_wake_minutes=None, force=False):
         world.log("sleep", "Felt too foggy to think and went back to bed", str(e))
     page_config(config, next_wake_minutes, world.me.get("wake_after"))
     world.save()
+    from . import live as live_view
+    live_view.push(force=True)   # the page sees him go to bed right away
     session = [e for e in world.recent if e["session"] == world.me["sessions"]]
     if (os.environ.get("WORLD_PASSWORD") or os.environ.get("WORLD_PASSWORD_NEW")) and os.environ.get("GITHUB_ACTIONS"):
         print(f"  ({len(session)} things done; details stay locked)")   # GitHub's logs are public

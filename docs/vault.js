@@ -4,7 +4,7 @@
 // Format (same as brain/vault.py): "AIW1" + salt(16) + nonce(12) + AES-256-GCM(zlib(data)), key = PBKDF2-SHA256(password, salt, 310000).
 
 const Vault = {
-  files: null, key: null, salt: null, stamp: null,
+  files: null, key: null, salt: null, stamp: null, live: null, liveOn: false,
   REMEMBER: "aiworld-key",
 
   async deriveKey(password, salt) {
@@ -83,8 +83,27 @@ const Vault = {
   },
 
   text(name) {
-    const v = this.files && this.files[name];
+    const v = (this.liveOn && this.live && name in this.live ? this.live : this.files || {})[name];
     return typeof v === "string" ? v : null;
+  },
+
+  token() { try { return localStorage.getItem("aiworld-github"); } catch { return null; } },
+
+  // While he's awake online, a sealed snapshot is saved to the "live" branch about once a minute. With your
+  // token, this page reads it straight from GitHub (no waiting for the website to rebuild) and shows him live.
+  async refreshLive(repo) {
+    const token = this.token();
+    if (!token || !repo || !this.key) { this.liveOn = false; return false; }
+    try {
+      const r = await fetch(`https://api.github.com/repos/${repo}/contents/live.bin?ref=live&t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token.trim()}`, Accept: "application/vnd.github.raw" }, cache: "no-store" });
+      if (!r.ok) { this.liveOn = false; return false; }
+      const bundle = JSON.parse(new TextDecoder().decode(await this.decrypt(new Uint8Array(await r.arrayBuffer()), this.key)));
+      const seen = (files) => { try { return JSON.parse(files["self.json"]).last_seen || ""; } catch { return ""; } };
+      this.live = bundle.files;
+      this.liveOn = seen(bundle.files) > seen(this.files || {});   // only while it's newer than the saved world
+      return this.liveOn;
+    } catch { this.liveOn = false; return false; }
   },
 
   // Sends a sealed note (or an answer to one of his requests) into his vault inbox on GitHub.
