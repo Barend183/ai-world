@@ -164,7 +164,8 @@ def pull():
         with open(LESSONS, "wb") as f:
             f.write(zlib.decompress(vault.open_any(data)))
     except Exception as e:
-        print("no lessons fetched:", type(e).__name__)
+        missing = getattr(e, "code", None) == 404   # no lessons branch yet: his first lessons are still to come
+        print("no lessons yet (a fresh start)" if missing else f"no lessons fetched: {type(e).__name__}")
 
 
 def push():
