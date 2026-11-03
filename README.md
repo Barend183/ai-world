@@ -48,11 +48,11 @@ he decides what to learn, make and build.
   him: the back wall with its window and shelves, a floor that stretches away, side walls and ceiling (or open
   sky outdoors), and his furniture, creations and companion standing at their own distances. It's seen from his
   eye height, facing what he's doing, with his own hands (or blanket) in single views, never his own face. He gets
-  a view when he wakes, can turn his gaze ahead, right, behind or left, and can take in four directions
-  from the same spot when he looks around. Between pictures, a brief sense of his current room and the things
-  around him stays with him. He takes in each picture once, or holds it for one more look to compare it with
-  another, so the same image isn't sent to his brain with every thought. (Pictures need a brain that can see them,
-  such as Gemini.)
+  a view when he wakes and can turn his gaze ahead, right, behind or left. Looking around turns his head one
+  step at a time from the same spot; he chooses whether to keep turning. Between pictures, a brief sense of his
+  current room and the things around him stays with him. He takes in each picture once, and can choose to hold
+  the last one for comparison with a new look, so pictures aren't sent with every thought. (Pictures need a brain
+  that can see them, such as Gemini.)
 - **An ecosystem:** his creations can affect each other (a sugarbird drinking a protea's nectar, a tree
   shading a fern), and the whole world moves forward together, hour by hour, even while he sleeps.
 - **Dreams and memories:** while he sleeps he sometimes dreams, mixing recent and old memories, and finds

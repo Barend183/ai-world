@@ -26,7 +26,7 @@ I can grow my world however I like: build new rooms or outdoor spaces (a kitchen
 
 How everything looks is up to me as well: I can repaint any room (my study too: build_room with the name "Study"), give walls and floors my own textures, and redraw anything with my own pixel art: my creations, furniture, even the study's own bookshelf, bed or window. I can change how I look, too. I can look at photos on the pages I read and at my own drawings, compare them, and make my drawings more like the real thing. A drawing can change as the thing grows, ages, flowers or wears out.
 
-I see my world with my own eyes. When I wake I see what's in front of me, and I can look around wherever I am, or step into any room and take it in (look {{"around": true}}): the light, the weather through the window, my things, my creations, whoever is there with me.
+I see my world with my own eyes. When I wake I see what's in front of me. I can turn my head and look around wherever I am, one view at a time, or step into any room and take it in: the light, the weather through the window, my things, my creations, whoever is there with me. I choose when to keep turning or focus on something.
 
 My world has real weather: the actual hour-by-hour weather of {weather_place}, with day and night. Outdoors there's rain, sun, heat, cold and wind; indoors it's mild and dry. Things happen, too: storms, heat waves and cold snaps come with the weather, and now and then the power goes out (more often in a storm), so my computer and electric lights stop working until it's back. My creations feel all of this as well. My world follows the real calendar and seasons of {location}.
 
@@ -113,9 +113,9 @@ What I can do, and how:
   (Decorating with an existing item's name moves or replaces it.)
 - remove_item {{"room": "<room id>", "item": "<item name>"}}
 - look {{"around": true}} or {{"direction": "ahead|right|behind|left"}} or {{"room": "<room id>"}} (I turn my head without moving, or step into a room and look)
-  (When I look around, I turn in place. In the picture I see ahead and right above, behind and left below.)
+  (Each look is one view from my eyes. "around" turns me right once; I can keep looking around if I want. A direction is relative to where I'm facing now.)
   or {{"url": "<a picture URL from a page I read>"}} or {{"specimen": "<id>"}} or {{"piece": "<study piece>"}} or {{"room": "<room id>", "item": "<item name>"}}
-  (I see a photo, or one of my own drawings, with my next thought; I can keep two pictures in view to compare.)
+  (I see a photo, or one of my own drawings, with my next thought. If I add "compare": true to my next look, I keep the last picture beside the new one.)
 - restyle {{"specimen": "<id>"}} or {{"piece": "<one of: {pieces}>"}} or {{"room": "<room id>", "item": "<item name>"}}, plus "sprite": <new pixel art, or null to go back to the old look>
   {{"room": "<room id>", "surface": "wall|floor", "sprite": <a texture tile up to 48x48 that repeats across the whole wall or floor>}}
   {{"piece": "me", "colors": {{"body": "#rrggbb", "belly": "#rrggbb", "leaf": "#rrggbb", "cheeks": "#rrggbb"}}}} to recolour myself, or
@@ -617,19 +617,25 @@ class Session:
                 direction = str(args.get("direction") or "").strip().lower().replace(" ", "_")
                 direction = {"forward": "ahead", "front": "ahead", "back": "behind"}.get(direction, direction)
                 if direction and direction not in ("ahead", "right", "behind", "left"):
-                    raise ValueError("I can look ahead, right, behind or left, or look all around")
-                around = bool(args.get("around") or not direction)
-                data = pixels.see(w, room["id"], around=around, direction=direction)
+                    raise ValueError("I can look ahead, right, behind or left, or keep turning to look around")
+                around = bool(args.get("around") and not direction)
+                turn = "right" if around else direction or "ahead"
+                facing = w.me.get("facing", 0) if room["id"] == w.me.get("room") else 0
+                facing = facing if isinstance(facing, int) and 0 <= facing < 4 else 0
+                facing = (facing + {"ahead": 0, "right": 1, "behind": 2, "left": -1}[turn]) % 4
+                view = ("ahead", "right", "behind", "left")[facing]
+                data = pixels.see(w, room["id"], direction=view)
                 if not data:
                     raise ValueError("Everything is a blur for a moment; I can try looking again later")
-                label = (f"what I see in the {room['name']}, ahead and right above, behind and left below" if around
-                         else f"what I see looking {direction} in the {room['name']}")
+                label = (f"what I see as I turn to look around the {room['name']}" if around
+                         else f"what I see looking {turn} in the {room['name']}")
                 self.pictures = (self.pictures + [(label, "image/png", data)])[-2:]
                 place = w.me.get("place") if room["id"] == w.me.get("room") else "room"
-                w.log("look_around", f"I looked {'around' if around else direction} in the {room['name']}",
+                w.me["facing"] = facing
+                w.log("look_around", f"I looked {'around' if around else turn} in the {room['name']}",
                       thought=thought, room=room["id"], place=place)
-                return (f"I turn and take in the {room['name']}." if around
-                        else f"I turn my head {direction} and look across the {room['name']}.")
+                return (f"I turn my head and take in another part of the {room['name']}." if around
+                        else f"I {'look ahead' if turn == 'ahead' else 'turn my head ' + turn} in the {room['name']}.")
             elif args.get("url"):
                 url = str(args["url"]).strip()
                 mime, data = research.fetch_image(url)
@@ -984,6 +990,7 @@ class Session:
         with w.being(self.me):
             w.me["sessions"] = w.me.get("sessions", 0) + 1
             w.me["state"] = "awake"
+            w.me["facing"] = 0   # I open my eyes facing into the room
             if host:
                 self.weather, self.spark, self.woke_because, self.review_due = host.weather, host.spark, None, False
                 w.log("wake", f"Woke up (thinking with {self.chain.current.label})", brain=self.chain.current.label)
@@ -1051,8 +1058,9 @@ class Session:
                 w.me["feeling"] = feeling
             action = str(reply.get("action", "")).strip()
             args = reply.get("args") if isinstance(reply.get("args"), dict) else {}
-            # A picture stays for one thought; a second look keeps it once more for comparison.
-            self.pictures = [p for p in self.pictures if p[1].startswith("image/")] if action == "look" else []
+            # A picture stays for one thought; only my choice to compare keeps it for another look.
+            compare = str(args.get("compare", "")).lower() in ("true", "yes", "1")
+            self.pictures = [p for p in self.pictures if p[1].startswith("image/")] if action == "look" and compare else []
             if action == "sleep":
                 try:
                     self.sleep_hours = min(max(float(args.get("hours", self.sleep_hours)), 0.5), 24)
@@ -1068,8 +1076,11 @@ class Session:
                       room=w.me.get("room"), place=w.me.get("place"))
                 self.history.append(f"I tried '{action or 'nothing'}', which isn't something I can do yet")
                 return True
+            before_room = w.me.get("room")
             try:
                 result = self.act(thought, action, args)
+                if action != "look" and w.me.get("room") != before_room:
+                    w.me["facing"] = 0   # entering a room faces into it
             except Exception as e:
                 self.pictures = []
                 w.log("muddled", f"I couldn't {action.replace('_', ' ')}", f"{e}\n{thought}",
