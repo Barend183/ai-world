@@ -47,8 +47,9 @@ he decides what to learn, make and build.
 - **His own eyes, in 3D:** your page shows his world side-on in 2D, but he sees it as a real 3D room around
   him: the back wall with its window and shelves, a floor that stretches away, side walls and ceiling (or open
   sky outdoors), and his furniture, creations and companion standing at their own distances. Standing things keep
-  their places and facing as he turns, with visible sides and backs. Thin legs and stems stay narrow, leaving
-  open space beneath furniture. It's seen from his eye height, facing what he's doing, with his own hands (or
+  their places and facing as he turns, with visible sides and backs. His study chair has a separate back, cushion
+  and arms; thin legs and stems stay narrow, leaving open space beneath furniture. It's seen from his eye height,
+  facing what he's doing, with his own hands (or
   blanket) in single views, never his own face. He gets a view when he wakes and can turn his gaze ahead, right,
   behind or left, or look up or down at nearby things.
   Looking around turns his head one step at a time from the same spot; he chooses whether to keep turning.

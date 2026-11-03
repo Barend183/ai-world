@@ -64,6 +64,7 @@ this.__world = function (input) {
     things.push({ img, w, h, x: x0, y: y0, ground, kind, name });
   };
   const STAND = { bed: [["bed"], 164], armchair: [["armchair"], 132], desk: [["desk"], 125], computer: [["computer"], 125] };
+  const chairModel = !!rm.builtin && !rm.skins?.armchair;
   const full = rm.builtin ? paint([]) : null;
   const back = rm.builtin ? paint(Object.values(STAND).flatMap(([n]) => n)) : paint([]);
   if (rm.builtin) for (const [name, [names, ground]] of Object.entries(STAND)) {   // a piece of furniture = what changes when it's left out
@@ -72,7 +73,7 @@ this.__world = function (input) {
       if (Math.abs(full[i] - without[i]) + Math.abs(full[i + 1] - without[i + 1]) + Math.abs(full[i + 2] - without[i + 2]) > 0.5)
         for (let c = 0; c < 4; c++) px[i + c] = full[i + c];
     }
-    keep(px, ground, "furniture", name);
+    if (name !== "armchair" || !chairModel) keep(px, ground, "furniture", name);
   }
   for (const it of rm.items) if (it.place !== "wall") { const c = blank(); drawItem(c.getContext("2d"), it, itemX(it, rm), fy, 26); keep(c.px, fy, "furniture", it.name); }
   for (const sp of liveIn(view)) { const c = blank(); drawSpecimen(c.getContext("2d"), sp, specimenX(sp), 166, T); keep(c.px, 166, "creation", sp.spec.name); }
@@ -84,7 +85,7 @@ this.__world = function (input) {
   }
   const col = (eye === S.bot2 ? compLook(self) : self.look || {}).colors || {};
   const entered = view !== eye.room, whereEyes = entered ? spotFor({ room: view, place: "room" }) : eye;
-  return { W, top, back, things, lights: lightsIn(rm, fy), fy, outdoor: rm.kind === "outdoor", study: !!rm.builtin,
+  return { W, top, back, things, chairModel, lights: lightsIn(rm, fy), fy, outdoor: rm.kind === "outdoor", study: !!rm.builtin,
            eye: { x: whereEyes.x, ground: whereEyes.y, place: self.place, entered }, body: col.body || "#66c28a",
            night: isNight(), hour: worldHourF(), wall: rm.wall || "#d9b98f" };
 };
@@ -167,6 +168,34 @@ const solids = data.things.filter((t) => !(data.study && !e.entered && t.kind ==
   return { t, x0: t.x, x1: t.x + t.w, y0, y1: y0 + t.h,
            z0: Math.max(1, z - depth / 2), z1: Math.min(D - 1, z + depth / 2), rows };
 });
+// The study chair has a back, seat, arms and feet at different depths; a single extruded sprite hides them.
+const chairZ = zOf(132);
+const chairBoxes = data.chairModel && (e.entered || e.place !== "armchair") ? [
+  [116, 148, 13, 27, -13, -7, "#4f6e8f"], [118, 146, 27, 29, -12, -7, "#4f6e8f"],
+  [115, 149, 7, 11, -9, 14, "#456687"], [117, 147, 11, 15, -8, 15, "#5b7fa6"],
+  [112, 118, 8, 20, -8, 16, "#4f6e8f"], [146, 152, 8, 20, -8, 16, "#4f6e8f"],
+  [113, 118, 20, 22, -6, 16, "#5b7fa6"], [146, 151, 20, 22, -6, 16, "#5b7fa6"],
+  [116, 120, 0, 7, -8, -4, "#3a2a1c"], [144, 148, 0, 7, -8, -4, "#3a2a1c"],
+  [116, 120, 0, 7, 12, 16, "#3a2a1c"], [144, 148, 0, 7, 12, 16, "#3a2a1c"],
+].map(([x0, x1, y0, y1, z0, z1, color]) => ({ x0, x1, y0, y1, z0: chairZ + z0, z1: chairZ + z1,
+                                                       c: parseColor(color).slice(0, 3) })) : [];
+const traceBox = (o, cam, d, limit) => {
+  let enter = 0.01, leave = limit, face = "front";
+  for (let axis = 0; axis < 3; axis++) {
+    const lo = axis === 0 ? o.x0 : axis === 1 ? o.y0 : o.z0;
+    const hi = axis === 0 ? o.x1 : axis === 1 ? o.y1 : o.z1;
+    if (Math.abs(d[axis]) < 1e-8) { if (cam[axis] < lo || cam[axis] > hi) return null; continue; }
+    const a = (lo - cam[axis]) / d[axis], b = (hi - cam[axis]) / d[axis];
+    const near = Math.min(a, b), far = Math.max(a, b);
+    if (near > enter) {
+      enter = near;
+      face = axis === 0 ? (d[0] > 0 ? "left" : "right") : axis === 1 ? (d[1] > 0 ? "bottom" : "top") : d[2] > 0 ? "back" : "front";
+    }
+    leave = Math.min(leave, far);
+    if (leave <= enter) return null;
+  }
+  return { t: enter, p: [cam[0] + d[0] * enter, cam[1] + d[1] * enter, cam[2] + d[2] * enter], face, c: o.c };
+};
 const traceSolid = (o, cam, d, limit) => {
   let enter = 0.01, leave = limit, face = "front";
   for (let axis = 0; axis < 3; axis++) {
@@ -243,6 +272,12 @@ for (let py = 0; py < SH; py++) for (let px = 0; px < SW; px++) {
     const h = traceSolid(o, cam, d, zb[i]);
     if (!h) continue;
     const k = { front: 1, back: 0.55, left: 0.72, right: 0.78, top: 1.1, bottom: 0.5 }[h.face];
+    put(i, shade(h.c.map((v) => Math.min(255, v * k)), h.p), h.t);
+  }
+  for (const o of chairBoxes) {
+    const h = traceBox(o, cam, d, zb[i]);
+    if (!h) continue;
+    const k = { front: 1, back: 0.7, left: 0.8, right: 0.85, top: 1.2, bottom: 0.55 }[h.face];
     put(i, shade(h.c.map((v) => Math.min(255, v * k)), h.p), h.t);
   }
 }
