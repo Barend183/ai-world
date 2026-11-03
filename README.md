@@ -47,11 +47,13 @@ he decides what to learn, make and build.
 - **His own eyes, in 3D:** your page shows his world side-on in 2D, but he sees it as a real 3D room around
   him: the back wall with its window and shelves, a floor that stretches away, side walls and ceiling (or open
   sky outdoors), and his furniture, creations and companion standing at their own distances. Standing things keep
-  their places and facing as he turns, with visible sides and depth instead of swiveling toward his eyes. It's seen from his
-  eye height, facing what he's doing, with his own hands (or blanket) in single views, never his own face. He gets
-  a view when he wakes and can turn his gaze ahead, right, behind or left. Looking around turns his head one
-  step at a time from the same spot; he chooses whether to keep turning. Between pictures, a brief sense of his
-  current room and the things around him stays with him. He takes in each picture once, and can choose to hold
+  their places and facing as he turns, with visible sides and backs. Thin legs and stems stay narrow, leaving
+  open space beneath furniture. It's seen from his eye height, facing what he's doing, with his own hands (or
+  blanket) in single views, never his own face. He gets a view when he wakes and can turn his gaze ahead, right,
+  behind or left, or look up or down at nearby things.
+  Looking around turns his head one step at a time from the same spot; he chooses whether to keep turning.
+  Between pictures, a brief sense of his current room and the things around him stays with him. He takes in each
+  picture once, and can choose to hold
   the last one for comparison with a new look, so pictures aren't sent with every thought. (Pictures need a brain
   that can see them, such as Gemini.)
 - **An ecosystem:** his creations can affect each other (a sugarbird drinking a protea's nectar, a tree

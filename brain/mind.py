@@ -112,8 +112,8 @@ What I can do, and how:
     "preset": "<one of: {catalog}>"  OR  "sprite": <pixel art, see below>}}}}
   (Decorating with an existing item's name moves or replaces it.)
 - remove_item {{"room": "<room id>", "item": "<item name>"}}
-- look {{"around": true}} or {{"direction": "ahead|right|behind|left"}} or {{"room": "<room id>"}} (I turn my head without moving, or step into a room and look)
-  (Each look is one view from my eyes. "around" turns me right once; I can keep looking around if I want. A direction is relative to where I'm facing now.)
+- look {{"around": true}} or {{"direction": "ahead|right|behind|left"}} or {{"tilt": "up|level|down"}} or {{"room": "<room id>"}} (I turn my head, raise or lower my gaze, or step into a room and look)
+  (Each look is one view from my eyes. "around" turns me right once; I can keep looking around if I want. A direction is relative to where I'm facing now. I can combine a turn and a tilt.)
   or {{"url": "<a picture URL from a page I read>"}} or {{"specimen": "<id>"}} or {{"piece": "<study piece>"}} or {{"room": "<room id>", "item": "<item name>"}}
   (I see a photo, or one of my own drawings, with my next thought. If I add "compare": true to my next look, I keep the last picture beside the new one.)
 - restyle {{"specimen": "<id>"}} or {{"piece": "<one of: {pieces}>"}} or {{"room": "<room id>", "item": "<item name>"}}, plus "sprite": <new pixel art, or null to go back to the old look>
@@ -612,30 +612,36 @@ class Session:
         if action == "look":
             if not getattr(self.chain.current, "sees", False):
                 raise ValueError("My sight is too dim for pictures right now; I can try again later")
-            if args.get("around") or args.get("direction") or (args.get("room") and not args.get("item")):
+            if args.get("around") or args.get("direction") or args.get("tilt") or (args.get("room") and not args.get("item")):
                 room = w.room(args.get("room") or w.me.get("room") or "study") or w.room("study")
                 direction = str(args.get("direction") or "").strip().lower().replace(" ", "_")
                 direction = {"forward": "ahead", "front": "ahead", "back": "behind"}.get(direction, direction)
                 if direction and direction not in ("ahead", "right", "behind", "left"):
                     raise ValueError("I can look ahead, right, behind or left, or keep turning to look around")
+                tilt = str(args.get("tilt") or "level").strip().lower()
+                tilt = {"above": "up", "upward": "up", "straight": "level", "forward": "level", "below": "down", "downward": "down"}.get(tilt, tilt)
+                if tilt not in ("up", "level", "down"):
+                    raise ValueError("I can look up, down or straight ahead")
                 around = bool(args.get("around") and not direction)
                 turn = "right" if around else direction or "ahead"
                 facing = w.me.get("facing", 0) if room["id"] == w.me.get("room") else 0
                 facing = facing if isinstance(facing, int) and 0 <= facing < 4 else 0
                 facing = (facing + {"ahead": 0, "right": 1, "behind": 2, "left": -1}[turn]) % 4
                 view = ("ahead", "right", "behind", "left")[facing]
-                data = pixels.see(w, room["id"], direction=view)
+                data = pixels.see(w, room["id"], direction=view, tilt=tilt)
                 if not data:
                     raise ValueError("Everything is a blur for a moment; I can try looking again later")
-                label = (f"what I see as I turn to look around the {room['name']}" if around
-                         else f"what I see looking {turn} in the {room['name']}")
+                label = (f"what I see as I turn{' and look ' + tilt if tilt != 'level' else ''} around the {room['name']}" if around
+                         else f"what I see looking {turn}{' and ' + tilt if tilt != 'level' else ''} in the {room['name']}")
                 self.pictures = (self.pictures + [(label, "image/png", data)])[-2:]
                 place = w.me.get("place") if room["id"] == w.me.get("room") else "room"
                 w.me["facing"] = facing
-                w.log("look_around", f"I looked {'around' if around else turn} in the {room['name']}",
+                w.log("look_around", f"I looked {'around' if around else turn}{' and ' + tilt if tilt != 'level' else ''} in the {room['name']}",
                       thought=thought, room=room["id"], place=place)
-                return (f"I turn my head and take in another part of the {room['name']}." if around
-                        else f"I {'look ahead' if turn == 'ahead' else 'turn my head ' + turn} in the {room['name']}.")
+                if not around and not direction and tilt != "level":
+                    return f"I look {tilt} in the {room['name']}."
+                motion = "turn my head and take in another part" if around else "look ahead" if turn == "ahead" else "turn my head " + turn
+                return f"I {motion}{' and look ' + tilt if tilt != 'level' else ''} in the {room['name']}."
             elif args.get("url"):
                 url = str(args["url"]).strip()
                 mime, data = research.fetch_image(url)

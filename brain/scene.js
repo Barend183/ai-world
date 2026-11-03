@@ -4,12 +4,12 @@
 // space at their own distances. Everything is drawn by the page's own code (docs/sprites.js, docs/app.js), so it
 // looks like his world, then rebuilt in perspective from where his eyes are. Never his own face; single views
 // show his hands (or his blanket, in bed) at the bottom.
-// Usage: node scene.js <world folder> [room id] [home|companion] [ahead|right|behind|left] > view.png
+// Usage: node scene.js <world folder> [room id] [home|companion] [ahead|right|behind|left] [up|level|down] > view.png
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const { Canvas, png, parseColor } = require("./canvas.js");
 
-const [dir, roomArg, who = "home", mode = ""] = process.argv.slice(2);
+const [dir, roomArg, who = "home", mode = "", tiltMode = "level"] = process.argv.slice(2);
 const read = (name, fallback) => { try { return JSON.parse(fs.readFileSync(path.join(dir, name), "utf8")); } catch { return fallback; } };
 
 // ---- the page's own drawing code, with just enough of a browser around it --------------------------------
@@ -63,7 +63,7 @@ this.__world = function (input) {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) for (let c = 0; c < 4; c++) img[(y * w + x) * 4 + c] = px[((y + y0) * W + x + x0) * 4 + c];
     things.push({ img, w, h, x: x0, y: y0, ground, kind, name });
   };
-  const STAND = { bed: [["bed"], 164], armchair: [["armchair"], 132], desk: [["desk", "computer"], 125] };
+  const STAND = { bed: [["bed"], 164], armchair: [["armchair"], 132], desk: [["desk"], 125], computer: [["computer"], 125] };
   const full = rm.builtin ? paint([]) : null;
   const back = rm.builtin ? paint(Object.values(STAND).flatMap(([n]) => n)) : paint([]);
   if (rm.builtin) for (const [name, [names, ground]] of Object.entries(STAND)) {   // a piece of furniture = what changes when it's left out
@@ -109,7 +109,9 @@ const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a
 
 // His eyes stay where the page places him after each action.
 const e = data.eye;
-const eyeCam = [Math.max(6, Math.min(W - 6, e.x)), e.entered ? 22 : e.place === "bed" ? 14 : e.place === "armchair" ? 17 : 22, zOf(e.ground)];
+const atComputer = data.study && !e.entered && e.place === "computer";
+const eyeCam = [Math.max(6, Math.min(W - 6, e.x)), e.entered ? 22 : e.place === "bed" ? 14 : e.place === "armchair" ? 17 : atComputer ? 36 : 22,
+                zOf(e.ground) + (atComputer ? 28 : 0)];
 const SW = 320, SH = 180;
 const tex = (u, v) => {   // the painted room, as the page draws it
   const x = Math.max(0, Math.min(W - 1, Math.floor(u))), y = Math.max(0, Math.min(179, Math.floor(v))), i = (y * W + x) * 4;
@@ -143,31 +145,64 @@ const sky = (d) => {   // outdoors: the sky and hills all around, from the paint
 // The page's pixel art has a fixed front and a little depth here, instead of turning to face me.
 const solids = data.things.filter((t) => !(data.study && !e.entered && t.kind === "furniture" && t.name === e.place
     && (e.place === "bed" || e.place === "armchair"))).map((t) => {
-  const z = zOf(t.ground), depth = t.kind === "furniture" ? Math.min(16, Math.max(5, t.w * 0.2)) : t.kind === "creation" ? 8 : 6;
+  const depth = t.kind === "furniture"
+    ? ({ bed: 42, armchair: 24, desk: 28, computer: 4 }[t.name] || Math.min(20, Math.max(5, t.w * 0.3)))
+    : t.kind === "creation" ? 8 : 6;
+  const z = Math.max(depth / 2 + 1, Math.min(D - depth / 2 - 1, zOf(t.ground)));
   const rows = [];
   for (let y = 0; y < t.h; y++) {
-    let left = null, right = null, leftX = -1, rightX = -1;
+    let run = 0, widest = 0, count = 0;
+    const back = [0, 0, 0];
     for (let x = 0; x < t.w; x++) {
       const k = (y * t.w + x) * 4, a = t.img[k + 3];
-      if (a < 0.5) continue;
-      const c = [t.img[k] / a, t.img[k + 1] / a, t.img[k + 2] / a];
-      if (!left) { left = c; leftX = x; }
-      right = c; rightX = x;
+      run = a >= 0.5 ? run + 1 : 0;
+      widest = Math.max(widest, run);
+      if (a >= 0.5) { for (let c = 0; c < 3; c++) back[c] += t.img[k + c] / a; count++; }
     }
-    rows.push({ left, right, leftX, rightX });
+    const thick = Math.max(2, depth * Math.sqrt(widest / t.w));
+    rows.push({ z0: Math.max(1, z - thick / 2), z1: Math.min(D - 1, z + thick / 2),
+                back: t.name === "computer" ? [42, 42, 48] : back.map((c) => c / (count || 1)) });
   }
   const y0 = Math.max(0, t.ground - t.y - t.h);
   return { t, x0: t.x, x1: t.x + t.w, y0, y1: y0 + t.h,
            z0: Math.max(1, z - depth / 2), z1: Math.min(D - 1, z + depth / 2), rows };
 });
-const surface = (o, face, p) => {
-  const v = face === "top" ? 0 : face === "bottom" ? o.t.h - 1 : Math.floor(o.y1 - p[1]);
-  if (v < 0 || v >= o.t.h) return null;
-  if (face === "left" || face === "right") return o.rows[v][face];
-  const u = Math.floor(p[0] - o.x0);
-  if (u < 0 || u >= o.t.w) return null;
-  const k = (v * o.t.w + u) * 4, a = o.t.img[k + 3];
-  return a < 0.5 ? null : [o.t.img[k] / a, o.t.img[k + 1] / a, o.t.img[k + 2] / a];
+const traceSolid = (o, cam, d, limit) => {
+  let enter = 0.01, leave = limit, face = "front";
+  for (let axis = 0; axis < 3; axis++) {
+    const lo = axis === 0 ? o.x0 : axis === 1 ? o.y0 : o.z0;
+    const hi = axis === 0 ? o.x1 : axis === 1 ? o.y1 : o.z1;
+    if (Math.abs(d[axis]) < 1e-8) { if (cam[axis] < lo || cam[axis] > hi) return null; continue; }
+    const a = (lo - cam[axis]) / d[axis], b = (hi - cam[axis]) / d[axis];
+    const near = Math.min(a, b), far = Math.max(a, b);
+    if (near > enter) {
+      enter = near;
+      face = axis === 0 ? (d[0] > 0 ? "left" : "right") : axis === 1 ? (d[1] > 0 ? "bottom" : "top") : d[2] > 0 ? "back" : "front";
+    }
+    leave = Math.min(leave, far);
+    if (leave <= enter) return null;
+  }
+  let t = enter;
+  for (let step = 0; step < 2 * (o.t.w + o.t.h) + 8 && t < leave; step++) {
+    const p = [cam[0] + d[0] * (t + 1e-5), cam[1] + d[1] * (t + 1e-5), cam[2] + d[2] * (t + 1e-5)];
+    const u = Math.floor(p[0] - o.x0), v = Math.floor(o.y1 - p[1]);
+    if (u < 0 || u >= o.t.w || v < 0 || v >= o.t.h) break;
+    const k = (v * o.t.w + u) * 4, a = o.t.img[k + 3], row = o.rows[v];
+    if (a >= 0.5 && p[2] >= row.z0 && p[2] <= row.z1)
+      return { t, p, face, c: face === "back" ? row.back : [o.t.img[k] / a, o.t.img[k + 1] / a, o.t.img[k + 2] / a] };
+    const xEdge = o.x0 + u + (d[0] > 0 ? 1 : 0);
+    const yEdge = o.y1 - v - (d[1] < 0 ? 1 : 0);
+    const tx = Math.abs(d[0]) < 1e-8 ? Infinity : (xEdge - cam[0]) / d[0];
+    const ty = Math.abs(d[1]) < 1e-8 ? Infinity : (yEdge - cam[1]) / d[1];
+    const zEdge = a < 0.5 ? null : p[2] < row.z0 && d[2] > 0 ? row.z0 : p[2] > row.z1 && d[2] < 0 ? row.z1 : null;
+    const tz = zEdge == null ? Infinity : (zEdge - cam[2]) / d[2];
+    const prev = t;
+    if (tx <= ty && tx <= tz) { t = tx; face = d[0] > 0 ? "left" : "right"; }
+    else if (ty <= tz) { t = ty; face = d[1] > 0 ? "bottom" : "top"; }
+    else { t = tz; face = d[2] > 0 ? "back" : "front"; }
+    if (t <= prev + 1e-8) break;
+  }
+  return null;
 };
 
 function render(cam, look, fov) {
@@ -205,36 +240,10 @@ for (let py = 0; py < SH; py++) for (let px = 0; px < SW; px++) {
     put(i, shade(c, p), dot(sub(p, cam), fwd));
   }
   for (const o of solids) {
-    const trySide = (t, face) => {
-      if (!Number.isFinite(t) || t <= 0.01 || t >= zb[i]) return;
-      const q = [cam[0] + d[0] * t, cam[1] + d[1] * t, cam[2] + d[2] * t];
-      if (q[0] < o.x0 - 0.01 || q[0] > o.x1 + 0.01 || q[1] < o.y0 - 0.01 || q[1] > o.y1 + 0.01
-          || q[2] < o.z0 - 0.01 || q[2] > o.z1 + 0.01) return;
-      if (face === "left" || face === "right") {
-        const row = o.rows[Math.floor(o.y1 - q[1])];
-        const edge = row && (face === "left" ? row.leftX : row.rightX + 1);
-        if (edge == null || edge < 0 || Math.abs(q[0] - (o.x0 + edge)) > 0.5) return;
-      }
-      const c = surface(o, face, q);
-      if (!c) return;
-      const k = { front: 1, back: 0.55, left: 0.72, right: 0.78, top: 1.1, bottom: 0.5 }[face];
-      put(i, shade(c.map((v) => Math.min(255, v * k)), q), t);
-    };
-    const tryEdge = (face) => {
-      let t = ((face === "left" ? o.x0 : o.x1) - cam[0]) / d[0];
-      for (let n = 0; n < 4; n++) {
-        const row = o.rows[Math.floor(o.y1 - (cam[1] + d[1] * t))];
-        if (!row || row.leftX < 0) return;
-        const edge = o.x0 + (face === "left" ? row.leftX : row.rightX + 1);
-        const next = (edge - cam[0]) / d[0];
-        if (Math.abs(next - t) < 0.01) { t = next; break; }
-        t = next;
-      }
-      trySide(t, face);
-    };
-    if (Math.abs(d[2]) > 1e-6) { trySide((o.z0 - cam[2]) / d[2], "back"); trySide((o.z1 - cam[2]) / d[2], "front"); }
-    if (Math.abs(d[0]) > 1e-6) { tryEdge("left"); tryEdge("right"); }
-    if (Math.abs(d[1]) > 1e-6) { trySide((o.y0 - cam[1]) / d[1], "bottom"); trySide((o.y1 - cam[1]) / d[1], "top"); }
+    const h = traceSolid(o, cam, d, zb[i]);
+    if (!h) continue;
+    const k = { front: 1, back: 0.55, left: 0.72, right: 0.78, top: 1.1, bottom: 0.5 }[h.face];
+    put(i, shade(h.c.map((v) => Math.min(255, v * k)), h.p), h.t);
   }
 }
 
@@ -263,10 +272,13 @@ if (e.place === "bed" && !e.entered) {
 return pic;
 }
 
-// Turning my head changes the direction, never the place where my eyes are.
+// Turning my head or lifting my gaze changes the view, never the place where my eyes are.
 const facing = {
   ahead: [0, -1], right: [1, 0], behind: [0, 1], left: [-1, 0],
 };
-const sight = (direction) => [eyeCam[0] + facing[direction][0] * 100, eyeCam[1], eyeCam[2] + facing[direction][1] * 100];
+const pitch = { up: 20, level: 0, down: -20 }[tiltMode] || 0;
+const sight = (direction) => [eyeCam[0] + facing[direction][0] * 100,
+                             eyeCam[1] + Math.tan(pitch * Math.PI / 180) * 100,
+                             eyeCam[2] + facing[direction][1] * 100];
 const direction = facing[mode] ? mode : "ahead";
 process.stdout.write(png(render(eyeCam, sight(direction), 80), 3, "#000000"));
