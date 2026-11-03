@@ -438,7 +438,9 @@ function playNext() {
 }
 function showBubble(e) {
   const b = $("bubble");
-  b.innerHTML = (S.comp ? `<b>${esc(whoName(e))}</b>: ` : "") + esc(e.summary) + (e.thought ? `<span class="t">“${esc(e.thought)}”</span>` : "");
+  const why = e.action === "muddled" && e.detail ? e.detail.split(/\n/)[0] : "";   // what went wrong, in his world's own words
+  b.innerHTML = (S.comp ? `<b>${esc(whoName(e))}</b>: ` : "") + esc(e.summary) + (why ? `<span class="t">${esc(why.slice(0, 160))}</span>` : "")
+    + (e.thought ? `<span class="t">“${esc(e.thought)}”</span>` : "");
   b.hidden = false; placeBubble();
 }
 function hideBubble() { $("bubble").hidden = true; }

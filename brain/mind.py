@@ -763,9 +763,11 @@ class Session:
             return "changed " + ", ".join(changed)
 
         if action == "pastime":
-            activity = str(args.get("activity", "")).strip()
+            # whatever he called it; failing that, what he was thinking is what he's doing
+            activity = next((str(args[k]).strip() for k in ("activity", "what", "doing", "description", "name", "action")
+                             if isinstance(args.get(k), str) and args[k].strip()), "") or thought
             if not activity:
-                raise ValueError("what do you want to do?")
+                raise ValueError('say what you would like to do: pastime {"activity": "..."}')
             room = w.room(args.get("room") or w.me.get("room") or "study") or w.room("study")
             say(activity[:1].upper() + activity[1:200], str(args.get("thoughts", "")) or None, room=room["id"], pastime=True)
             return f"spent some time: {activity}"

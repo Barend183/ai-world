@@ -484,8 +484,12 @@ def spawn(world, spec, book_id, room_id=None, x=None):
     """Bring a specimen into a room, or update one with the same name (keeping its current state)."""
     spec = validate(spec)
     book = world.find_book(book_id or "")
+    if not book and book_id:   # forgive a near miss: part of the title, or the id with a typo of case/spacing
+        key = slug(str(book_id))
+        book = next((b for b in world.shelves if key and (key in b["id"] or b["id"] in key)), None)
     if not book:
-        raise SpecError("a specimen must be based on one of your books: give the book's id")
+        have = ", ".join(b["id"] for b in world.shelves[-8:]) or "none yet: write one first"
+        raise SpecError(f"a creation must be based on one of your books: give the book's id (yours include {have})")
     sid = slug(spec["name"])
     old = next((s for s in world.specimens if s["id"] == sid and s["status"] != "released"), None)
     room = world.room(room_id) if room_id else (world.room(old["room"]) if old else world.room("study"))
