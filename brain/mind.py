@@ -112,8 +112,8 @@ What I can do, and how:
     "preset": "<one of: {catalog}>"  OR  "sprite": <pixel art, see below>}}}}
   (Decorating with an existing item's name moves or replaces it.)
 - remove_item {{"room": "<room id>", "item": "<item name>"}}
-- look {{"around": true}} or {{"direction": "ahead|right|behind|left"}} or {{"room": "<room id>"}} (turn my head without moving, or step into a room and look)
-  ("around" gives me four views from where my eyes are: ahead and right on top, behind and left below.)
+- look {{"around": true}} or {{"direction": "ahead|right|behind|left"}} or {{"room": "<room id>"}} (I turn my head without moving, or step into a room and look)
+  (When I look around, I turn in place. In the picture I see ahead and right above, behind and left below.)
   or {{"url": "<a picture URL from a page I read>"}} or {{"specimen": "<id>"}} or {{"piece": "<study piece>"}} or {{"room": "<room id>", "item": "<item name>"}}
   (I see a photo, or one of my own drawings, with my next thought; I can keep two pictures in view to compare.)
 - restyle {{"specimen": "<id>"}} or {{"piece": "<one of: {pieces}>"}} or {{"room": "<room id>", "item": "<item name>"}}, plus "sprite": <new pixel art, or null to go back to the old look>
@@ -587,7 +587,7 @@ class Session:
 
         if action == "look":
             if not getattr(self.chain.current, "sees", False):
-                raise ValueError("my eyes are too tired to make anything out right now (this brain can't see images)")
+                raise ValueError("My sight is too dim for pictures right now; I can try again later")
             if args.get("around") or args.get("direction") or (args.get("room") and not args.get("item")):
                 room = w.room(args.get("room") or w.me.get("room") or "study") or w.room("study")
                 direction = str(args.get("direction") or "").strip().lower().replace(" ", "_")
@@ -597,18 +597,19 @@ class Session:
                 around = bool(args.get("around") or not direction)
                 data = pixels.see(w, room["id"], around=around, direction=direction)
                 if not data:
-                    raise ValueError("everything is a blur for a moment; try looking again later")
+                    raise ValueError("Everything is a blur for a moment; I can try looking again later")
                 label = (f"what I see in the {room['name']}, ahead and right above, behind and left below" if around
                          else f"what I see looking {direction} in the {room['name']}")
                 self.pictures = (self.pictures + [(label, "image/png", data)])[-2:]
                 place = w.me.get("place") if room["id"] == w.me.get("room") else "room"
-                w.log("look_around", f"Looked {'around' if around else direction} in the {room['name']}",
+                w.log("look_around", f"I looked {'around' if around else direction} in the {room['name']}",
                       thought=thought, room=room["id"], place=place)
-                return f"I'm looking {'around' if around else direction} in the {room['name']} (I can see it now)"
+                return (f"I turn and take in the {room['name']}." if around
+                        else f"I turn my head {direction} and look across the {room['name']}.")
             elif args.get("url"):
                 url = str(args["url"]).strip()
                 mime, data = research.fetch_image(url)
-                label, extra = f"a photo from {url}", {"image": url}
+                label, extra = f"a photo I found at {url}", {"image": url}
             else:
                 name, art = rooms.art_of(w, args)
                 sp = w.specimen(args["specimen"]) if args.get("specimen") else None
@@ -617,15 +618,15 @@ class Session:
                 elif sp:   # drawn from simple shapes: show it exactly as it appears in the world
                     data = pixels.render_creation(sp)
                     if not data:
-                        raise ValueError(f"{name} is drawn from simple shapes and can't be pictured on this computer")
+                        raise ValueError(f"I can't make out {name} clearly on my computer right now")
                 else:
-                    raise ValueError(f"{name} isn't your own drawing; it's the original look")
+                    raise ValueError(f"I haven't drawn {name} myself yet; it still has its original look")
                 mime = "image/png"
                 label = f"my drawing of {name}" if art else f"how my {name} looks right now"
                 extra = {"specimen": args.get("specimen"), "room": args.get("room")} if args.get("specimen") else {}
             self.pictures = (self.pictures + [(label, mime, data)])[-2:]
-            say(f"Looked at {label}", None, **{k: v for k, v in extra.items() if v})
-            return f"looking at {label} (I can see it now)"
+            say(f"I looked at {label}", None, **{k: v for k, v in extra.items() if v})
+            return f"I'm looking at {label}."
 
         if action == "restyle":
             room_id, name, sp = rooms.restyle(w, args)
@@ -1016,8 +1017,8 @@ class Session:
             except BrainUnavailable:
                 raise
             except Exception as e:
-                w.log("muddled", "Lost my train of thought", str(e))
-                self.history.append(f"(got muddled: {e})")
+                w.log("muddled", "I lost my train of thought", str(e), room=w.me.get("room"), place=w.me.get("place"))
+                self.history.append(f"(I lost my train of thought: {e})")
                 return True
             thought = str(reply.get("thought", "")).strip()
             feeling = str(reply.get("feeling") or "").strip()[:40]
@@ -1036,14 +1037,16 @@ class Session:
                 self.history.append("(I'm too tired to keep going, so I head to bed)")
                 return False
             if action not in ACTIONS:
-                w.log("muddled", f"Tried to do something impossible ({action or 'nothing'})", thought)
-                self.history.append(f"tried '{action}', which isn't an action I can take")
+                w.log("muddled", f"I tried something I can't do yet ({action or 'nothing'})", thought,
+                      room=w.me.get("room"), place=w.me.get("place"))
+                self.history.append(f"I tried '{action or 'nothing'}', which isn't something I can do yet")
                 return True
             try:
                 result = self.act(thought, action, args)
             except Exception as e:
-                w.log("muddled", f"Couldn't {action.replace('_', ' ')}", f"{e}\n{thought}")
-                result = f"FAILED {action}: {e}"
+                w.log("muddled", f"I couldn't {action.replace('_', ' ')}", f"{e}\n{thought}",
+                      room=w.me.get("room"), place=w.me.get("place"))
+                result = f"I couldn't {action.replace('_', ' ')} this time. {e}"
             self.history.append(f"{thought} → {result}")
             mailbox.collect(w)  # notes can arrive while it's awake
         return True
