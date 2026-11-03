@@ -39,7 +39,7 @@ PLACES = {
     "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer", "compose": "armchair", "mirror": "room", "add_life_chapter": "armchair", "change_setting": "armchair", "think_hard": "armchair", "listen": "armchair", "publish": "computer", "unpublish": "computer", "design_public_page": "computer", "view_public_page": "computer",
     "talk": "talk", "invite_companion": "mailbox", "companion": "door", "event": "armchair",
     "build_site": "computer", "write_site_page": "computer", "remove_site_page": "computer", "view_site": "computer",
-    "write_private": "armchair",
+    "write_private": "armchair", "look_around": "room",
     "remember": "shelves", "set_rules": "armchair", "set_wake_triggers": "bed", "save_tool": "computer", "use_tool": "computer",
 }
 

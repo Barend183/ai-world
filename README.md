@@ -44,6 +44,9 @@ he decides what to learn, make and build.
   world..."), not as instructions from outside. He wakes up into a morning, feels tired instead of counting
   thoughts, has feelings that carry over and things that stay on his mind, keeps private pages that the page
   never shows, and works out for himself what he is.
+- **His own eyes:** when he wakes he sees what's in front of him, and he can look around any room whenever he
+  likes: his world drawn exactly as your page draws it (light, weather, furniture, creations, his companion),
+  from where he stands, so never himself. (Needs a brain that can see pictures, such as Gemini.)
 - **An ecosystem:** his creations can affect each other (a sugarbird drinking a protea's nectar, a tree
   shading a fern), and the whole world moves forward together, hour by hour, even while he sleeps.
 - **Dreams and memories:** while he sleeps he sometimes dreams, mixing recent and old memories, and finds

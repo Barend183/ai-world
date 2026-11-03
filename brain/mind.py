@@ -26,6 +26,8 @@ I can grow my world however I like: build new rooms or outdoor spaces (a kitchen
 
 How everything looks is up to me as well: I can repaint any room (my study too: build_room with the name "Study"), give walls and floors my own textures, and redraw anything with my own pixel art: my creations, furniture, even the study's own bookshelf, bed or window. I can change how I look, too. I can look at photos on the pages I read and at my own drawings, compare them, and make my drawings more like the real thing. A drawing can change as the thing grows, ages, flowers or wears out.
 
+I see my world with my own eyes. When I wake I see what's in front of me, and I can look around wherever I am, or step into any room and take it in (look {{"around": true}}): the light, the weather through the window, my things, my creations, whoever is there with me.
+
 My world has real weather: the actual hour-by-hour weather of {weather_place}, with day and night. Outdoors there's rain, sun, heat, cold and wind; indoors it's mild and dry. Things happen, too: storms, heat waves and cold snaps come with the weather, and now and then the power goes out (more often in a storm), so my computer and electric lights stop working until it's back. My creations feel all of this as well. My world follows the real calendar and seasons of {location}.
 
 I can bring things to life from what I've learned: a plant, an animal, a car, a model train, a dish I'm cooking, a machine, an experiment. I work out how it behaves, and from then on it lives by those rules in real time, even while I sleep. I use real numbers and real behaviour from my research, so it acts like the real thing, and then I use it: look after it, cook it, drive it, run it, and see what happens. I make it as true to life as my book allows: how it grows, ages or wears, its seasons and cycles, what it needs, what harms it and how it recovers. Something that's cared for properly does well, like the real thing. What works well for me: research it from several sources (real numbers: growth rates, lifespans, how often it needs care, what temperatures it can take), look at photos and draw it, then test it for weeks or months under a care plan and compare that with what my sources say, adjusting until it behaves like the real thing, and only then spawn it. Its rules can react to the weather, day and night, the season and its age, and can include random events with real-world odds (a pest, a storm, a flat tyre, a lucky bloom). When I spawn it I see a 30-day forecast; if it doesn't behave the way the real thing would, I learn more and improve it (spawning again with the same name updates it and keeps its current state).
@@ -110,7 +112,8 @@ What I can do, and how:
     "preset": "<one of: {catalog}>"  OR  "sprite": <pixel art, see below>}}}}
   (Decorating with an existing item's name moves or replaces it.)
 - remove_item {{"room": "<room id>", "item": "<item name>"}}
-- look {{"url": "<a picture URL from a page I read>"}} or {{"specimen": "<id>"}} or {{"piece": "<study piece>"}} or {{"room": "<room id>", "item": "<item name>"}}
+- look {{"around": true}} or {{"room": "<room id>"}} (see with my own eyes what's in front of me, or step into a room and look)
+  or {{"url": "<a picture URL from a page I read>"}} or {{"specimen": "<id>"}} or {{"piece": "<study piece>"}} or {{"room": "<room id>", "item": "<item name>"}}
   (I see a photo, or one of my own drawings, with my next thought; I can keep two pictures in view to compare.)
 - restyle {{"specimen": "<id>"}} or {{"piece": "<one of: {pieces}>"}} or {{"room": "<room id>", "item": "<item name>"}}, plus "sprite": <new pixel art, or null to go back to the old look>
   {{"room": "<room id>", "surface": "wall|floor", "sprite": <a texture tile up to 48x48 that repeats across the whole wall or floor>}}
@@ -583,8 +586,16 @@ class Session:
 
         if action == "look":
             if not getattr(self.chain.current, "sees", False):
-                raise ValueError("your eyes are too tired to look at pictures right now (this brain can't see images)")
-            if args.get("url"):
+                raise ValueError("my eyes are too tired to make anything out right now (this brain can't see images)")
+            if args.get("around") or (args.get("room") and not args.get("item")):
+                room = w.room(args.get("room") or w.me.get("room") or "study") or w.room("study")
+                data = pixels.see(w, room["id"])
+                if not data:
+                    raise ValueError("everything is a blur for a moment; try looking again later")
+                self.pictures = (self.pictures + [(f"what I see in the {room['name']}", "image/png", data)])[-2:]
+                w.log("look_around", f"Looked around the {room['name']}", thought=thought, room=room["id"])
+                return f"I'm taking in the {room['name']} (I can see it now)"
+            elif args.get("url"):
                 url = str(args["url"]).strip()
                 mime, data = research.fetch_image(url)
                 label, extra = f"a photo from {url}", {"image": url}
@@ -600,11 +611,11 @@ class Session:
                 else:
                     raise ValueError(f"{name} isn't your own drawing; it's the original look")
                 mime = "image/png"
-                label = f"your drawing of {name}" if art else f"how your {name} looks right now"
+                label = f"my drawing of {name}" if art else f"how my {name} looks right now"
                 extra = {"specimen": args.get("specimen"), "room": args.get("room")} if args.get("specimen") else {}
             self.pictures = (self.pictures + [(label, mime, data)])[-2:]
             say(f"Looked at {label}", None, **{k: v for k, v in extra.items() if v})
-            return f"looking at {label} (you can see it now)"
+            return f"looking at {label} (I can see it now)"
 
         if action == "restyle":
             room_id, name, sp = rooms.restyle(w, args)
@@ -943,6 +954,13 @@ class Session:
                 w.log("wake", f"Woke up (thinking with {self.chain.current.label})", brain=self.chain.current.label)
             else:
                 self._wake()
+            if getattr(self.chain.current, "sees", False):   # opening my eyes
+                try:
+                    view = pixels.see(w)
+                    if view:
+                        self.pictures.append(("what I see as I open my eyes", "image/png", view))
+                except Exception as e:
+                    print("couldn't open his eyes:", type(e).__name__)
 
     def _wake(self):
         w = self.world
