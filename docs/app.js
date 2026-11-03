@@ -187,6 +187,18 @@ function weatherNow() {
   return S.weather.hours[key] || null;
 }
 
+// What's happening in his world right now: storms from the live weather, the rest from his last wake-up.
+function happening() {
+  const w = weatherNow(), ev = S.me.world_events || {}, now = new Date().toISOString();
+  return {
+    storm: !!w && (w.env_wind >= 45 || w.env_rain >= 6),
+    power: (ev.cuts || []).some((c) => c.since <= now && now < c.until),
+    heat: (ev.now || []).includes("heat wave"),
+    cold: (ev.now || []).includes("cold snap"),
+  };
+}
+const powerCut = () => !!S.me.name && happening().power;
+
 function renderStatus() {
   const me = S.me;
   if (!me.name) return;   // nobody has moved in yet
@@ -194,6 +206,8 @@ function renderStatus() {
   const w = weatherNow();
   if (w) line = `${w.env_rain > 0 ? "🌧" : w.env_daylight ? "☀️" : "🌙"} ${Math.round(w.env_temp)}°C in ${S.weather.place} · ` + line;
   if (me.state === "asleep" && S.cfg.next_wake) line += ` Next wake-up ${ago(S.cfg.next_wake)}.`;
+  const h = happening();
+  line = [h.storm && "⛈ Storm", h.power && "⚡ Power cut", h.heat && "🔥 Heat wave", h.cold && "❄ Cold snap"].filter(Boolean).concat(line).join(" · ");
   $("status").textContent = line;
 }
 
@@ -496,7 +510,7 @@ function drawStudy(t) {
 
   piece("desk", () => { r(170, 100, 64, 5, "#7a5230"); r(172, 105, 3, 20, "#5b3a22"); r(229, 105, 3, 20, "#5b3a22"); r(222, 92, 6, 8, "#e9e2d0"); r(223, 90, 4, 2, "#8b5a2b"); });
   piece("computer", () => {
-    const busy = S.bot.room === "study" && Math.abs(S.bot.x - STUDY_PLACES.computer.x) < 2 && !S.bot.walking;
+    const busy = S.bot.room === "study" && Math.abs(S.bot.x - STUDY_PLACES.computer.x) < 2 && !S.bot.walking && !powerCut();
     r(186, 74, 32, 24, "#2a2a30"); r(188, 76, 28, 19, busy ? "#173b2a" : "#1b1c24");
     if (busy) for (let i = 0; i < 6; i++) r(190, 78 + i * 3, 6 + ((i * 7 + Math.floor(t / 200)) % 20), 1, "#7df0a5");
     r(199, 98, 6, 2, "#2a2a30"); r(190, 101, 22, 2, "#444");
@@ -535,18 +549,25 @@ function drawView(t) {
   if (compFront) drawBot(t, S.bot2);
   if (botFront) drawBot(t);
   lighting(ctx, room, W, H, t, lightsIn(room, fy));
+  const h = happening();
+  if (room.kind === "outdoor" && h.heat) { ctx.fillStyle = "rgba(255,170,60,.08)"; ctx.fillRect(0, 0, W, H); }
+  if (room.kind === "outdoor" && h.cold) { ctx.fillStyle = "rgba(150,190,255,.08)"; ctx.fillRect(0, 0, W, H); }
+  if (h.storm && (room.kind === "outdoor" || room.builtin || room.windows)) {   // lightning, now and then
+    const f = (t + Px.hash(room.id) * 37) % 9000;
+    if (f < 70 || (f > 160 && f < 210)) { ctx.fillStyle = `rgba(235,240,255,${room.kind === "outdoor" ? 0.5 : 0.22})`; ctx.fillRect(0, 0, W, H); }
+  }
 }
 
 // What gives light at night: the study's computer, and any lamp, candle, fire or screen he put in a room.
 const GLOWS = /lamp|light|candle|lantern|fire|torch|neon|glow|screen|tv|computer|monitor|stove|oven/i;
 function lightsIn(room, fy) {
-  const out = [];
-  if (room.builtin) {
+  const out = [], cut = powerCut(), flame = /candle|fire|lantern|torch|stove/i;
+  if (room.builtin && !cut) {
     const busy = S.bot.room === "study" && !S.bot.walking && Math.abs(S.bot.x - STUDY_PLACES.computer.x) < 2;
     out.push({ x: 202, y: 86, r: busy ? 70 : 34, cool: true });
   }
   for (const it of room.items) {
-    if (!GLOWS.test(`${it.name} ${it.preset || ""}`)) continue;
+    if (!GLOWS.test(`${it.name} ${it.preset || ""}`) || (cut && !flame.test(`${it.name} ${it.preset || ""}`))) continue;
     out.push({ x: itemX(it, room), y: it.place === "wall" ? 50 : fy - 22, r: 70, flicker: /candle|fire|lantern|torch/i.test(`${it.name} ${it.preset || ""}`) });
   }
   return out;

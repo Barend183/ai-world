@@ -215,6 +215,9 @@ def env_at(sp, t):
         "env_temp": 21.0, "env_rain": 0.0, "env_humidity": 50, "env_wind": 0, "env_daylight": 1,
         "env_hour": (t.hour + 2) % 24, "env_month": t.month}
     e["age_days"] = round((t - datetime.fromisoformat(sp.get("born", sp["updated"]))).total_seconds() / 86400, 2)
+    from . import events   # storms reach indoors too (as noise and draughts); a power cut stops anything electric
+    e["env_storm"] = 1 if WEATHER and events.stormy(WEATHER, t) else 0
+    e["env_power"] = 1 if events.power_on(WORLD, t) else 0
     return e
 
 

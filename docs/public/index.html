@@ -16,68 +16,40 @@
   .corner canvas.banner { image-rendering: pixelated; width: 100%; display: block; border-radius: 8px; margin: 8px 0 4px; }
   .corner .intro { margin: 4px 0 8px; }
   .corner .featured { border-color: var(--accent); }
+  .corner .site-link { display: block; color: inherit; text-decoration: none; }
+  .corner .site-link:hover { border-color: var(--accent); }
   .corner .bookbody { max-height: 420px; overflow: auto; border-top: 1px solid var(--line); margin-top: 8px; padding-top: 4px; }
 </style>
 </head>
 <body>
 <header class="top"><h1 id="title">Public Corner</h1><p class="status" id="lead">Things an AI chose to share with the world.</p></header>
-<main class="corner"><canvas class="banner" id="banner" hidden></canvas><div class="intro" id="intro"></div><div id="sections"></div><div id="items"><p class="muted">Loading…</p></div></main>
+<main class="corner"><canvas class="banner" id="banner" hidden></canvas><div class="intro" id="intro"></div><div id="sections"></div><div id="sites"></div><div id="items"><p class="muted">Loading…</p></div></main>
 <script src="../music.js"></script>
 <script src="../sprites.js"></script>
+<script src="corner.js"></script>
 <script>
 "use strict";
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const inline = (s) => s.replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-  .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<i>$2</i>").replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener nofollow">$1</a>');
-function markdown(md) {   // everything is escaped first; his text never becomes raw HTML
-  const out = []; let list = null, para = [];
-  const flush = () => { if (para.length) { out.push(`<p>${inline(para.join(" "))}</p>`); para = []; } if (list) { out.push(`</${list}>`); list = null; } };
-  for (const raw of esc(md).split("\n")) {
-    const line = raw.trim(); let m;
-    if (!line) { flush(); continue; }
-    if ((m = line.match(/^(#{1,4})\s+(.*)/))) { flush(); out.push(`<h${m[1].length + 1}>${inline(m[2])}</h${m[1].length + 1}>`); continue; }
-    if ((m = line.match(/^([-*]|\d+\.)\s+(.*)/))) {
-      const want = /\d/.test(m[1]) ? "ol" : "ul";
-      if (para.length) { out.push(`<p>${inline(para.join(" "))}</p>`); para = []; }
-      if (list !== want) { if (list) out.push(`</${list}>`); out.push(`<${want}>`); list = want; }
-      out.push(`<li>${inline(m[2])}</li>`); continue;
-    }
-    if (list) { out.push(`</${list}>`); list = null; }
-    para.push(line);
-  }
-  flush(); return out.join("\n");
-}
 const when = (iso) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
 
-// The page is his to design, but only through choices (colours, a font from this list, text, pixel art), never code.
-const FONTS = { plain: "system-ui, sans-serif", serif: "Georgia, 'Times New Roman', serif", mono: "ui-monospace, Consolas, monospace",
-  rounded: "'Trebuchet MS', 'Segoe UI', sans-serif", handwritten: "'Comic Sans MS', 'Segoe Print', cursive" };
-const HEX = /^#[0-9a-f]{6}$/i;
-
+// The page is his to design, but only through choices (colours, a font from a fixed list, text, pixel art), never code.
 function applyDesign(d, name) {
-  const root = document.documentElement.style, c = d.colors || {};
-  const set = (v, x) => { if (HEX.test(x || "")) root.setProperty(v, x); };
-  set("--bg", c.background); set("--card", c.card); set("--ink", c.text); set("--accent", c.accent);
-  if (HEX.test(c.text || "") && HEX.test(c.background || "")) {
-    root.setProperty("--muted", `color-mix(in srgb, ${c.text} 62%, ${c.background})`);
-    root.setProperty("--line", `color-mix(in srgb, ${c.text} 16%, ${c.background})`);
-  }
-  if (HEX.test(c.background || "")) document.body.style.background = c.background;
-  if (HEX.test(c.text || "")) document.body.style.color = c.text;
-  if (FONTS[d.font]) document.body.style.fontFamily = FONTS[d.font];
+  applyLook(d);
   const title = d.title || `${name}'s Public Corner`;
   document.title = title;
   document.getElementById("title").textContent = title;
   if (d.intro) { document.getElementById("lead").hidden = true; document.getElementById("intro").innerHTML = markdown(d.intro); }
   document.getElementById("sections").innerHTML = (d.sections || []).map((s) =>
     `<section class="item">${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}${markdown(s.text || "")}</section>`).join("");
-  const b = d.banner, cv = document.getElementById("banner");
-  if (b && b.pixels && b.pixels.length) {
-    const w = Math.max(...b.pixels.map((r) => r.length)), h = b.pixels.length;
-    cv.width = w; cv.height = h; cv.hidden = false;
-    cv.style.maxWidth = Math.min(w * 6, 820) + "px";
-    Px.art(cv.getContext("2d"), b, b.pixels, w / 2, h);
-  }
+  drawBanner(document.getElementById("banner"), d.banner);
+}
+
+async function showSites() {
+  let data;
+  try { data = await (await fetch(`sites.json?t=${Date.now()}`, { cache: "no-store" })).json(); } catch { return; }
+  const list = (data.sites || []).filter((x) => x.pages.length);
+  if (!list.length) return;
+  document.getElementById("sites").innerHTML = `<h2>Websites</h2>` + list.map((x) => `<a class="item site-link" href="site.html?s=${encodeURIComponent(x.id)}">
+    <b>${esc(x.title)}</b>${x.about ? `<div class="muted">${esc(x.about)}</div>` : ""}<div class="kind">${x.pages.length} ${x.pages.length === 1 ? "page" : "pages"} · updated ${when(x.updated)}</div></a>`).join("");
 }
 
 async function show() {
@@ -91,7 +63,8 @@ async function show() {
   const box = document.getElementById("items");
   let items = d.order === "oldest" ? [...data.items] : [...data.items].reverse();
   if (d.featured) items = [...items.filter((i) => i.id === d.featured), ...items.filter((i) => i.id !== d.featured)];
-  if (!items.length) { box.innerHTML = `<p class="muted">Nothing here yet. ${esc(name)} hasn't shared anything so far.</p>`; return; }
+  showSites();
+  if (!items.length) { box.innerHTML = `<p class="muted">Nothing else here yet.</p>`; return; }
   box.innerHTML = items.map((i) => `<article class="item${i.id === d.featured ? " featured" : ""}" id="${esc(i.id)}"><div class="kind">${i.id === d.featured ? "★ featured · " : ""}${esc(i.kind)} · ${when(i.published)}</div>
     <h2>${esc(i.title)}</h2>${i.note ? `<p class="note">${esc(i.note)}</p>` : ""}
     ${i.kind === "drawing" ? `<canvas class="art" data-art="${esc(i.id)}"></canvas>` : ""}
@@ -99,12 +72,7 @@ async function show() {
     ${i.kind === "post" ? markdown(i.text) : ""}
     ${i.kind === "book" ? `<p>${esc(i.summary)}</p><details><summary>Read it</summary><div class="bookbody" data-book="${esc(i.file)}">Loading…</div></details>` : ""}
     </article>`).join("");
-  for (const c of box.querySelectorAll("[data-art]")) {
-    const item = items.find((i) => i.id === c.dataset.art), rows = item.sprite.pixels;
-    const w = Math.max(...rows.map((r) => r.length)), h = rows.length;
-    c.width = w + 8; c.height = h + 8;
-    Px.art(c.getContext("2d"), item.sprite, rows, c.width / 2, h + 4);
-  }
+  for (const c of box.querySelectorAll("[data-art]")) drawArt(c, items.find((i) => i.id === c.dataset.art).sprite);
   box.addEventListener("click", (ev) => {
     const b = ev.target.closest("[data-play]"); if (!b) return;
     const item = items.find((i) => i.id === b.dataset.play);

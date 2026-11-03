@@ -94,6 +94,25 @@ def config_of(world):
     return world.config
 
 
+def health(session):
+    """A content-free check-up for the public log: which kinds of actions he took and which went wrong,
+    by action name only (never what he read, wrote or thought), so problems can be found and fixed."""
+    from collections import Counter
+    from .mind import ACTIONS
+    did, trouble, brains = Counter(), Counter(), Counter()
+    for e in session:
+        who = "companion " if e.get("who") else ""
+        if e["action"] == "wake":
+            brains[who + str(e.get("brain", "?")).split(" (")[0]] += 1
+        elif e["action"] == "muddled":
+            word = e["summary"].removeprefix("Couldn't ").replace(" ", "_")
+            trouble[who + (word if word in ACTIONS else "bad reply" if e["summary"].startswith("Lost") else "unknown action")] += 1
+        else:
+            did[who + e["action"]] += 1
+    fmt = lambda c: ", ".join(f"{k} x{n}" for k, n in c.most_common()) or "none"
+    return "\n".join([f"  thinking with: {fmt(brains)}", f"  did: {fmt(did)}", f"  trouble: {fmt(trouble)}"])
+
+
 def run_once(config, script=None, next_wake_minutes=None, force=False):
     world = World(config)
     from . import mailbox
@@ -138,6 +157,7 @@ def run_once(config, script=None, next_wake_minutes=None, force=False):
     session = [e for e in world.recent if e["session"] == world.me["sessions"]]
     if (os.environ.get("WORLD_PASSWORD") or os.environ.get("WORLD_PASSWORD_NEW")) and os.environ.get("GITHUB_ACTIONS"):
         print(f"  ({len(session)} things done; details stay locked)")   # GitHub's logs are public
+        print(health(session))
     else:
         for e in session:
             print(f"  [{e['place']:>8}] {e['summary']}")

@@ -53,6 +53,12 @@ he decides what to learn, make and build.
 - **His public page:** besides choosing what to share, he designs the page itself at his computer: its
   title, introduction, sections, colours, font, a banner he draws and what's featured first. Only design
   choices, never code, and nothing private can go on it.
+- **Weather events:** storms, heat waves and cold snaps come from his real weather, and now and then the
+  power goes out (more often in a storm): his computer and electric lights stop until it's back, and his
+  creations can react too (`env_storm`, `env_power`). His page shows lightning, power cuts and heat haze.
+- **His own websites:** up to five sites of linked pages (a field guide, recipes, a museum of his
+  drawings...) with his own pictures and look, listed on his public corner. Text and pixel art only, no
+  code, so nothing on them can reach his locked world or your saved token.
 - **Light and seasons:** rooms get warm light at dawn and dusk and go dark at night, except around his
   lamps, candles, fires and screens. Grass follows the seasons where he lives (spring flowers, autumn
   leaves, winter frost).

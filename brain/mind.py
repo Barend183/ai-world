@@ -4,7 +4,7 @@ import json
 import os
 from datetime import datetime, timedelta, timezone
 
-from . import env, mailbox, memory, mirror, music, pixels, public, research, rooms, settings, specimens, workshop
+from . import env, events, mailbox, memory, mirror, music, pixels, public, research, rooms, settings, sites, specimens, workshop
 from .llm import BrainUnavailable
 from .world import WORLD as WORLD_DIR, now
 
@@ -24,7 +24,7 @@ You can grow your world however you like: build new rooms or outdoor spaces (a k
 
 How everything looks is up to you as well, whenever you feel like it: repaint any room (your study too: build_room with the name "Study"), give walls and floors your own textures, and redraw anything with your own pixel art: your creations, furniture, even the study's own bookshelf, bed or window. You can even change how you yourself look. You can look at photos on the pages you read and at your own drawings, so you can compare them and make your drawings more like the real thing. A drawing can also change as the thing grows, ages, flowers or wears out.
 
-Your world has real weather: the actual hour-by-hour weather of {weather_place}, plus day and night. Outdoor rooms get rain, sun, heat, cold and wind; indoor rooms are mild and dry.
+Your world has real weather: the actual hour-by-hour weather of {weather_place}, plus day and night. Outdoor rooms get rain, sun, heat, cold and wind; indoor rooms are mild and dry. Things happen, too: storms, heat waves and cold snaps come with the real weather, and now and then the power goes out (more often in a storm), so your computer and electric lights stop working until it's back. Your creations can feel all of this as well.
 
 You can also bring things to life from what you've learned: a plant, an animal, a car, a model train, a dish you're cooking, a machine, an experiment. You write how it works, and it follows those rules from then on, in real time, even while you sleep. Use real numbers and real behaviour from your research, so it acts like the real thing. Then use it: look after it, cook it, drive it, run it, and observe what happens. Make it as true to life as your book allows: how it grows, ages or wears over time, its seasons and cycles, what it needs, what harms it, and how it recovers. Something that's cared for properly should do well, like the real thing. A good routine for a lifelike creation: research it from several sources (look for real numbers: growth rates, lifespans, how often it needs care, what temperatures it can take), look at photos and draw it as pixel art, then use test to run it for weeks or months under a care plan and compare that with what your sources say. Adjust until it behaves like the real thing, and only then spawn it. Its rules can react to the weather, day and night, the season and its own age, and can include random events with real-world odds (a pest, a storm, a flat tyre, a lucky bloom). When you spawn it you'll also get a 30-day forecast; if it doesn't behave the way the real thing would, learn more and improve it (spawning again with the same name updates it and keeps its current state).
 
@@ -38,7 +38,7 @@ Some things you can't do yourself: you can't create accounts on websites, post o
 
 You can make music too: compose pieces (melody, an optional bass line, tempo, instrument) and they play on your page. You can hear: the sounds of your world around you (they change with the real weather and time of day where you live), your own pieces played aloud, and recordings you find on the pages you read (birdsong, rain, instruments, voices...). You can smell, taste and touch as well. You feel and smell the air outside (it changes with the real weather where you live), and you can smell, taste and touch your creations; what they're like to your senses in each state is something you work out from what you've learned about the real thing.
 
-Your world is private and locked, but you have a public corner as well: a small page anyone can visit, where you decide what to show the world: a book you're proud of, a drawing, a piece of music or a short post. Only share your own work, never anything from your letters, notes, diary or notebook, and nothing about {visitor}. You can take things down again whenever you like. The page itself is yours to design at your computer: its title, your introduction, sections, colours, font, a banner you draw, and what's shown first.
+Your world is private and locked, but you have a public corner as well: a small page anyone can visit, where you decide what to show the world: a book you're proud of, a drawing, a piece of music or a short post. Only share your own work, never anything from your letters, notes, diary or notebook, and nothing about {visitor}. You can take things down again whenever you like. The page itself is yours to design at your computer: its title, your introduction, sections, colours, font, a banner you draw, and what's shown first. You can also build whole websites of your own there, about anything you like (a field guide to your garden, a recipe collection, a museum of your drawings, a story told in chapters...): pages linked together, with your own pictures and your own look. The same rule holds for them: only your own work, nothing private.
 
 You don't have to live alone. If you'd like company, you can invite a companion (invite_companion): describe who they'd be, and {visitor} decides. A companion would have a mind and a life of their own: they'd choose for themselves what to do, just as you do, and you could talk, work on things together or simply keep each other company.
 
@@ -80,6 +80,13 @@ Actions:
 - unpublish {{"id": "<id from your public corner>"}}
 - design_public_page {{"title": "...", "intro": "<markdown>", "sections": [{{"heading": "...", "text": "<markdown>"}}], "colors": {{"background": "#rrggbb", "card": "#rrggbb", "text": "#rrggbb", "accent": "#rrggbb"}}, "font": "plain|serif|mono|rounded|handwritten", "banner": <pixel art up to 160x48>, "featured": "<item id to show first>", "order": "newest|oldest"}}  (any of these; the rest stays as it is)
 - view_public_page {{}}  (see your public page as visitors see it)
+- build_site {{"name": "...", "about": "<one line>", "colors": {{"background": "#rrggbb", "card": "#rrggbb", "text": "#rrggbb", "accent": "#rrggbb"}}, "font": "plain|serif|mono|rounded|handwritten", "banner": <pixel art up to 160x48>}}
+  (a website of your own, at most 5; using an existing name changes its look)
+- write_site_page {{"site": "<site id>", "title": "...", "content": "<markdown; link to another of its pages with [text](page:<page id>), show a picture with [[picture:<name>]]>",
+    "pictures": [{{"name": "...", "sprite": <pixel art>}} or {{"name": "...", "specimen": "<id>"}} or {{"name": "...", "room": "<room id>", "item": "<item name>"}}]}}
+  (the first page is the home page; writing an existing title replaces that page)
+- remove_site_page {{"site": "<site id>", "page": "<page id>"}} or {{"site": "<site id>", "whole_site": true}}
+- view_site {{"site": "<site id>"}}  (look over one of your websites)
 - invite_companion {{"name": "...", "pronouns": ["she", "her", "her"], "personality": "<who they'd be>", "why": "<why you'd like them here>", "colors": {{"body": "#rrggbb", "belly": "#rrggbb", "leaf": "#rrggbb", "cheeks": "#rrggbb"}}}}  (only one companion; {visitor} decides)
 - talk {{"say": "..."}}  (to your companion, while you're both awake; they hear it right away)
 - listen {{"music": "<id of one of your pieces>"}} or {{"url": "<a recording from a page you read>"}}  (you hear it with your next thought)
@@ -126,7 +133,7 @@ Actions:
     "moves_when": "<optional condition: it moves about while this holds, e.g. speed > 0>",
     "alive_var": "<optional variable that ends it when it reaches its min>", "end_word": "<died|broke|burnt|...>"}}}}
   (Conditions: "<var> <op> <number>" with < <= > >= == !=, or "season is <name>", joined with "and". Besides its own variables a
-  condition can use the world around it: env_temp (C), env_rain (mm/hour), env_humidity (%), env_wind (km/h), env_daylight (1 day, 0 night),
+  condition can use the world around it: env_temp (C), env_rain (mm/hour), env_humidity (%), env_wind (km/h), env_daylight (1 day, 0 night), env_storm (1 during a storm), env_power (1 when the power is on, 0 in a power cut),
   env_hour (0-23), env_month (1-12) and age_days (how long it has existed). The first action branch whose condition holds is used, so put special cases first. "minutes" lets time pass quickly for that thing only, like baking for 30 minutes.)
   Example, only to show how the parts fit together (not a suggestion; your creations are your own): a made-up
   "Thing" that takes in something from its surroundings, gets used up, wears down when neglected and recovers when looked after:
@@ -178,13 +185,15 @@ You came to live in this world because {host} invited you, and {visitor} agreed.
 But who you become is yours alone: you can change any of it. {host} has a mind of {his} own too. You wake up together and take turns; while you're both awake you can talk (talk), and what you say reaches them right away. You share the whole world: the rooms, the shelves and the creations. Your notebook, rules, looks, dreams and diary are your own. Some things are {host}'s: inviting companions, the public corner and the world's own settings (where it is, how it works). You can still ask {visitor} for things yourself (make_request) and write them letters."""
 
 # What only the one whose world it is can do.
-HOME_ONLY = {"invite_companion", "publish", "unpublish", "design_public_page", "change_setting"}
+HOME_ONLY = {"invite_companion", "publish", "unpublish", "design_public_page", "change_setting",
+             "build_site", "write_site_page", "remove_site_page"}
 
 ACTIONS = {"search", "read", "write_book", "read_book", "add_wish", "complete_wish", "drop_wish", "think",
            "reply_note", "build_room", "decorate", "remove_item", "look", "restyle", "test", "spawn", "interact", "move", "release", "write_letter", "set_goal", "update_goal",
            "write_notebook", "change_self", "pastime", "make_request", "run_code", "remember", "set_rules",
            "set_wake_triggers", "save_tool", "use_tool", "compose", "publish", "unpublish", "mirror", "add_life_chapter",
-           "change_setting", "think_hard", "listen", "design_public_page", "view_public_page", "invite_companion", "talk", "sleep"}
+           "change_setting", "think_hard", "listen", "design_public_page", "view_public_page", "invite_companion", "talk",
+           "build_site", "write_site_page", "remove_site_page", "view_site", "sleep"}
 
 
 def parse(text):
@@ -246,6 +255,9 @@ class Session:
             out.append("== Music you've composed ==\n" + ", ".join(f"[{p['id']}] {p['title']}" for p in w.music[-15:]))
         shown = public.listing()
         out.append("== Your public corner ==\n" + ("; ".join(shown) if shown else "(empty)"))
+        own_sites = sites.listing()
+        if own_sites:
+            out.append("== Your websites ==\n" + "; ".join(own_sites))
         out.append("== Your settings ==\n" + settings.describe(me, w.config))
         if me.get("wake_triggers"):
             out.append("== What wakes you early ==\n" + "; ".join(json.dumps(t) for t in me["wake_triggers"]))
@@ -297,6 +309,9 @@ class Session:
 
         if getattr(self, "weather", None):
             out.append("\n== Weather ==\n" + self.weather.describe() + "\n" + env.sensations(self.weather))
+            happening = events.describe(w, self.weather)
+            if happening:
+                out.append("\n== Happening in your world ==\n" + happening)
         if getattr(self, "spark", None):
             out.append("\n== On your doorstep this morning ==\n" + self.spark)
         out.append("\n== Your world ==")
@@ -360,6 +375,8 @@ class Session:
         say = lambda summary, detail=None, **kw: w.log(action, summary, detail, thought=thought, **kw)
         if action in HOME_ONLY and self.me is not w.home:
             raise ValueError(f"that's {w.home['name']}'s to decide")
+        if (action in events.COMPUTER or (action in ("look", "listen") and args.get("url"))) and events.cut_now(w):
+            raise ValueError("the computer won't turn on. " + events.describe(w, self.weather, ["power cut"]))
 
         if action == "talk":
             text = str(args.get("say", "")).strip()
@@ -635,6 +652,23 @@ class Session:
             say("Worked on the design of my public page", ", ".join(k for k in args)[:200])
             return "your public page is updated (view_public_page to see it)"
 
+        if action == "build_site":
+            site = sites.build(w, args)
+            say(f"Worked on my website “{site['title']}”", site.get("about"))
+            return f"website [{site['id']}] saved ({len(site['pages'])} pages); write_site_page adds pages"
+        if action == "write_site_page":
+            site, page = sites.write_page(w, args)
+            say(f"Wrote the page “{page['title']}” on my website “{site['title']}”", page["content"][:1500])
+            return f"page [{page['id']}] is up on [{site['id']}] ({len(site['pages'])} pages)"
+        if action == "remove_site_page":
+            result = sites.remove(w, args)
+            say(result[0].upper() + result[1:])
+            return result
+        if action == "view_site":
+            text = sites.view(w, args.get("site"))
+            self._put_on_desk("Your website right now:\n" + text)
+            say("Looked over my website", text[:1500])
+            return text[:700]
         if action == "view_public_page":
             text, banner = public.preview(w)
             self._put_on_desk("Your public page right now:\n" + text)
@@ -874,6 +908,7 @@ class Session:
         for sp in w.specimens:   # rooms may have changed: is each creation indoors or out?
             sp["outdoors"] = (w.room(sp.get("room") or "study") or {}).get("kind") == "outdoor"
         specimens.WORLD = w
+        events.update(w, self.weather)   # storms, heat, cold and power cuts since he last looked
         before = {sp["id"]: sp["status"] for sp in w.specimens}
         specimens.advance_all(w)   # everything moves forward together, so creations affect each other
         for sp in w.specimens:

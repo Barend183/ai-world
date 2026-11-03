@@ -13,7 +13,8 @@ from datetime import datetime, timedelta, timezone
 
 from .world import load, save
 
-NAMES = ("env_temp", "env_rain", "env_humidity", "env_wind", "env_daylight", "env_hour", "env_month", "age_days")
+NAMES = ("env_temp", "env_rain", "env_humidity", "env_wind", "env_daylight", "env_hour", "env_month", "age_days",
+         "env_storm", "env_power")
 # Cape Town's averages per month: (mean temperature C, rain mm in the month, rainy days)
 CLIMATE = {1: (21, 15, 3), 2: (21.5, 17, 3), 3: (20, 20, 4), 4: (17.5, 41, 7), 5: (15.5, 69, 10), 6: (13.5, 93, 11),
            7: (13, 82, 11), 8: (13.5, 77, 11), 9: (14.5, 40, 8), 10: (16.5, 30, 6), 11: (18.5, 14, 4), 12: (20, 17, 3)}
