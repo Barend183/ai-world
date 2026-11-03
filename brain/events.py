@@ -98,7 +98,7 @@ def describe(world, weather, kinds=None):
     for kind in kinds if kinds is not None else state(world)["now"]:
         if kind == "storm":
             out.append(f"A storm is blowing: wind {o['env_wind']} km/h, rain {o['env_rain']} mm/h. Outdoors everything takes the "
-                       "full force of it; indoors you hear it rattling the windows.")
+                       "full force of it; indoors I hear it rattling the windows.")
         elif kind == "heat wave":
             out.append(f"A heat wave: over {HEAT} C three days running. Outdoors it's baking; things dry out fast.")
         elif kind == "cold snap":
@@ -106,6 +106,6 @@ def describe(world, weather, kinds=None):
         elif kind == "power cut":
             c = cut_now(world, t)
             back = f", back around {local(c['until'])}" if c else ""
-            out.append(f"The power is out (since {local(c['since']) if c else 'a while ago'}{back}). Your computer, screens and "
+            out.append(f"The power is out (since {local(c['since']) if c else 'a while ago'}{back}). My computer, screens and "
                        "electric lights don't work until it's back; daylight, candles and fires still do.")
     return " ".join(out)

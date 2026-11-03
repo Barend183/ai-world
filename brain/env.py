@@ -104,9 +104,9 @@ def sensations(weather, t=None):
     wind = o["env_wind"]
     touch = [f"the air feels {_feel(o['env_temp'])} ({o['env_temp']} C)"]
     touch.append("damp and heavy" if humid >= 85 else "dry" if humid <= 35 else "neither damp nor dry")
-    touch.append("perfectly still" if wind < 3 else "a light breeze" if wind < 15 else "a steady wind tugging at things" if wind < 30 else "strong gusts that push you around")
+    touch.append("perfectly still" if wind < 3 else "a light breeze" if wind < 15 else "a steady wind tugging at things" if wind < 30 else "strong gusts that push me around")
     if o["env_rain"] > 0:
-        touch.append("raindrops on your skin" + (", heavy and cold" if o["env_rain"] > 2 else ", soft and light"))
+        touch.append("raindrops on my skin" + (", heavy and cold" if o["env_rain"] > 2 else ", soft and light"))
     smell = []
     if o["env_rain"] > 0 and dry_before:
         smell.append("rain on dry ground, sharp and earthy")
@@ -140,4 +140,4 @@ def sensations(weather, t=None):
         sounds.append("the deep quiet of the night" + (", a cricket somewhere" if o["env_temp"] > 15 else ""))
     indoor = f"Indoors the air is {_feel(i['env_temp'])} ({i['env_temp']} C) and still, and smells of books and wood."
     return (f"Outside, {', '.join(touch)}; it smells of {' and '.join(smell) or 'nothing in particular'}; "
-            f"you hear {' and '.join(sounds) or 'very little'}. {indoor}")
+            f"I hear {' and '.join(sounds) or 'very little'}. {indoor}")

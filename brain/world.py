@@ -18,7 +18,7 @@ import os
 import re
 import tempfile
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORLD = os.path.join(ROOT, "docs", "world")
@@ -39,6 +39,7 @@ PLACES = {
     "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer", "compose": "armchair", "mirror": "room", "add_life_chapter": "armchair", "change_setting": "armchair", "think_hard": "armchair", "listen": "armchair", "publish": "computer", "unpublish": "computer", "design_public_page": "computer", "view_public_page": "computer",
     "talk": "talk", "invite_companion": "mailbox", "companion": "door", "event": "armchair",
     "build_site": "computer", "write_site_page": "computer", "remove_site_page": "computer", "view_site": "computer",
+    "write_private": "armchair",
     "remember": "shelves", "set_rules": "armchair", "set_wake_triggers": "bed", "save_tool": "computer", "use_tool": "computer",
 }
 
@@ -127,6 +128,13 @@ class World:
             yield me
         finally:
             self.me = was
+
+    def mark(self, what, days=2):
+        """Something that stays on his mind for a while (a loss, a joy, a new arrival)."""
+        until = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat(timespec="seconds")
+        marks = self.home.setdefault("on_my_mind", [])
+        marks.append({"at": now(), "what": what[:200], "until": until})
+        del marks[:-12]
 
     def companion(self):
         return next((c for c in self.companions if c.get("status") == "living"), None)

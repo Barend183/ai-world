@@ -34,6 +34,9 @@ def _documents(world):
         yield f"your memory of {month}", month, text, month
     if world.me.get("notebook"):
         yield "your notebook", "notebook", world.me["notebook"], ""
+    from .mind import private_page
+    if private_page(world):
+        yield "your private pages", "private", private_page(world), ""
     for g in world.goals:
         yield f"goal [{g['id']}] {g['goal']}", g["goal"], g["why"] + " " + " ".join(p["note"] for p in g["progress"]), g.get("set", "")
     for n in world.notes:

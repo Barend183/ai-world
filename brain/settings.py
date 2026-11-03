@@ -76,7 +76,7 @@ def change(me, setting, value):
 def describe(me, config):
     s = me.get("settings", {})
     loc = s.get("location")
-    return (f"sleep {config.get('default_sleep_hours', 3)} h unless you say otherwise; at most "
-            f"{max(config.get('max_steps_per_session', {}).values() or [12])} thoughts a session; look back every "
+    return (f"sleep {config.get('default_sleep_hours', 3)} h unless I decide otherwise; up to "
+            f"{max(config.get('max_steps_per_session', {}).values() or [12])} things each time I am up; look back every "
             f"{config.get('review_days', 7)} days; morning spark {'on' if config.get('spark', True) else 'off'}; "
             f"world located in {loc['place'] if loc else config.get('weather_place', 'Cape Town')}")
