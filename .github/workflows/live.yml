@@ -12,6 +12,10 @@ on:
         type: choice
         options: ["yes", "no"]
         default: "yes"
+      alarm_test:
+        description: "Test his alarm clock: ring after this many minutes instead (it only checks; he still wakes when he chose)"
+        required: false
+        default: ""
   push:
     paths: ["docs/vault/inbox/**"]   # a note you send from his page wakes him right away
 
@@ -148,12 +152,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WAKE: ${{ needs.live.outputs.wake_after }}
           MINE: ${{ github.run_id }}
+          TEST: ${{ inputs.alarm_test }}
         run: |
           API="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/live.yml"
           now=$(date +%s)
           ring=$(( $(date -d "$WAKE" +%s) + 60 ))
           [ "$ring" -lt $(( now + 1800 )) ] && ring=$(( now + 1800 ))     # never ring sooner than his shortest sleep
           [ "$ring" -gt $(( now + 20400 )) ] && ring=$(( now + 20400 ))   # 5h40m: a check then sets the rest
+          TEST="${TEST//[^0-9]/}"
+          if [ -n "$TEST" ]; then ring=$(( now + TEST * 60 )); echo "(a test ring)"; fi
           echo "alarm set for $(date -u -d "@$ring" +%H:%M) UTC"
           while [ "$(date +%s)" -lt "$ring" ]; do
             left=$(( ring - $(date +%s) ))
