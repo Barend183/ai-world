@@ -26,7 +26,7 @@ RECENT_LIMIT = 300
 
 # Where in the room each kind of activity happens (the page walks the AI there).
 PLACES = {
-    "wake": "bed", "sleep": "bed", "diary": "bed", "set_alarm": "bed",
+    "wake": "bed", "sleep": "bed", "diary": "bed", "set_alarm": "bed", "start_timer": "armchair", "cancel_timer": "armchair", "set_habit": "armchair",
     "search": "computer", "read": "computer",
     "write_book": "shelves", "read_book": "shelves",
     "add_wish": "board", "complete_wish": "board", "drop_wish": "board",

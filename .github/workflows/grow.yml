@@ -1,0 +1,114 @@
+# Once a week his own brain grows a little: his good lessons train it on Kaggle's free GPU, it's tested on
+# lessons it never saw, and only a version that passes is adopted. Does nothing until Kaggle is connected
+# (secrets KAGGLE_USERNAME and KAGGLE_KEY).
+name: Grow
+
+on:
+  schedule:
+    - cron: "41 1 * * 0"      # Sunday night, while he's most likely asleep
+  workflow_dispatch:
+
+permissions:
+  contents: write             # record which version of his brain is adopted
+
+concurrency:
+  group: grow
+  cancel-in-progress: false
+
+jobs:
+  grow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      MIN_LESSONS: "150"
+    steps:
+      - name: Is Kaggle connected?
+        id: kaggle
+        run: |
+          if [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"
+          else echo "Kaggle isn't connected yet (secrets KAGGLE_USERNAME and KAGGLE_KEY), so his brain can't grow this week."; fi
+
+      - uses: actions/checkout@v7
+        if: steps.kaggle.outputs.ok == 'true'
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        if: steps.kaggle.outputs.ok == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Gather his lessons
+        id: lessons
+        if: steps.kaggle.outputs.ok == 'true'
+        env:
+          WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
+          WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install --quiet -r requirements.txt kaggle
+          mkdir -p work/data work/kernel
+          python -m brain lessons work/data/lessons.jsonl | tee work/count.txt
+          n=$(grep -o '^[0-9]*' work/count.txt)
+          if [ "$n" -lt "$MIN_LESSONS" ]; then echo "Only $n lessons so far; waiting until there are $MIN_LESSONS."; exit 0; fi
+          echo "go=true" >> "$GITHUB_OUTPUT"
+
+      - name: Send them to Kaggle and start the training
+        if: steps.lessons.outputs.go == 'true'
+        run: |
+          U="$KAGGLE_USERNAME"
+          printf '{"title": "sprout-lessons", "id": "%s/sprout-lessons", "licenses": [{"name": "other"}]}' "$U" > work/data/dataset-metadata.json
+          # private by default; a new version each week
+          kaggle datasets version -p work/data -m "lessons $(date -u +%F)" -q || kaggle datasets create -p work/data -q
+          sleep 60   # let Kaggle unpack the new version before the training reads it
+          cp brain/grow/train.py work/kernel/
+          printf '{"id": "%s/sprout-grow", "title": "sprout-grow", "code_file": "train.py", "language": "python", "kernel_type": "script", "is_private": true, "enable_gpu": true, "enable_internet": true, "dataset_sources": ["%s/sprout-lessons"]}' "$U" "$U" > work/kernel/kernel-metadata.json
+          kaggle kernels push -p work/kernel
+
+      - name: Wait for it to finish learning
+        if: steps.lessons.outputs.go == 'true'
+        run: |
+          for i in $(seq 1 150); do
+            s=$(kaggle kernels status "$KAGGLE_USERNAME/sprout-grow" 2>&1 || true); echo "$s" | tail -1
+            echo "$s" | grep -qiE 'complete' && exit 0
+            echo "$s" | grep -qiE 'error|cancel' && exit 1
+            sleep 120
+          done
+          exit 1
+
+      - name: Test results, and adopt it if it passed
+        if: steps.lessons.outputs.go == 'true'
+        run: |
+          kaggle kernels output "$KAGGLE_USERNAME/sprout-grow" -p work/out
+          cat work/out/meta.json
+          python - <<'EOF'
+          import json, sys, datetime
+          m = json.load(open("work/out/meta.json"))
+          if m["valid"] < 0.9:
+              sys.exit(f"Not adopted: only {m['valid']:.0%} of its test answers were usable thoughts (needs 90%).")
+          try:
+              old = json.load(open("brain/own_brain.json"))
+          except OSError:
+              old = {"version": 0}
+          m.update(version=old["version"] + 1, adopted=datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d"))
+          json.dump(m, open("brain/own_brain.json", "w"), indent=2)
+          EOF
+          # his adopted brain lives as a private Kaggle dataset; each wake-up fetches it from there
+          mkdir -p work/brain && cp work/out/sprout.gguf work/out/Modelfile brain/own_brain.json work/brain/
+          printf '{"title": "sprout-brain", "id": "%s/sprout-brain", "licenses": [{"name": "other"}]}' "$KAGGLE_USERNAME" > work/brain/dataset-metadata.json
+          kaggle datasets version -p work/brain -m "version $(python -c 'import json; print(json.load(open("brain/own_brain.json"))["version"])')" -q \
+            || kaggle datasets create -p work/brain -q
+
+      - name: Record the new version
+        if: steps.lessons.outputs.go == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add brain/own_brain.json
+          git commit -q -m "His own brain grew (version $(python -c 'import json; print(json.load(open("brain/own_brain.json"))["version"])'))"
+          REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git pull -q --rebase "$REMOTE" "${GITHUB_REF_NAME}" && git push -q "$REMOTE" "HEAD:${GITHUB_REF_NAME}"

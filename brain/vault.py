@@ -19,7 +19,7 @@ from .world import ROOT, WORLD
 VAULT = os.path.join(ROOT, "docs", "vault")
 MAGIC = b"AIW1"
 ITERATIONS = 310_000
-SKIP = {"inbox", "weather.json", "journal"}   # not bundled: delivered notes, the weather cache, the journal (kept per month)
+SKIP = {"inbox", "weather.json", "journal", "apprentice"}   # not bundled: delivered notes, the weather cache, the journal (kept per month), his lessons (own branch)
 _keys = {}
 
 

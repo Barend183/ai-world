@@ -225,6 +225,34 @@ class Ollama:
             raise BrainUnavailable(f"Ollama failed: {e}") from e
 
 
+class OwnBrain:
+    """His own brain: a small open model on this machine ("sprout" once it has grown from his lessons,
+    otherwise the plain base model it grows from). Asked for a straight answer, no hidden musing."""
+    kind = "own"
+    sees = False
+
+    def __init__(self, cfg):
+        self.host = os.environ.get("OLLAMA_HOST_URL") or cfg.get("host", "http://127.0.0.1:11434")
+        try:
+            have = {m["name"].split(":latest")[0] for m in _request(f"{self.host}/api/tags", timeout=5).get("models", [])}
+        except Exception as e:
+            raise BrainUnavailable("his own brain isn't running here") from e
+        self.grown = "sprout" in have
+        self.model = "sprout" if self.grown else cfg.get("base", "qwen3:1.7b")
+        if self.model not in have:
+            raise BrainUnavailable(f"his own brain ({self.model}) isn't downloaded here")
+        self.label = f"my own brain ({'grown' if self.grown else 'new'}, {self.model})"
+
+    def think(self, system, prompt):
+        body = {"model": self.model, "stream": False, "format": "json", "think": False,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+                "options": {"num_ctx": 8192, "temperature": 0.7}}
+        try:
+            return _request(f"{self.host}/api/chat", body, timeout=600)["message"]["content"]
+        except Exception as e:
+            raise BrainUnavailable(f"my own brain stumbled: {e}") from e
+
+
 def next_utc_midnight():
     now = datetime.now(timezone.utc)
     return (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)

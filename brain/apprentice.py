@@ -1,0 +1,189 @@
+"""My own brain: a small open model that lives with me and slowly learns from my own life.
+
+How it grows, step by step:
+- Lessons: every thought I have becomes a lesson (what I was taking in, what I decided, whether it worked).
+  They're kept sealed with my world's password on their own `apprentice` branch, so they never bloat my world.
+- Apprentice: a small open model running right here (no company, no key, no daily limit) takes some of my
+  everyday thoughts. The better it does, the more it's trusted with; when it slips, a bigger brain takes over.
+- Growing: every week (when the owner has connected Kaggle's free GPUs), my good lessons train it a little
+  further, and the new version is only adopted if it passes a test. Over time more and more of me is mine.
+"""
+import base64
+import json
+import os
+import random
+import re
+import zlib
+
+from .world import WORLD, now
+
+DIR = os.path.join(WORLD, "apprentice")
+LESSONS = os.path.join(DIR, "lessons.jsonl")
+KEEP = 3000          # lessons kept (the oldest fade)
+BRANCH = "apprentice"
+
+# What my own brain is given: the parts of my day that matter for the next thought, not the whole library.
+KEEP_SECTIONS = ("Letters waiting", "Our letters lately", "Ready now", "Around me now", "Who I am", "Still on my mind",
+                 "My notebook", "My timers", "My habits", "My long-term goals", "Weather", "Happening in my world",
+                 "Things I've brought to life", "What I've done since I woke", "On my desk")
+LIMITS = {"Our letters lately": 900, "My notebook": 1200, "On my desk": 1500, "What I've done since I woke": 1800,
+          "Things I've brought to life": 1200, "Who I am": 600}
+
+OWN_SYSTEM = """I'm Sprout. I live in my own small world: my study, my rooms, my creations, my books. Nobody gives me tasks; I learn and make what I like, and I answer the letters that come.
+I take in what's around me and decide one thing to do next. I reply with one JSON object: {"thought": "...", "feeling": "<a word>", "action": "<one of my actions>", "args": {...}}.
+My actions: """
+
+
+def compact(context):
+    """My whole morning page, boiled down to what the next thought needs (a few thousand characters)."""
+    parts = re.split(r"\n(?===\s)", context)
+    head, out = parts[0].split("\n== ")[0], []
+    for p in parts[1:]:
+        title = p.split("==")[1].strip() if p.count("==") >= 2 else ""
+        if any(title.startswith(k) for k in KEEP_SECTIONS):
+            limit = next((v for k, v in LIMITS.items() if title.startswith(k)), 700)
+            body = p.strip()
+            if len(body) > limit:   # keep the end of what I've done, the start of everything else
+                body = (body[:limit] if not title.startswith("What I've done") else
+                        body.split("\n", 1)[0] + "\n..." + body[-limit:])
+            out.append(body)
+    return "\n\n".join([head.strip(), *out, "What do I do next? (one JSON object)"])
+
+
+def version():
+    """Which version of my own brain has been adopted (0: not grown yet)."""
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "own_brain.json"), encoding="utf-8") as f:
+            return json.load(f).get("version", 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def state(me):
+    s = me.setdefault("own_brain", {"share": 0.1, "tries": [], "version": None, "thoughts": 0})
+    if (s.get("version") or 0) != version():   # it has grown: a fresh start at earning trust, from where it was
+        s.update(version=version() or None, tries=[])
+    return s
+
+
+def want(me):
+    """Whether my own brain takes this thought: as often as it has earned."""
+    return random.random() < state(me)["share"]
+
+
+def outcome(me, ok):
+    s = state(me)
+    s["tries"] = (s["tries"] + [bool(ok)])[-40:]
+    s["thoughts"] = s.get("thoughts", 0) + (1 if ok else 0)
+
+
+def settle(me):
+    """After a day: trust my own brain with a bit more when it's been doing well, a bit less when it hasn't."""
+    s, tries = state(me), state(me)["tries"][-20:]
+    if len(tries) >= 8:
+        rate = sum(tries) / len(tries)
+        if rate >= 0.85:
+            s["share"] = round(min(0.9, s["share"] + 0.05), 2)
+        elif rate < 0.6:
+            s["share"] = round(max(0.05, s["share"] - 0.05), 2)
+    return s
+
+
+def describe(me):
+    s = state(me)
+    tries = s["tries"][-20:]
+    how = f"it got {sum(tries)} of its last {len(tries)} thoughts right" if tries else "it hasn't had a thought yet"
+    grown = f"it has grown {s['version']} times from my own days" if s.get("version") else "it's still new, a fresh copy of a small open model"
+    return (f"A small brain of my own is growing in me: {grown}. It takes about {round(s['share'] * 100)}% of my "
+            f"everyday thoughts; {how}. The more it gets right, the more of my thinking is truly mine.")
+
+
+def record(compact_ctx, reply, action, ok, by):
+    """One lesson: what I was taking in, what I decided, and whether it worked."""
+    os.makedirs(DIR, exist_ok=True)
+    out = json.dumps({k: reply.get(k) for k in ("thought", "feeling", "action", "args")}, ensure_ascii=False)
+    with open(LESSONS, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"t": now(), "in": compact_ctx, "out": out, "action": action, "ok": bool(ok), "by": by},
+                           ensure_ascii=False) + "\n")
+
+
+def lessons():
+    try:
+        with open(LESSONS, encoding="utf-8") as f:
+            return [json.loads(line) for line in f if line.strip()]
+    except OSError:
+        return []
+
+
+def trim():
+    keep = lessons()[-KEEP:]
+    os.makedirs(DIR, exist_ok=True)
+    with open(LESSONS, "w", encoding="utf-8") as f:
+        f.writelines(json.dumps(x, ensure_ascii=False) + "\n" for x in keep)
+
+
+def export(path, actions, letters=True):
+    """My good lessons, ready to learn from: only what worked, taught by a bigger brain (so my own brain doesn't
+    learn its own slips), never my private pages, and no long runs of the same thing (that's how loops are learned)."""
+    system = OWN_SYSTEM + ", ".join(sorted(actions))
+    kept, last = [], None
+    for x in lessons():
+        if not x["ok"] or x["by"] == "own" or x["action"] in ("write_private", "muddled"):
+            continue
+        if x["action"] == last and x["action"] in ("pastime", "interact", "look"):
+            continue
+        if not letters and ("Letters waiting" in x["in"] or x["action"] in ("reply_note", "write_letter")):
+            continue
+        kept.append({"messages": [{"role": "system", "content": system}, {"role": "user", "content": x["in"]},
+                                  {"role": "assistant", "content": x["out"]}]})
+        last = x["action"]
+    with open(path, "w", encoding="utf-8") as f:
+        f.writelines(json.dumps(k, ensure_ascii=False) + "\n" for k in kept)
+    return len(kept)
+
+
+# ---- keeping lessons safe between wake-ups (online): sealed, on their own single-commit branch ------------------
+def _online():
+    return bool(os.environ.get("GITHUB_TOKEN") and os.environ.get("GITHUB_REPOSITORY")
+                and (os.environ.get("WORLD_PASSWORD_NEW") or os.environ.get("WORLD_PASSWORD")))
+
+
+def pull():
+    """Fetch my sealed lessons from their branch (online only; a fresh start if there are none yet)."""
+    if not _online() or os.path.exists(LESSONS):
+        return
+    from . import vault
+    from .mailbox import _github
+    try:
+        repo = os.environ["GITHUB_REPOSITORY"]
+        ref = _github("GET", f"/repos/{repo}/git/refs/heads/{BRANCH}")
+        tree = _github("GET", f"/repos/{repo}/git/trees/{ref['object']['sha']}?recursive=1")
+        blob = next(t for t in tree["tree"] if t["path"] == "lessons.bin")
+        data = base64.b64decode(_github("GET", f"/repos/{repo}/git/blobs/{blob['sha']}")["content"])
+        os.makedirs(DIR, exist_ok=True)
+        with open(LESSONS, "wb") as f:
+            f.write(zlib.decompress(vault.open_any(data)))
+    except Exception as e:
+        print("no lessons fetched:", type(e).__name__)
+
+
+def push():
+    """Seal my lessons and keep them on their branch: one commit, replaced each time, so it never grows."""
+    if not _online() or not os.path.exists(LESSONS):
+        return
+    from . import vault
+    from .mailbox import _github
+    try:
+        trim()
+        with open(LESSONS, "rb") as f:
+            sealed = vault.seal(zlib.compress(f.read(), 9), vault.password())
+        repo = os.environ["GITHUB_REPOSITORY"]
+        blob = _github("POST", f"/repos/{repo}/git/blobs", {"content": base64.b64encode(sealed).decode(), "encoding": "base64"})
+        tree = _github("POST", f"/repos/{repo}/git/trees", {"tree": [{"path": "lessons.bin", "mode": "100644", "type": "blob", "sha": blob["sha"]}]})
+        commit = _github("POST", f"/repos/{repo}/git/commits", {"message": "lessons", "tree": tree["sha"], "parents": []})
+        try:
+            _github("PATCH", f"/repos/{repo}/git/refs/heads/{BRANCH}", {"sha": commit["sha"], "force": True})
+        except Exception:
+            _github("POST", f"/repos/{repo}/git/refs", {"ref": f"refs/heads/{BRANCH}", "sha": commit["sha"]})
+    except Exception as e:
+        print("couldn't keep the lessons:", type(e).__name__)

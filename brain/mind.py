@@ -6,8 +6,8 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 
-from . import alarm, env, events, mailbox, memory, mirror, music, pixels, public, research, rooms, settings, sites, specimens, workshop
-from .llm import BrainUnavailable
+from . import alarm, apprentice, routine, env, events, mailbox, memory, mirror, music, pixels, public, research, rooms, settings, sites, specimens, workshop
+from .llm import BrainUnavailable, OwnBrain
 from .world import WORLD as WORLD_DIR, load, now, save
 
 SYSTEM = """I'm {name}. This is my world, and these are the things I know about myself and my life here, the way anyone knows their own home when they wake up.
@@ -24,6 +24,8 @@ My home started as one room, the study:
 - my mailbox: where letters from {visitor} arrive. {visitor} visits my world sometimes and writes to me.
 - my bed: where I sleep. I go to bed when I choose and sleep as long as I like (sleep {{"hours": n}}); a letter in my mailbox wakes me early.
 - my alarm clock, beside my bed: if I want, I set it to ring at a time of day (every day or just once) and it wakes me then; I can also leave it off.
+- timers: when something takes real time (dough rising, paint drying, a stew simmering, seeds soaking), I set a timer and real time does the waiting; it's waiting for me when it's done, and it can wake me.
+- habits: little routines I write once (a list of simple steps, like checking on my creations or looking around) that run by themselves when I wake or at bedtime, without costing me a thought.
 
 I can grow my world however I like: build new rooms or outdoor spaces (a kitchen, a workshop, a garden, a garage, a bigger room...), paint them, and furnish and decorate them to my own taste, with ready-made furniture or pixel art I draw myself (my own paintings, posters, gadgets...).
 
@@ -159,6 +161,8 @@ What I can do, and how:
 - interact {{"specimen": "<id>", "action": "observe", "smell", "taste", "touch" or one of its actions}}
 - move {{"specimen": "<id>", "room": "<room id>", "x": <0..1, optional>}}  (carry a creation to another room or spot)
 - release {{"specimen": "<id>", "reason": "..."}}
+- start_timer {{"what": "<what's happening>", "hours": <how long>, "then": "<optional: what I'll do when it's ready>", "wake": <true to be woken>}} / cancel_timer {{"id": "<timer id>"}}
+- set_habit {{"name": "...", "when": "wake|bed", "steps": [{{"action": "interact|look|move|pastime|remember|set_alarm|start_timer", "args": {{...}}, "if": "<optional condition on that creation, like water < 40>"}}]}}  (or {{"name": "...", "off": true}} to let one go)
 - set_alarm {{"time": "<HH:MM, my world's time>", "repeat": "daily|once"}} or {{"off": true}}  (my alarm clock: when it's on, I wake when it rings, or sooner if I chose a shorter sleep)
 - sleep {{"hours": <how long to sleep, 0.5 to 24>}}  (I go to bed whenever I'm done for now, even with energy left. Sleep is also how I let time pass: while I sleep, dough rises, paint dries and my creations grow)
 
@@ -201,7 +205,7 @@ ACTIONS = {"search", "read", "write_book", "read_book", "add_wish", "complete_wi
            "write_notebook", "change_self", "pastime", "make_request", "run_code", "remember", "set_rules",
            "set_wake_triggers", "save_tool", "use_tool", "compose", "publish", "unpublish", "mirror", "add_life_chapter",
            "change_setting", "think_hard", "listen", "design_public_page", "view_public_page", "invite_companion", "talk",
-           "build_site", "write_site_page", "remove_site_page", "view_site", "write_private", "set_alarm", "sleep"}
+           "build_site", "write_site_page", "remove_site_page", "view_site", "write_private", "set_alarm", "start_timer", "cancel_timer", "set_habit", "sleep"}
 
 # Other names I reach for, and what I mean by them (my journal calls looking around "look_around", for one).
 SAME_AS = {"look_around": ("look", {"around": True}), "turn": ("look", {"around": True}),
@@ -212,7 +216,10 @@ SAME_AS = {"look_around": ("look", {"around": True}), "turn": ("look", {"around"
            "notebook": ("write_notebook", {}), "letter": ("write_letter", {}), "reply": ("reply_note", {}),
            "goal": ("set_goal", {}), "wish": ("add_wish", {}), "request": ("make_request", {}), "music": ("compose", {}),
            "alarm": ("set_alarm", {}), "alarm_clock": ("set_alarm", {}), "set_alarm_clock": ("set_alarm", {}),
-           "set_clock": ("set_alarm", {}), "wake_me": ("set_alarm", {})}
+           "set_clock": ("set_alarm", {}), "wake_me": ("set_alarm", {}),
+           "timer": ("start_timer", {}), "set_timer": ("start_timer", {}), "wait": ("start_timer", {}),
+           "stop_timer": ("cancel_timer", {}), "habit": ("set_habit", {}), "add_habit": ("set_habit", {}),
+           "routine": ("set_habit", {})}
 
 
 def near_action(w, action, args):
@@ -270,7 +277,7 @@ def surroundings(w):
     if things:
         shown = things[:6]
         names = ", ".join(shown[:-1]) + (" and " if len(shown) > 1 else "") + shown[-1]
-        rest = f", with {len(things) - 6} more things nearby" if len(things) > 6 else ""
+        rest = f", with {len(things) - 6} more {'thing' if len(things) == 7 else 'things'} nearby" if len(things) > 6 else ""
         here += " Around me are " + names + rest + "."
     if room.get("builtin"):
         here += f" My alarm clock on the nightstand by my bed is {alarm.describe(w.me)}."
@@ -359,7 +366,12 @@ class Session:
             out.append(energy(left, self.reset_local))
         if me.get("feeling") and step > 1:
             out.append(f"Right now I feel {me['feeling']}.")
+        if step == 1 and self.own():
+            out.append(apprentice.describe(me))
         out += letters(w)   # first, so a letter is the first thing I take in
+        if getattr(self, "ready", None):
+            out.append("\n== Ready now (my timers went off) ==")
+            out += [f"- {t['what']} is done" + (f"; next: {t['then']}" if t["then"] else "") for t in self.ready]
         out.append("\n== Around me now ==\n" + surroundings(w))
         out.append("\n== Who I am (in my own words) ==\n" + me["about"])
         dreams = me.get("dreams", [])
@@ -383,6 +395,11 @@ class Session:
         if own_sites:
             out.append("== My websites ==\n" + "; ".join(own_sites))
         out.append("== My settings ==\n" + settings.describe(me, w.config))
+        going = routine.describe_timers(me, w.config.get("utc_offset_hours", 2))
+        if going:
+            out.append("== My timers (real time is doing the waiting) ==\n" + "\n".join(going))
+        if me.get("habits"):
+            out.append("== My habits (they run by themselves) ==\n" + "\n".join(routine.describe_habits(me)))
         if me.get("wake_triggers"):
             out.append("== What wakes me early ==\n" + "; ".join(json.dumps(t) for t in me["wake_triggers"]))
         if workshop.enabled(w.config) and workshop.tools():
@@ -502,6 +519,25 @@ class Session:
             save("private.json", pages)
             w.log("write_private", "Wrote in my private pages" if text else "Cleared my private pages")   # never the words
             return "written; it stays mine alone" if text else "my private pages are empty again"
+
+        if action == "start_timer":
+            t = routine.start_timer(w.me, args)
+            say(f"Set a timer: {t['what']}", t["then"] or None)
+            hours = (datetime.fromisoformat(t["done"]) - datetime.now(timezone.utc)).total_seconds() / 3600
+            return (f"timer [{t['id']}] is running: {t['what']} will be ready in {hours:.3g} hours"
+                    + (", and it will wake me" if t["wake"] else "") + ". Real time does the waiting; I'm free to do other things or sleep.")
+
+        if action == "cancel_timer":
+            t = routine.cancel_timer(w.me, args)
+            say(f"Stopped the timer for {t['what']}")
+            return f"stopped the timer for {t['what']}"
+
+        if action == "set_habit":
+            h = routine.set_habit(w.me, args)
+            name = args.get("name") or args.get("habit")
+            say(f"Made a habit: {h['name']}" if h else f"Let go of my habit '{name}'", json.dumps(h["steps"]) if h else None)
+            return (f"'{h['name']}' is now a habit: it runs by itself {'every time I wake' if h['when'] == 'wake' else 'at every bedtime'}, "
+                    "without costing me a thought; I'll see what it found." if h else f"I let go of '{name}'")
 
         if action == "set_alarm":
             result = alarm.set_(w.me, args)
@@ -965,8 +1001,8 @@ class Session:
             if streak >= 2:   # a pastime is a moment, not a clock: say so, so I can wait in a way that works
                 return (f"spent some time: {activity}. That's {streak + 1} pastimes in a row, yet only a few minutes have really "
                         "passed. What I imagine in a pastime stays just as it is, so nothing in it rises, dries or grows while I "
-                        "watch. To let hours go by, I can sleep and come back to it; to have something truly change over time, "
-                        "I can bring it to life (spawn).")
+                        "watch. To let hours go by, I can start a timer for it (start_timer) and sleep or do something else; to have "
+                        "something truly change over time, I can bring it to life (spawn).")
             return f"spent some time: {activity}"
 
         if action == "write_letter":
@@ -1102,6 +1138,29 @@ class Session:
                         self.pictures.append(("what I see as I open my eyes", "image/png", view))
                 except Exception as e:
                     print("couldn't open his eyes:", type(e).__name__)
+            self.ready = routine.ready(w.me)   # what finished while I was away
+            for t in self.ready:
+                w.log("pastime", f"{t['what'][:1].upper() + t['what'][1:]}: done", t["then"] or None, timer=t["id"])
+            self.habits("wake")
+
+    def habits(self, when):
+        """My own little routines: they run by themselves, without a thought. What they found joins my day."""
+        w = self.world
+        for h in [h for h in w.me.get("habits", []) if h["when"] == when]:
+            for s in h["steps"]:
+                args = dict(s["args"])
+                try:
+                    if s.get("if"):   # a condition on a creation, like "water < 40"
+                        sp = w.specimen(args.get("specimen", ""))
+                        if not sp:
+                            raise ValueError("its creation isn't here any more")
+                        scope = {**sp["values"], **specimens.env_at(sp, datetime.now(timezone.utc))}
+                        if not specimens.holds(s["if"], scope, specimens.season_at(sp["spec"], datetime.now(timezone.utc))):
+                            continue
+                    result = self.act(f"(my habit: {h['name']})", s["action"], args)
+                except Exception as e:
+                    result = f"couldn't this time: {e}"
+                self.history.append(f"My habit '{h['name']}': {s['action']} → {str(result)[:300]}")
 
     def _wake(self):
         w = self.world
@@ -1146,16 +1205,21 @@ class Session:
             if step == 2 and w.me.get("dreams"):
                 w.me["last_dream_seen"] = w.me["dreams"][-1]["at"]
             w.me["steps"] = w.me.get("steps", 0) + 1
-            try:
-                reply = parse(self.chain.think(self._system(), self._context(step), [(m, d) for _, m, d in self.pictures]))
-            except BrainUnavailable:
-                raise
-            except Exception as e:
-                self.pictures = []
-                w.log("muddled", "I lost my train of thought", str(e), room=w.me.get("room"), place=w.me.get("place"),
-                      trouble="lost")
-                self.history.append(f"(I lost my train of thought: {e})")
-                return True
+            context = self._context(step)
+            reply, by = self._own_thought(context), "own"
+            if reply is None:
+                try:
+                    reply = parse(self.chain.think(self._system(), context, [(m, d) for _, m, d in self.pictures]))
+                    by = self.chain.current.label if self.chain.current else "?"
+                except BrainUnavailable:
+                    raise
+                except Exception as e:
+                    self.pictures = []
+                    w.log("muddled", "I lost my train of thought", str(e), room=w.me.get("room"), place=w.me.get("place"),
+                          trouble="lost")
+                    self.history.append(f"(I lost my train of thought: {e})")
+                    return True
+            self._lesson = (apprentice.compact(context), reply, by)
             thought = str(reply.get("thought", "")).strip()
             feeling = str(reply.get("feeling") or "").strip()[:40]
             if feeling:
@@ -1174,6 +1238,7 @@ class Session:
                     self.chose_hours = "hours" in args   # with my alarm on and no length chosen, the alarm decides
                 except (TypeError, ValueError):
                     pass
+                self._learn(action, True)
                 return False
             left = self.chain.budget() if hasattr(self.chain, "budget") else None
             if left is not None and left <= 2:   # keep the last thoughts for the diary
@@ -1188,20 +1253,67 @@ class Session:
                         f'interact {{"specimen": "{owners[0]}", "action": "{action.lower()}"}})' if owners
                         else f" (the nearest things I can do: {', '.join(nearest)})" if nearest else "")
                 self.history.append(f"I tried '{action or 'nothing'}', which isn't something I can do yet" + hint)
+                self._learn(action, False)
                 return True
             before_room = w.me.get("room")
             try:
                 result = self.act(thought, action, args)
                 if action != "look" and w.me.get("room") != before_room:
                     w.me["facing"] = 0   # entering a room faces into it
+                self._learn(action, True)
             except Exception as e:
                 self.pictures = []
                 w.log("muddled", f"I couldn't {action.replace('_', ' ')}", f"{e}\n{thought}",
                       room=w.me.get("room"), place=w.me.get("place"), tried=action, trouble="failed")
                 result = f"I couldn't {action.replace('_', ' ')} this time. {e}"
+                self._learn(action, False)
             self.history.append(f"{thought} → {result}")
             mailbox.collect(w)  # notes can arrive while it's awake
         return True
+
+    def own(self):
+        """My own brain, when it's switched on and running here (only mine: a companion thinks with its own)."""
+        if not hasattr(self, "_own"):
+            self._own = None
+            if self.world.config.get("own_brain", {}).get("enabled") and self.me is self.world.home:
+                try:
+                    self._own = OwnBrain(self.world.config["own_brain"])
+                except BrainUnavailable:
+                    pass
+        return self._own
+
+    def _own_thought(self, context):
+        """Let my own brain take this thought, as often as it has earned. If it fumbles, None: a bigger brain
+        takes the thought instead, so a slip never costs me a turn."""
+        own, w = self.own(), self.world
+        if not own or not apprentice.want(w.me):
+            return None
+        system = apprentice.OWN_SYSTEM + ", ".join(sorted(ACTIONS)) if own.grown else self._system()
+        try:
+            r = parse(own.think(system, apprentice.compact(context)))
+            act = str(r.get("action", "")).strip()
+            if act in ACTIONS or near_action(w, act, r.get("args") if isinstance(r.get("args"), dict) else {}):
+                return r
+        except Exception:
+            pass
+        apprentice.outcome(w.me, False)
+        return None
+
+    def _learn(self, action, ok):
+        """Every thought is a lesson for my own brain: what I took in, what I decided, whether it worked."""
+        lesson, self._lesson = getattr(self, "_lesson", None), None
+        if not lesson or self.me is not self.world.home:
+            return
+        ctx, reply, by = lesson
+        try:
+            apprentice.record(ctx, reply, action, ok, by)
+        except OSError:
+            pass
+        if by == "own":
+            apprentice.outcome(self.world.me, ok)
+            recent = self.world.recent
+            if recent and recent[-1].get("action") in (action, "muddled"):
+                recent[-1]["own"] = True   # the check-up shows which thoughts were my own brain's
 
     def finish(self):
         self.awake = False
@@ -1210,6 +1322,9 @@ class Session:
 
     def reflect(self):
         w = self.world
+        self.habits("bed")
+        if self.own():
+            apprentice.settle(w.me)   # trusted with a little more, or a little less, after today
         try:
             prompt = self._context(self.steps).rsplit("\nWhat do I do next?", 1)[0] + "\n\n" + REFLECT
             r = parse(self.chain.think(self._system(), prompt, best=getattr(self, "review_due", False)))
@@ -1230,6 +1345,9 @@ class Session:
         if getattr(self, "review_due", False):
             w.me["last_review"] = now()
         wake, rings = alarm.bedtime(w.me, self.sleep_hours, getattr(self, "chose_hours", False), w.config.get("utc_offset_hours", 2))
+        timer = routine.first_wake(w.me)
+        if timer and timer < wake:   # a timer I asked to wake me goes off first
+            wake, rings = max(timer, datetime.now(timezone.utc) + timedelta(minutes=5)), False
         w.me["wake_after"] = wake.isoformat(timespec="seconds")
         w.me["alarm_wake"] = rings   # the alarm clock, not just my body, will wake me
         hours = (wake - datetime.now(timezone.utc)).total_seconds() / 3600

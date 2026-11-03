@@ -119,8 +119,21 @@ def health(session):
             trouble[who + kind] += 1
         else:
             did[who + e["action"]] += 1
+        if e.get("own"):
+            brains["his own brain"] += 1
     fmt = lambda c: ", ".join(f"{k} x{n}" for k, n in c.most_common()) or "none"
     return "\n".join([f"  thinking with: {fmt(brains)}", f"  did: {fmt(did)}", f"  trouble: {fmt(trouble)}"])
+
+
+def due(config):
+    """Whether he'll wake on this check (his time has come, a note is waiting, or something he asked to be woken
+    for happened), without changing anything; so the workflow only starts his own brain when it's needed."""
+    import glob
+    from .world import WORLD
+    world = World(config)
+    wake_after = world.me.get("wake_after")
+    return (not wake_after or datetime.fromisoformat(wake_after) <= datetime.now(timezone.utc)
+            or bool(glob.glob(os.path.join(WORLD, "inbox", "*.json"))) or bool(trigger_fired(world)))
 
 
 def run_once(config, script=None, next_wake_minutes=None, force=False):
@@ -161,6 +174,8 @@ def run_once(config, script=None, next_wake_minutes=None, force=False):
         world.save()
         return False
     print(f"{config['name']} wakes up, thinking with {chain.current.label}", flush=True)
+    from . import apprentice
+    apprentice.pull()   # his lessons so far, for his own brain
     page_config(config, None)
     try:
         live(world, chain, guest_chain)
@@ -172,6 +187,7 @@ def run_once(config, script=None, next_wake_minutes=None, force=False):
     world.save()
     from . import live as live_view
     live_view.push(force=True)   # the page sees him go to bed right away
+    apprentice.push()
     session = [e for e in world.recent if e["session"] == world.me["sessions"]]
     if (os.environ.get("WORLD_PASSWORD") or os.environ.get("WORLD_PASSWORD_NEW")) and os.environ.get("GITHUB_ACTIONS"):
         print(f"  ({len(session)} things done; details stay locked)")   # GitHub's logs are public
@@ -194,6 +210,10 @@ def main():
     sub.add_parser("status")
     sub.add_parser("lock", help="seal docs/world into docs/vault with WORLD_PASSWORD")
     sub.add_parser("unlock", help="open docs/vault into docs/world with WORLD_PASSWORD")
+    sub.add_parser("due", help="exit 0 if he'll wake on this check, 1 if he'll sleep on")
+    exp = sub.add_parser("lessons", help="export his good lessons for his own brain to learn from")
+    exp.add_argument("out")
+    exp.add_argument("--no-letters", action="store_true", help="leave out everything to do with letters")
     ans = sub.add_parser("answer", help="answer one of his requests")
     ans.add_argument("id")
     ans.add_argument("decision", choices=["yes", "no", "later"])
@@ -218,6 +238,13 @@ def main():
             print(f"Locked his world ({vault.lock()} file(s) sealed).")
         else:
             print("Unlocked his world." if vault.unlock() else "")
+    elif a.cmd == "due":
+        sys.exit(0 if due(config) else 1)
+    elif a.cmd == "lessons":
+        from . import apprentice
+        from .mind import ACTIONS
+        apprentice.pull()
+        print(f"{apprentice.export(a.out, ACTIONS, letters=not a.no_letters)} lessons to learn from")
     elif a.cmd == "answer":
         world = World(config)
         req = next((r for r in world.requests if r["id"] == a.id), None)

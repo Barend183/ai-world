@@ -33,7 +33,7 @@ jobs:
     outputs:
       wake_after: ${{ steps.bed.outputs.wake_after }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.ref_name }}  # his latest world, not the commit that triggered this run: a run waiting
                                        # its turn must start from the save the run before it just made
@@ -46,7 +46,7 @@ jobs:
           chmod o+x "$HOME" "$HOME/work" "$(dirname "$GITHUB_WORKSPACE")"
           chmod o+rx "$GITHUB_WORKSPACE" docs
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -66,6 +66,43 @@ jobs:
           chmod o+rx docs/world
           sudo chmod -R a+rwX docs/world/workshop
 
+      # His own brain: a small open model that runs right here and grows from his lessons (see grow.yml).
+      # Only started when he's actually going to wake up.
+      - name: Will he wake?
+        id: due
+        run: |
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.wake != 'no' }}" = "true" ] || python -m brain due; then
+            echo "yes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore the open-source brains from cache
+        if: steps.due.outputs.yes == 'true'
+        uses: actions/cache@v6
+        with:
+          path: ~/.ollama/models
+          key: ollama-models-${{ hashFiles('config.json', 'brain/own_brain.json') }}
+
+      - name: Start his own brain
+        if: steps.due.outputs.yes == 'true'
+        continue-on-error: true   # without it he simply thinks with his other brains
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          python -c "import json,sys; sys.exit(0 if json.load(open('config.json')).get('own_brain',{}).get('enabled') else 1)" || exit 0
+          curl -fsSL https://ollama.com/install.sh | sh > /dev/null
+          sudo systemctl stop ollama || true
+          OLLAMA_MODELS="$HOME/.ollama/models" nohup ollama serve > /tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -s localhost:11434/api/tags > /dev/null && break; sleep 1; done
+          ollama pull "$(python -c "import json; print(json.load(open('config.json'))['own_brain']['base'])")" > /dev/null
+          # the version that has grown from his lessons, once there is one (kept as a private Kaggle dataset)
+          if [ -f brain/own_brain.json ] && [ -n "$KAGGLE_USERNAME" ] && ! ollama list | grep -q '^sprout'; then
+            pip install --quiet kaggle
+            kaggle datasets download "$KAGGLE_USERNAME/sprout-brain" -p "$HOME/sprout" --unzip -q \
+              && (cd "$HOME/sprout" && ollama create sprout -f Modelfile > /dev/null) || echo "couldn't fetch his grown brain this time"
+          fi
+          ollama list
+
       - name: Wake up
         id: wake
         env:
@@ -79,20 +116,15 @@ jobs:
 
       # Only when every free service is used up for the day: run a free open model (Gemma 3) right here instead.
       # It's slower and simpler, but unlimited, so he never has to stop.
-      - name: Restore the open-source brain from cache
-        if: steps.wake.outputs.needs_local == 'true'
-        uses: actions/cache@v4
-        with:
-          path: ~/.ollama/models
-          key: ollama-models-${{ hashFiles('config.json') }}
-
       - name: Start the open-source brain
         if: steps.wake.outputs.needs_local == 'true'
         run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          sudo systemctl stop ollama || true
-          OLLAMA_MODELS="$HOME/.ollama/models" nohup ollama serve > /tmp/ollama.log 2>&1 &
-          for i in $(seq 1 30); do curl -s localhost:11434/api/tags > /dev/null && break; sleep 1; done
+          if ! curl -s localhost:11434/api/tags > /dev/null; then   # not already running for his own brain
+            command -v ollama > /dev/null || curl -fsSL https://ollama.com/install.sh | sh
+            sudo systemctl stop ollama || true
+            OLLAMA_MODELS="$HOME/.ollama/models" nohup ollama serve > /tmp/ollama.log 2>&1 &
+            for i in $(seq 1 30); do curl -s localhost:11434/api/tags > /dev/null && break; sleep 1; done
+          fi
           ollama pull "$(python -c "import json; print(json.load(open('config.json'))['ollama']['model'])")"
 
       - name: Wake up (open-source brain)

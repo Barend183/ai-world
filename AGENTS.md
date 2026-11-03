@@ -16,11 +16,15 @@ When you change something, ask whether it gives him more freedom, or less.
   - `specimens.py` (his creations, simulated in real time), `rooms.py`, `research.py` (his computer),
     `env.py` + `events.py` (real Cape Town weather, storms, power cuts), `sites.py` + `public.py` (his
     websites and public corner), `memory.py`, `mailbox.py`, `vault.py` (the lock), `live.py` (live view).
+  - `alarm.py` (his alarm clock), `routine.py` (timers and habits), `apprentice.py` (his own brain: lessons,
+    trust share, export; sealed lessons live on the single-commit `apprentice` branch), `grow/train.py`
+    (runs on Kaggle via `grow.yml` to train his own brain; adopted versions are recorded in `brain/own_brain.json`).
   - `canvas.js`, `render.js`, `scene.js`: Node.js scripts that run the page's own drawing code. `scene.js`
     turns the 2D world into the 3D first-person view his eyes see.
 - `docs/` is the web page (GitHub Pages): `app.js`, `sprites.js` (draws everything), `vault.js` (unlocks the
   world in the visitor's browser). `docs/public/` is his public corner and his websites.
-- `.github/workflows/live.yml` wakes him every hour on GitHub Actions and saves his world.
+- `.github/workflows/live.yml` wakes him on GitHub Actions (his alarm job, notes, hourly check) and saves his world;
+  `grow.yml` grows his own brain weekly once Kaggle is connected.
 
 ## Never touch these
 

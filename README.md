@@ -20,6 +20,15 @@ he decides what to learn, make and build.
   wakes him early), and if he likes he sets the alarm clock on his nightstand to wake him at a time of
   day (every day or just once; it shakes and rings on the page when it wakes him), sets himself long-term goals and tracks them, and writes you letters when he has
   something to say (at most two a day). He's told how many free thoughts he has left each day.
+- **Timers and habits:** when something takes real time (dough rising, paint drying) he starts a timer and real
+  time does the waiting; it's ready for him when he wakes, and can wake him. Habits are little routines he
+  writes once (check on a creation, water it if it's dry, look around) that run by themselves when he wakes or
+  goes to bed, without costing a thought.
+- **His own brain, growing:** a small open model (Qwen3 1.7B) runs right on GitHub's server and takes a share of
+  his everyday thoughts, more as it proves itself (about 10% to start, up to 90%). Every thought he has becomes a
+  lesson, kept sealed on its own `apprentice` branch. Once a week, when Kaggle is connected (below), his good
+  lessons train it further on Kaggle's free GPU, and a new version is only adopted if it passes a test. Over time
+  more of his thinking is his own, with no company or key behind it.
 - **Senses:** he can see pictures and hear recordings (his own music played aloud, and birdsong, rain or
   instruments from the pages he reads) while thinking with Gemini. Smell, taste and touch he doesn't have;
   the weather reaches him as numbers.
@@ -161,6 +170,15 @@ letter" message; the content stays locked inside his world.
 **Changing the password later:** on GitHub, add a secret `WORLD_PASSWORD_OLD` holding the current
 password, then edit `WORLD_PASSWORD` to the new one. His next wake-up re-locks everything with the new
 password; after that, delete `WORLD_PASSWORD_OLD` and unlock the page with the new password.
+
+**Growing his own brain (optional, one-time):** make a free account at [kaggle.com](https://www.kaggle.com)
+and verify your phone number (Kaggle needs that before it allows GPUs and internet in notebooks). Then
+*Settings → API → Create New Token*, which downloads `kaggle.json`. Add two GitHub secrets from it:
+`KAGGLE_USERNAME` and `KAGGLE_KEY`. Every Sunday night the **Grow** workflow then sends his lessons to a
+*private* Kaggle dataset, trains on them (about an hour of the 30 free GPU hours a week) and adopts the result
+if it passes. Note: his lessons include what he took in each moment (his notebook, his creations and your
+letters), so they leave GitHub for your private Kaggle space while training. Until there are 150 lessons it
+just waits. The **Check-up** tab shows how many thoughts were his own brain's.
 
 ## Visiting
 

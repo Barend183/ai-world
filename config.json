@@ -71,5 +71,10 @@
     "daily_requests": 50,
     "min_interval": 3.5,
     "label": "OpenRouter"
+  },
+  "own_brain": {
+    "enabled": true,
+    "base": "qwen3:1.7b",
+    "host": "http://127.0.0.1:11434"
   }
 }

@@ -268,7 +268,7 @@ function renderTabs() {
     sec("Learned", S.wishes.filter((w) => w.status === "learned").reverse()) +
     sec("Gave up on", S.wishes.filter((w) => w.status === "dropped"))) || `<p class="muted">The board is empty. ${esc(me.name)} decides what goes here.</p>`;
 
-  renderCreations(); renderJournal(); renderMail();
+  renderCreations(); renderJournal(); renderMail(); renderCheckup();
 }
 
 function renderCreations() {
@@ -317,6 +317,30 @@ function renderJournal() {
       ${e.detail ? `<div class="detail">${esc(e.detail)}</div>` : ""}</li>`;
   }
   $("tab-journal").innerHTML = html + "</ul>" + (list.length ? "" : '<p class="muted">Nothing yet.</p>');
+}
+
+// A check-up of his last sessions, from his journal: which brain he thought with, what he did, where he got stuck
+// in a loop and what went wrong (with why), so problems can be spotted without digging through logs.
+function renderCheckup() {
+  const quiet = new Set(["wake", "diary"]), sessions = [...new Set(S.recent.map((e) => e.session))].reverse().slice(0, 8);
+  let html = '<p class="muted">How his last sessions went. A loop is the same kind of thing many times in a row; trouble is something he tried that didn\'t work.</p>';
+  for (const s of sessions) {
+    const evs = S.recent.filter((e) => e.session === s), wake = evs.find((e) => e.action === "wake");
+    const acts = evs.filter((e) => !quiet.has(e.action) && !(e.action === "pastime" && /doorstep/.test(e.summary)));
+    const trouble = acts.filter((e) => e.action === "muddled"), counts = {};
+    acts.filter((e) => e.action !== "muddled").forEach((e) => (counts[e.action] = (counts[e.action] || 0) + 1));
+    let run = 0, best = 0, bestAct = "";
+    acts.forEach((e, i) => { run = i && acts[i - 1].action === e.action ? run + 1 : 1; if (run > best) { best = run; bestAct = e.action; } });
+    const loop = best >= 6, mark = trouble.length > 3 || loop ? "⚠️" : trouble.length ? "🟡" : "✅";
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([a, n]) => `${esc(a.replace(/_/g, " "))} ×${n}`).join(", ");
+    html += `<h3>${mark} Session ${s} · ${wake ? when(wake.t) : ""}</h3>
+      <div class="muted" style="font-size:13px">Thinking with ${esc((wake && wake.brain) || "—")}${acts.some((e) => e.own) ? ` · 🌱 his own brain: ${acts.filter((e) => e.own).length} of ${acts.length}` : ""}${wake && wake.alarm ? " · woken by his alarm clock" : ""} · ${acts.length} things done</div>
+      <div style="font-size:13px;margin:4px 0">${top || "nothing"}</div>
+      ${loop ? `<div style="font-size:13px">🔁 ${best} × “${esc(bestAct.replace(/_/g, " "))}” in a row</div>` : ""}
+      ${trouble.length ? '<ul class="list" style="font-size:13px">' + trouble.slice(0, 8).map((e) =>
+        `<li>❗ ${esc(e.summary)}${e.detail ? ` <span class="muted">— ${esc(String(e.detail).split("\n")[0].slice(0, 160))}</span>` : ""}</li>`).join("") + "</ul>" : ""}`;
+  }
+  $("tab-checkup").innerHTML = sessions.length ? html : '<p class="muted">Nothing yet.</p>';
 }
 
 function renderMail() {
