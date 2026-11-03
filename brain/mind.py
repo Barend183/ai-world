@@ -219,6 +219,29 @@ def private_page(w):
     return (load("private.json", {}).get(w.me.get("id", "home")) or {}).get("text", "")
 
 
+def surroundings(w):
+    """A small, current sense of place from the world itself, without asking a brain to read another picture."""
+    room = w.room(w.me.get("room") or "study")
+    if not room:
+        return ""
+    place = {"bed": "bed", "computer": "computer", "armchair": "armchair", "shelves": "shelves",
+             "board": "wishlist board", "mailbox": "mailbox"}.get(w.me.get("place"))
+    here = f"I'm in the {room['name']}" + (f", by the {place}" if place and room.get("builtin") else "") + "."
+    things = [i["name"] for i in room.get("items", [])]
+    things += [sp["spec"]["name"] for sp in w.specimens
+               if sp.get("status") != "released" and (sp.get("room") or "study") == room["id"]]
+    things += [person["name"] for person in [w.home, *w.companions]
+               if person is not w.me and person.get("state") == "awake" and person.get("room") == room["id"]]
+    if room.get("builtin"):
+        things += ["the shelves", "the window", "the wishlist board", "the computer", "the armchair", "the bed"]
+    if things:
+        shown = things[:6]
+        names = ", ".join(shown[:-1]) + (" and " if len(shown) > 1 else "") + shown[-1]
+        rest = f", with {len(things) - 6} more things nearby" if len(things) > 6 else ""
+        here += " Around me are " + names + rest + "."
+    return here
+
+
 def parse(text):
     """Pull the first JSON object out of a model's reply, however messy."""
     text = (text or "").strip()
@@ -281,6 +304,7 @@ class Session:
             out.append(energy(left, self.reset_local))
         if me.get("feeling") and step > 1:
             out.append(f"Right now I feel {me['feeling']}.")
+        out.append("\n== Around me now ==\n" + surroundings(w))
         out.append("\n== Who I am (in my own words) ==\n" + me["about"])
         dreams = me.get("dreams", [])
         if dreams and dreams[-1]["at"] > (me.get("last_dream_seen") or ""):
@@ -1017,6 +1041,7 @@ class Session:
             except BrainUnavailable:
                 raise
             except Exception as e:
+                self.pictures = []
                 w.log("muddled", "I lost my train of thought", str(e), room=w.me.get("room"), place=w.me.get("place"))
                 self.history.append(f"(I lost my train of thought: {e})")
                 return True
@@ -1026,6 +1051,8 @@ class Session:
                 w.me["feeling"] = feeling
             action = str(reply.get("action", "")).strip()
             args = reply.get("args") if isinstance(reply.get("args"), dict) else {}
+            # A picture stays for one thought; a second look keeps it once more for comparison.
+            self.pictures = [p for p in self.pictures if p[1].startswith("image/")] if action == "look" else []
             if action == "sleep":
                 try:
                     self.sleep_hours = min(max(float(args.get("hours", self.sleep_hours)), 0.5), 24)
@@ -1044,6 +1071,7 @@ class Session:
             try:
                 result = self.act(thought, action, args)
             except Exception as e:
+                self.pictures = []
                 w.log("muddled", f"I couldn't {action.replace('_', ' ')}", f"{e}\n{thought}",
                       room=w.me.get("room"), place=w.me.get("place"))
                 result = f"I couldn't {action.replace('_', ' ')} this time. {e}"
