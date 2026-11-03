@@ -30,6 +30,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref_name }}  # his latest world, not the commit that triggered this run: a run waiting
+                                       # its turn must start from the save the run before it just made
           persist-credentials: false   # no saved token in the folder that his programs could use
 
       # His workshop programs run as this separate, powerless user: it can't read the keys or push to GitHub.
