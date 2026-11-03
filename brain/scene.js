@@ -140,6 +140,36 @@ const sky = (d) => {   // outdoors: the sky and hills all around, from the paint
   return tex(u, Math.max(0, Math.min(top - 1, top * (1 - el / 0.6))));
 };
 
+// The page's pixel art has a fixed front and a little depth here, instead of turning to face me.
+const solids = data.things.filter((t) => !(data.study && !e.entered && t.kind === "furniture" && t.name === e.place
+    && (e.place === "bed" || e.place === "armchair"))).map((t) => {
+  const z = zOf(t.ground), depth = t.kind === "furniture" ? Math.min(16, Math.max(5, t.w * 0.2)) : t.kind === "creation" ? 8 : 6;
+  const rows = [];
+  for (let y = 0; y < t.h; y++) {
+    let left = null, right = null, leftX = -1, rightX = -1;
+    for (let x = 0; x < t.w; x++) {
+      const k = (y * t.w + x) * 4, a = t.img[k + 3];
+      if (a < 0.5) continue;
+      const c = [t.img[k] / a, t.img[k + 1] / a, t.img[k + 2] / a];
+      if (!left) { left = c; leftX = x; }
+      right = c; rightX = x;
+    }
+    rows.push({ left, right, leftX, rightX });
+  }
+  const y0 = Math.max(0, t.ground - t.y - t.h);
+  return { t, x0: t.x, x1: t.x + t.w, y0, y1: y0 + t.h,
+           z0: Math.max(1, z - depth / 2), z1: Math.min(D - 1, z + depth / 2), rows };
+});
+const surface = (o, face, p) => {
+  const v = face === "top" ? 0 : face === "bottom" ? o.t.h - 1 : Math.floor(o.y1 - p[1]);
+  if (v < 0 || v >= o.t.h) return null;
+  if (face === "left" || face === "right") return o.rows[v][face];
+  const u = Math.floor(p[0] - o.x0);
+  if (u < 0 || u >= o.t.w) return null;
+  const k = (v * o.t.w + u) * 4, a = o.t.img[k + 3];
+  return a < 0.5 ? null : [o.t.img[k] / a, o.t.img[k + 1] / a, o.t.img[k + 2] / a];
+};
+
 function render(cam, look, fov) {
 const fwd = norm(sub(look, cam)), right = norm(cross(fwd, [0, 1, 0])), up = cross(right, fwd);
 const F = 160 / Math.tan((fov * Math.PI) / 360);
@@ -161,34 +191,50 @@ for (let py = 0; py < SH; py++) for (let px = 0; px < SW; px++) {
     if (d[0] > 0) tryPlane((W - cam[0]) / d[0], "right");
   }
   const p = hit ? [cam[0] + d[0] * best, cam[1] + d[1] * best, cam[2] + d[2] * best] : null;
-  let c;
-  if (!hit) { put(i, sky(d), 1e8); continue; }
-  if (hit === "floor") {
-    const z = data.outdoor ? (((p[2] % D) + D) % D) : p[2], u = data.outdoor ? (((p[0] % W) + W) % W) : p[0];
-    c = tex(u, top + (z / D) * (180 - top - 1));
-    if (data.outdoor) c = mix(c, Math.min(1, best / 900), sky([d[0], 0.02, d[2]]));   // the far field fades into the horizon
-  } else if (hit === "back") c = tex(p[0], HW - p[1]);
-  else if (hit === "ceiling") c = mix(tex(W / 2, 2), 0.25, [40, 30, 25]);
-  else if (hit === "front") c = frontWall;
-  else c = tex(hit === "left" ? 1 : hit === "right" ? W - 2 : 1, HW - p[1]);   // plain wall, skirting and all
-  put(i, shade(c, p), dot(sub(p, cam), fwd));
-}
-
-// Things standing in the room, each facing me, the far ones first.
-const placed = data.things.filter((t) => !(data.study && !e.entered && t.kind === "furniture" && t.name === e.place
-    && (e.place === "bed" || e.place === "armchair"))).map((t) => {
-  const P = [t.x + t.w / 2, Math.max(0, t.ground - (t.y + t.h)), zOf(t.ground)];
-  return { t, P, depth: dot(sub(P, cam), fwd) };
-}).filter((o) => o.depth > 8).sort((a, b) => b.depth - a.depth);
-for (const { t, P, depth } of placed) {
-  const rel = sub(P, cam), cx = SW / 2 + (dot(rel, right) * F) / depth, base = SH / 2 - (dot(rel, up) * F) / depth, s = F / depth;
-  const x0 = Math.floor(cx - (t.w * s) / 2), x1 = Math.ceil(cx + (t.w * s) / 2), y0 = Math.floor(base - t.h * s), y1 = Math.ceil(base);
-  for (let y = Math.max(0, y0); y < Math.min(SH, y1); y++) for (let x = Math.max(0, x0); x < Math.min(SW, x1); x++) {
-    const u = Math.floor((x - x0) / s), v = Math.floor((y - y0) / s);
-    if (u < 0 || v < 0 || u >= t.w || v >= t.h) continue;
-    const k = (v * t.w + u) * 4, a = t.img[k + 3], i = y * SW + x;
-    if (a < 0.5 || depth >= zb[i]) continue;
-    put(i, shade([t.img[k] / a, t.img[k + 1] / a, t.img[k + 2] / a], [P[0] + (u - t.w / 2), P[1] + (t.h - v), P[2]]), depth);
+  if (!hit) put(i, sky(d), 1e8);
+  else {
+    let c;
+    if (hit === "floor") {
+      const z = data.outdoor ? (((p[2] % D) + D) % D) : p[2], u = data.outdoor ? (((p[0] % W) + W) % W) : p[0];
+      c = tex(u, top + (z / D) * (180 - top - 1));
+      if (data.outdoor) c = mix(c, Math.min(1, best / 900), sky([d[0], 0.02, d[2]]));   // the far field fades into the horizon
+    } else if (hit === "back") c = tex(p[0], HW - p[1]);
+    else if (hit === "ceiling") c = mix(tex(W / 2, 2), 0.25, [40, 30, 25]);
+    else if (hit === "front") c = frontWall;
+    else c = tex(hit === "left" ? 1 : hit === "right" ? W - 2 : 1, HW - p[1]);   // plain wall, skirting and all
+    put(i, shade(c, p), dot(sub(p, cam), fwd));
+  }
+  for (const o of solids) {
+    const trySide = (t, face) => {
+      if (!Number.isFinite(t) || t <= 0.01 || t >= zb[i]) return;
+      const q = [cam[0] + d[0] * t, cam[1] + d[1] * t, cam[2] + d[2] * t];
+      if (q[0] < o.x0 - 0.01 || q[0] > o.x1 + 0.01 || q[1] < o.y0 - 0.01 || q[1] > o.y1 + 0.01
+          || q[2] < o.z0 - 0.01 || q[2] > o.z1 + 0.01) return;
+      if (face === "left" || face === "right") {
+        const row = o.rows[Math.floor(o.y1 - q[1])];
+        const edge = row && (face === "left" ? row.leftX : row.rightX + 1);
+        if (edge == null || edge < 0 || Math.abs(q[0] - (o.x0 + edge)) > 0.5) return;
+      }
+      const c = surface(o, face, q);
+      if (!c) return;
+      const k = { front: 1, back: 0.55, left: 0.72, right: 0.78, top: 1.1, bottom: 0.5 }[face];
+      put(i, shade(c.map((v) => Math.min(255, v * k)), q), t);
+    };
+    const tryEdge = (face) => {
+      let t = ((face === "left" ? o.x0 : o.x1) - cam[0]) / d[0];
+      for (let n = 0; n < 4; n++) {
+        const row = o.rows[Math.floor(o.y1 - (cam[1] + d[1] * t))];
+        if (!row || row.leftX < 0) return;
+        const edge = o.x0 + (face === "left" ? row.leftX : row.rightX + 1);
+        const next = (edge - cam[0]) / d[0];
+        if (Math.abs(next - t) < 0.01) { t = next; break; }
+        t = next;
+      }
+      trySide(t, face);
+    };
+    if (Math.abs(d[2]) > 1e-6) { trySide((o.z0 - cam[2]) / d[2], "back"); trySide((o.z1 - cam[2]) / d[2], "front"); }
+    if (Math.abs(d[0]) > 1e-6) { tryEdge("left"); tryEdge("right"); }
+    if (Math.abs(d[1]) > 1e-6) { trySide((o.y0 - cam[1]) / d[1], "bottom"); trySide((o.y1 - cam[1]) / d[1], "top"); }
   }
 }
 

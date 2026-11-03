@@ -46,7 +46,8 @@ he decides what to learn, make and build.
   never shows, and works out for himself what he is.
 - **His own eyes, in 3D:** your page shows his world side-on in 2D, but he sees it as a real 3D room around
   him: the back wall with its window and shelves, a floor that stretches away, side walls and ceiling (or open
-  sky outdoors), and his furniture, creations and companion standing at their own distances. It's seen from his
+  sky outdoors), and his furniture, creations and companion standing at their own distances. Standing things keep
+  their places and facing as he turns, with visible sides and depth instead of swiveling toward his eyes. It's seen from his
   eye height, facing what he's doing, with his own hands (or blanket) in single views, never his own face. He gets
   a view when he wakes and can turn his gaze ahead, right, behind or left. Looking around turns his head one
   step at a time from the same spot; he chooses whether to keep turning. Between pictures, a brief sense of his
