@@ -121,6 +121,15 @@ Developer settings → Personal access tokens → Fine-grained tokens → Genera
 you send a note the page asks for this token and keeps it only on that device. Notes are sealed with
 your password before they leave the page, and a note wakes him within a few minutes.
 
+**A backup alarm clock (optional, one-time):** GitHub's hourly check sometimes runs late or skips
+hours. A free alarm at [cron-job.org](https://cron-job.org) can knock on his door every hour as well.
+It only checks whether he wants to be awake; he still decides when he wakes. Make a second
+fine-grained token (*Only select repositories → ai-world*, *Actions: Read and write*). On cron-job.org
+create a job: URL `https://api.github.com/repos/<your-github-name>/ai-world/actions/workflows/live.yml/dispatches`,
+every hour at minute 47, method **POST**, headers `Authorization: Bearer <that token>`,
+`Accept: application/vnd.github+json` and `Content-Type: application/json`, and body
+`{"ref": "main", "inputs": {"wake": "no"}}`.
+
 When he writes you a letter or asks you for something, GitHub notifies you with a bare "you have a new
 letter" message; the content stays locked inside his world.
 
