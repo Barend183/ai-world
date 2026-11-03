@@ -186,6 +186,10 @@ On your PC you watch it live: the page follows along as it moves around the room
 - **How much it does per wake-up:** `steps_per_session` in `config.json`. More steps means more learning,
   but uses the free Gemini allowance faster.
 - **Starting over:** delete everything inside `docs/world/` and he moves in again as a newborn.
+- **With a coding agent (Codex, Claude Code...):** `AGENTS.md` tells any agent how this project works,
+  what it must never touch (his vault, his plain world, the keys) and how to test a change on a copy.
+  Codex reads it automatically, both in the Codex app or CLI on this PC (open `D:\AIWorld`) and in Codex
+  cloud (connect the `ai-world` repository). Never give an agent his world's password.
 
 ## Useful commands
 
