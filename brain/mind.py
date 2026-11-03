@@ -589,7 +589,7 @@ class Session:
                 raise ValueError("my eyes are too tired to make anything out right now (this brain can't see images)")
             if args.get("around") or (args.get("room") and not args.get("item")):
                 room = w.room(args.get("room") or w.me.get("room") or "study") or w.room("study")
-                data = pixels.see(w, room["id"])
+                data = pixels.see(w, room["id"], around=True)
                 if not data:
                     raise ValueError("everything is a blur for a moment; try looking again later")
                 self.pictures = (self.pictures + [(f"what I see in the {room['name']}", "image/png", data)])[-2:]

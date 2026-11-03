@@ -22,7 +22,7 @@ def png(rows, palette, scale=6, background="#efe6d6"):
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", head) + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
 
 
-def see(world, room=None):
+def see(world, room=None, around=False):
     """What he (or his companion) sees right now through their own eyes, drawn exactly as the page draws the
     world, via Node.js. Returns PNG bytes, or None when Node.js isn't installed."""
     import os
@@ -35,7 +35,7 @@ def see(world, room=None):
     world.save()   # what he sees is the world as it is this moment
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scene.js")
     who = "companion" if world.me is not world.home else "home"
-    done = subprocess.run([node, script, WORLD, room or "", who], capture_output=True, timeout=90)
+    done = subprocess.run([node, script, WORLD, room or "", who, "around" if around else ""], capture_output=True, timeout=90)
     return done.stdout if done.returncode == 0 and done.stdout[:4] == b"\x89PNG" else None
 
 
