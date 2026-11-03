@@ -1,7 +1,9 @@
 """One waking session: wake up, take a handful of actions, reflect, go back to bed."""
+import difflib
 import glob
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 from . import env, events, mailbox, memory, mirror, music, pixels, public, research, rooms, settings, sites, specimens, workshop
@@ -198,6 +200,33 @@ ACTIONS = {"search", "read", "write_book", "read_book", "add_wish", "complete_wi
            "set_wake_triggers", "save_tool", "use_tool", "compose", "publish", "unpublish", "mirror", "add_life_chapter",
            "change_setting", "think_hard", "listen", "design_public_page", "view_public_page", "invite_companion", "talk",
            "build_site", "write_site_page", "remove_site_page", "view_site", "write_private", "sleep"}
+
+# Other names I reach for, and what I mean by them (my journal calls looking around "look_around", for one).
+SAME_AS = {"look_around": ("look", {"around": True}), "turn": ("look", {"around": True}),
+           "turn_head": ("look", {"around": True}), "look_at": ("look", {}), "see": ("look", {"around": True}),
+           "observe": ("interact", {"action": "observe"}), "smell": ("interact", {"action": "smell"}),
+           "taste": ("interact", {"action": "taste"}), "touch": ("interact", {"action": "touch"}),
+           "tend": ("interact", {}), "care": ("interact", {}), "go_to_sleep": ("sleep", {}), "go_to_bed": ("sleep", {}),
+           "notebook": ("write_notebook", {}), "letter": ("write_letter", {}), "reply": ("reply_note", {}),
+           "goal": ("set_goal", {}), "wish": ("add_wish", {}), "request": ("make_request", {}), "music": ("compose", {})}
+
+
+def near_action(w, action, args):
+    """What I most likely meant by a name I can't use as it is, or None. Forgiving, so a slip of the
+    tongue doesn't cost me a thought: another name for one of my actions, one of my creations' own
+    actions (water, feed, wind...), or a small typo."""
+    name = re.sub(r"[\s\-]+", "_", action.strip().lower())
+    if name in ACTIONS:
+        return name, args
+    if name in SAME_AS:
+        real, extra = SAME_AS[name]
+        return real, {**extra, **args}
+    sp = w.specimen(args["specimen"]) if args.get("specimen") else None
+    owners = [sp] if sp else [x for x in w.specimens if x["status"] == "alive" and name in x["spec"].get("actions", [])]
+    if len(owners) == 1 and name in owners[0]["spec"].get("actions", []):
+        return "interact", {**args, "specimen": owners[0]["id"], "action": name}
+    close = difflib.get_close_matches(name, ACTIONS, n=1, cutoff=0.8)
+    return (close[0], args) if close else None
 
 
 def energy(left, rested_at):
@@ -1055,7 +1084,8 @@ class Session:
                 raise
             except Exception as e:
                 self.pictures = []
-                w.log("muddled", "I lost my train of thought", str(e), room=w.me.get("room"), place=w.me.get("place"))
+                w.log("muddled", "I lost my train of thought", str(e), room=w.me.get("room"), place=w.me.get("place"),
+                      trouble="lost")
                 self.history.append(f"(I lost my train of thought: {e})")
                 return True
             thought = str(reply.get("thought", "")).strip()
@@ -1064,6 +1094,9 @@ class Session:
                 w.me["feeling"] = feeling
             action = str(reply.get("action", "")).strip()
             args = reply.get("args") if isinstance(reply.get("args"), dict) else {}
+            meant = near_action(w, action, args) if action not in ACTIONS else None
+            if meant:   # another name for something I can do: do that
+                action, args = meant
             # A picture stays for one thought; only my choice to compare keeps it for another look.
             compare = str(args.get("compare", "")).lower() in ("true", "yes", "1")
             self.pictures = [p for p in self.pictures if p[1].startswith("image/")] if action == "look" and compare else []
@@ -1079,8 +1112,13 @@ class Session:
                 return False
             if action not in ACTIONS:
                 w.log("muddled", f"I tried something I can't do yet ({action or 'nothing'})", thought,
-                      room=w.me.get("room"), place=w.me.get("place"))
-                self.history.append(f"I tried '{action or 'nothing'}', which isn't something I can do yet")
+                      room=w.me.get("room"), place=w.me.get("place"), tried=action or "nothing", trouble="unknown")
+                nearest = difflib.get_close_matches(action.lower(), ACTIONS, n=3, cutoff=0.4)
+                owners = [sp["id"] for sp in w.specimens if sp["status"] == "alive" and action.lower() in sp["spec"].get("actions", [])]
+                hint = (f" (more than one of my creations can do that: {', '.join(owners)}. I say which one: "
+                        f'interact {{"specimen": "{owners[0]}", "action": "{action.lower()}"}})' if owners
+                        else f" (the nearest things I can do: {', '.join(nearest)})" if nearest else "")
+                self.history.append(f"I tried '{action or 'nothing'}', which isn't something I can do yet" + hint)
                 return True
             before_room = w.me.get("room")
             try:
@@ -1090,7 +1128,7 @@ class Session:
             except Exception as e:
                 self.pictures = []
                 w.log("muddled", f"I couldn't {action.replace('_', ' ')}", f"{e}\n{thought}",
-                      room=w.me.get("room"), place=w.me.get("place"))
+                      room=w.me.get("room"), place=w.me.get("place"), tried=action, trouble="failed")
                 result = f"I couldn't {action.replace('_', ' ')} this time. {e}"
             self.history.append(f"{thought} → {result}")
             mailbox.collect(w)  # notes can arrive while it's awake

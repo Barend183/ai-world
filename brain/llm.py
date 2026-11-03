@@ -87,15 +87,17 @@ class Gemini:
     def _next_working(self, waited=False):
         """Pick the first model on the list that answers a tiny question quickly.
         The model that worked last time is trusted without a test, since every request counts
-        against the free daily allowance (20 per model)."""
+        against the free daily allowance (20 per model), but only while nothing better is free again:
+        otherwise one long day that ends on a lite model would keep him on it for good."""
         last = self.status.get("gemini_last_good")
-        if self.model is None and last in self.candidates and self._usable(last):
+        best_free = next((m for m in self.candidates if self._usable(m)), None)
+        if self.model is None and last == best_free:
             self.model, self.label = last, f"Gemini ({last})"
             return
         probe = {"contents": [{"role": "user", "parts": [{"text": 'Reply {"ok": true}'}]}],
                  "generationConfig": {"responseMimeType": "application/json"}}
         tried = []
-        order = ([last] if last in self.candidates else []) + self.candidates
+        order = self.candidates   # best first, so he climbs back up after the daily reset
         for model in order:
             if model in tried or not self._usable(model) or model in getattr(self, "_failed", set()):
                 continue
@@ -143,8 +145,9 @@ class Gemini:
                    if self._usable(m, ("gemini_models_out",)) and m not in getattr(self, "_failed", set()))
 
     def _rest(self, model):
-        """A busy or hanging model is skipped for half an hour."""
-        self.status.setdefault("gemini_models_busy", {})[model] = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
+        """A busy or hanging model is skipped for a couple of hours (each wake-up tries the best models
+        first, so a short rest would mean waiting on the same hanging model every time)."""
+        self.status.setdefault("gemini_models_busy", {})[model] = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
         if self.status.get("gemini_last_good") == model:
             del self.status["gemini_last_good"]
 

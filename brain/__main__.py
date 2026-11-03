@@ -97,16 +97,26 @@ def config_of(world):
 def health(session):
     """A content-free check-up for the public log: which kinds of actions he took and which went wrong,
     by action name only (never what he read, wrote or thought), so problems can be found and fixed."""
+    import re
     from collections import Counter
     from .mind import ACTIONS
     did, trouble, brains = Counter(), Counter(), Counter()
     for e in session:
         who = "companion " if e.get("who") else ""
         if e["action"] == "wake":
-            brains[who + str(e.get("brain", "?")).split(" (")[0]] += 1
+            brains[who + str(e.get("brain", "?"))] += 1   # the model's name, so a stuck model shows
         elif e["action"] == "muddled":
-            word = e["summary"].removeprefix("Couldn't ").replace(" ", "_")
-            trouble[who + (word if word in ACTIONS else "bad reply" if e["summary"].startswith("Lost") else "unknown action")] += 1
+            tried = str(e.get("tried", ""))
+            if e.get("trouble") == "failed" and tried in ACTIONS:
+                kind = f"{tried} failed"
+            elif e.get("trouble") == "unknown":   # just the bare name he reached for, to see which action he's missing
+                kind = f"unknown action '{re.sub(r'[^a-z_]', '', tried.lower())[:24]}'"
+            elif e.get("trouble") == "lost" or "train of thought" in e["summary"]:
+                kind = "bad reply"
+            else:   # older entries without the tags
+                word = re.sub(r"^(I )?[Cc]ouldn't ", "", e["summary"]).replace(" ", "_")
+                kind = f"{word} failed" if word in ACTIONS else "unknown action"
+            trouble[who + kind] += 1
         else:
             did[who + e["action"]] += 1
     fmt = lambda c: ", ".join(f"{k} x{n}" for k, n in c.most_common()) or "none"
