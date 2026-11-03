@@ -85,10 +85,10 @@ summary { cursor: pointer; color: var(--muted); }
 
 .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; min-width: 0; display: flex; flex-direction: column; max-height: calc(100vh - 90px); }
 @media (max-width: 900px) { .panel { max-height: none; } }
-.tabs { display: flex; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs { display: flex; border-bottom: 1px solid var(--line); overflow-x: auto; flex-shrink: 0; }   /* never squeezed by a long tab */
 .tabs button { flex: 1; background: none; border: 0; padding: 10px 8px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
 .tabs button.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
-.tab-body { padding: 14px 16px; overflow-y: auto; }
+.tab-body { padding: 14px 16px; overflow-y: auto; flex: 1; min-height: 0; }   /* only the tab's content scrolls */
 .tab-body h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 16px 0 6px; }
 .tab-body h3:first-child { margin-top: 0; }
 
