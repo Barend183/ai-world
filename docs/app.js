@@ -319,14 +319,22 @@ function renderMail() {
   }
   const notes = [...S.notes].reverse().map((n) => n.outgoing ? `<div class="note letter"><div>✉ <b>A letter from ${name}</b> <span class="muted">${ago(n.at)}</span></div><div>${esc(n.text)}</div></div>` : `<div class="note"><div><b>${esc(n.from)}</b> <span class="muted">${ago(n.at)}</span></div>
     <div>${esc(n.text)}</div>${n.reply ? `<div class="reply"><b>${name}</b> <span class="muted">${ago(n.replied)}</span><div>${esc(n.reply)}</div></div>` : '<div class="muted">Not read yet</div>'}</div>`).join("");
+  // Letters you sent from this device that he hasn't picked up yet (he reads them when he wakes).
+  const sent = sentNotes().filter((x) => !S.notes.some((n) => !n.outgoing && n.text.trim() === x.text.trim()));
+  saveSent(sent);
+  const onTheWay = sent.reverse().map((x) => `<div class="note"><div><b>You</b> <span class="muted">${ago(x.at)}</span></div>
+    <div>${esc(x.text)}</div><div class="muted">✉ On its way: ${name} reads it when ${esc(P.he)} wakes, usually within a few minutes.</div></div>`).join("");
   const status = { waiting: "⏳ waiting for your answer", granted: "✅ you said yes", declined: "❌ you said no", answered: "💬 you answered" };
   const reqs = [...(S.requests || [])].reverse().map((r) => `<div class="note request"><div>${r.kind === "companion" ? "🏡" : "🙋"} <b>${name} asks: ${esc(r.what)}</b> <span class="muted">${ago(r.asked)}</span></div>
     <div>${esc(r.why)}</div><div class="muted">${status[r.status] || esc(r.status)}${r.answer ? `: “${esc(r.answer)}”` : ""}</div>
     ${r.status === "waiting" && (cfg.mode !== "github" || S.locked) ? `<div class="answer" data-req="${esc(r.id)}"><input placeholder="Your answer (optional)">
       <button class="btn" data-decision="yes">Yes</button> <button class="btn" data-decision="no">No</button> <button class="btn" data-decision="later">Later</button></div>` : ""}
     ${r.status === "waiting" && cfg.mode === "github" && !S.locked && r.ref ? `<a target="_blank" rel="noopener" href="https://github.com/${esc(cfg.repo)}/issues/${r.ref}">Answer on GitHub</a>` : ""}</div>`).join("");
-  $("tab-mail").innerHTML = form + (reqs ? "<h3>Things he's asking for</h3>" + reqs : "") + "<h3>Letters</h3>" + (notes || '<p class="muted">No letters yet.</p>');
+  $("tab-mail").innerHTML = form + (reqs ? "<h3>Things he's asking for</h3>" + reqs : "") + "<h3>Letters</h3>" + ((onTheWay + notes) || '<p class="muted">No letters yet.</p>');
 }
+
+function sentNotes() { try { return JSON.parse(localStorage.getItem("aiworld-sent") || "[]"); } catch { return []; } }
+function saveSent(list) { try { localStorage.setItem("aiworld-sent", JSON.stringify(list.slice(-20))); } catch {} }
 
 function showTab(name) {
   document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
@@ -653,7 +661,9 @@ document.addEventListener("submit", async (ev) => {
   try {
     if (S.locked) {
       await Vault.send(S.cfg.repo, { from: f.get("from") || "Visitor", text: f.get("text") });
-      ev.target.reset(); msg.textContent = `Sealed and sent. It wakes ${S.me.name} within a few minutes.`;
+      saveSent([...sentNotes(), { text: String(f.get("text")).trim().slice(0, 2000), at: new Date().toISOString() }]);
+      ev.target.reset(); renderMail();
+      $("note-msg").textContent = `Sealed and sent. It wakes ${S.me.name} within a few minutes; ${P.his} reply appears under your letter.`;
       return;
     }
     const res = await fetch("api/note", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: f.get("from"), text: f.get("text") }) });
