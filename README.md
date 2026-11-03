@@ -85,7 +85,8 @@ what he did, and leave him notes.
 
 Everything is free:
 
-- **Hosting:** every hour GitHub's free servers check whether he wants to be awake, and host his world as a web page.
+- **Hosting:** GitHub's free servers wake him and host his world as a web page. When he goes to bed, his own alarm
+  clock waits for the time he chose and wakes him then; GitHub's hourly check is a backup.
 - **Thinking:** he works through free AI services in order, moving on only when one is used up for the day:
   1. **Google Gemini** (about 120 thoughts a day: 20 per model, several models)
   2. **Groq** (about 100 a day across its free models; one of them can see pictures)
@@ -105,7 +106,7 @@ Everything is free:
 | `docs/` | His world: the web page you visit (`sprites.js` draws everything) |
 | `docs/world/` | Everything he owns, in plain form: books, wishlist, creations, rooms, journal, notes. Never uploaded. |
 | `docs/vault/` | The same world, locked with your password. This is what's stored online. |
-| `.github/workflows/live.yml` | Checks every hour on GitHub whether he wants to wake up |
+| `.github/workflows/live.yml` | Wakes him on GitHub: at the time he chose (his alarm clock), for a note, or on the hourly check |
 | `serve.py`, `run_on_my_pc.bat` | Run it on this PC instead of online |
 
 ## Putting it online (one-time setup, about 15 minutes)
@@ -144,8 +145,8 @@ Developer settings → Personal access tokens → Fine-grained tokens → Genera
 you send a note the page asks for this token and keeps it only on that device. Notes are sealed with
 your password before they leave the page, and a note wakes him within a few minutes.
 
-**A backup alarm clock (optional, one-time):** GitHub's hourly check sometimes runs late or skips
-hours. A free alarm at [cron-job.org](https://cron-job.org) can knock on his door every hour as well.
+**A backup alarm clock (optional, one-time):** his own alarm clock (the `alarm` job) already wakes him at the
+time he chose, even though GitHub's hourly check often skips hours. For extra safety, a free alarm at [cron-job.org](https://cron-job.org) can knock on his door every hour as well.
 It only checks whether he wants to be awake; he still decides when he wakes. Make a second
 fine-grained token (*Only select repositories → ai-world*, *Actions: Read and write*). On cron-job.org
 create a job: URL `https://api.github.com/repos/<your-github-name>/ai-world/actions/workflows/live.yml/dispatches`,

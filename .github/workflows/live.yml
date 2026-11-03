@@ -19,14 +19,15 @@ permissions:
   contents: write             # save its books and journal
   issues: write               # read and answer your notes
 
-concurrency:
-  group: live
-  cancel-in-progress: false
-
 jobs:
   live:
     runs-on: ubuntu-latest
     timeout-minutes: 58
+    concurrency:              # one waking at a time (on the job, so a sleeping alarm never holds up a note)
+      group: live
+      cancel-in-progress: false
+    outputs:
+      wake_after: ${{ steps.bed.outputs.wake_after }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -101,6 +102,20 @@ jobs:
           WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
         run: python -m brain run --next-wake 180 ${{ github.event_name == 'workflow_dispatch' && inputs.wake != 'no' && '--now' || '' }}
 
+      # When he wants to be up again, for his alarm clock below (just a time; the logs already show it)
+      - name: Note when he wants to wake
+        id: bed
+        run: |
+          python - <<'EOF'
+          import json, os
+          try:
+              when = json.load(open("docs/world/self.json")).get("wake_after") or ""
+          except Exception:
+              when = ""
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"wake_after={when}\n")
+          EOF
+
       - name: Lock his world again and save it
         run: |
           python -m brain lock
@@ -116,3 +131,37 @@ jobs:
           WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
           WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # His alarm clock. GitHub's hourly schedule is best-effort and often skipped, so after he goes to bed this
+  # waits until the time he chose and then starts a check, which GitHub always runs. If anything else wakes
+  # him first (a note), that newer run sets its own alarm and this one quietly steps aside.
+  alarm:
+    needs: live
+    if: needs.live.outputs.wake_after != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 355      # a job can last 6 hours at most; a longer sleep is bridged by a check that sets the next alarm
+    permissions:
+      actions: write          # only this job may start the workflow; his session never gets this
+    steps:
+      - name: Wait until he wants to wake, then ring
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WAKE: ${{ needs.live.outputs.wake_after }}
+          MINE: ${{ github.run_id }}
+        run: |
+          API="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/live.yml"
+          now=$(date +%s)
+          ring=$(( $(date -d "$WAKE" +%s) + 60 ))
+          [ "$ring" -lt $(( now + 1800 )) ] && ring=$(( now + 1800 ))     # never ring sooner than his shortest sleep
+          [ "$ring" -gt $(( now + 20400 )) ] && ring=$(( now + 20400 ))   # 5h40m: a check then sets the rest
+          echo "alarm set for $(date -u -d "@$ring" +%H:%M) UTC"
+          while [ "$(date +%s)" -lt "$ring" ]; do
+            left=$(( ring - $(date +%s) ))
+            sleep $(( left < 600 ? left : 600 ))
+            latest=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$API/runs?per_page=1" \
+              | python3 -c "import json,sys; r=json.load(sys.stdin)['workflow_runs']; print(r[0]['id'] if r else '')" || echo "$MINE")
+            if [ -n "$latest" ] && [ "$latest" != "$MINE" ]; then echo "a newer run keeps his alarm now"; exit 0; fi
+          done
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" "$API/dispatches" \
+            -d "{\"ref\": \"${GITHUB_REF_NAME}\", \"inputs\": {\"wake\": \"no\"}}"
+          echo "rang his alarm"
