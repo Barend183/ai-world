@@ -1288,15 +1288,19 @@ class Session:
         own, w = self.own(), self.world
         if not own or not apprentice.want(w.me):
             return None
-        system = apprentice.OWN_SYSTEM + ", ".join(sorted(ACTIONS)) if own.grown else self._system()
+        system = apprentice.system_for(own.grown, self._system(), ACTIONS)
         try:
             r = parse(own.think(system, apprentice.compact(context)))
-            act = str(r.get("action", "")).strip()
-            if act in ACTIONS or near_action(w, act, r.get("args") if isinstance(r.get("args"), dict) else {}):
-                return r
+        except BrainUnavailable as e:
+            apprentice.slip(w.me, "took too long" if "timed out" in str(e).lower() else "couldn't think")
+            return None
         except Exception:
-            pass
-        apprentice.outcome(w.me, False)
+            apprentice.slip(w.me, "not a JSON reply")
+            return None
+        act = str(r.get("action", "")).strip()
+        if act in ACTIONS or near_action(w, act, r.get("args") if isinstance(r.get("args"), dict) else {}):
+            return r
+        apprentice.slip(w.me, f"unknown action '{re.sub(r'[^a-z_]', '', act.lower())[:24]}'")
         return None
 
     def _learn(self, action, ok):

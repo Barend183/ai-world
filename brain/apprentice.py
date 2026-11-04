@@ -34,6 +34,24 @@ I take in what's around me and decide one thing to do next. I reply with one JSO
 My actions: """
 
 
+def system_for(grown, full_system, actions):
+    """What my own brain is told about itself. Once it has grown from my lessons it knows my ways, so a few lines
+    are enough. Before that, it gets who I am, how to answer, and one line per action (how to call it): my full
+    instructions are too long for a small brain to take in quickly."""
+    if grown:
+        return OWN_SYSTEM + ", ".join(sorted(actions))
+    lines = full_system.split("What I can do, and how:", 1)[-1].splitlines()
+    calls = [l.strip()[:220] for l in lines if l.startswith("- ") and l[2:].split(" ", 1)[0] in actions]
+    return OWN_SYSTEM + ", ".join(sorted(actions)) + ".\nHow to use them:\n" + "\n".join(calls)
+
+
+def slip(me, why):
+    """Note why my own brain fumbled (just the kind of slip), so it can be seen and helped."""
+    s = state(me)
+    s["slips"] = (s.get("slips", []) + [why[:80]])[-8:]
+    outcome(me, False)
+
+
 def compact(context):
     """My whole morning page, boiled down to what the next thought needs (a few thousand characters)."""
     parts = re.split(r"\n(?===\s)", context)

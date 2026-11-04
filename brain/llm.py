@@ -112,9 +112,9 @@ class Gemini:
                     if self._mark_out(model, e.read().decode(errors="replace")):
                         self._failed = getattr(self, "_failed", set()) | {model}
                     continue
-                self._rest(model)
+                self._rest(model, minutes=10 if e.code >= 500 else 120)   # "busy" passes quickly; other errors don't
             except Exception:
-                self._rest(model)
+                self._rest(model)   # it hung
             self._failed = getattr(self, "_failed", set()) | {model}
         if not waited:   # if a model is only paused by the per-minute limit, wait for it
             now_ = datetime.now(timezone.utc)
@@ -144,10 +144,10 @@ class Gemini:
         return sum(max(0, self.DAILY - (used.get(m, 0) if fresh else 0)) for m in self.candidates
                    if self._usable(m, ("gemini_models_out",)) and m not in getattr(self, "_failed", set()))
 
-    def _rest(self, model):
-        """A busy or hanging model is skipped for a couple of hours (each wake-up tries the best models
-        first, so a short rest would mean waiting on the same hanging model every time)."""
-        self.status.setdefault("gemini_models_busy", {})[model] = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+    def _rest(self, model, minutes=120):
+        """A hanging model is skipped for a couple of hours (each wake-up tries the best models first, so a short
+        rest would mean waiting on the same hanging model every time); a merely busy one for a few minutes."""
+        self.status.setdefault("gemini_models_busy", {})[model] = (datetime.now(timezone.utc) + timedelta(minutes=minutes)).isoformat()
         if self.status.get("gemini_last_good") == model:
             del self.status["gemini_last_good"]
 
@@ -248,8 +248,8 @@ class OwnBrain:
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
                 "options": {"num_ctx": 8192, "temperature": 0.7}}
         try:
-            return _request(f"{self.host}/api/chat", body, timeout=600)["message"]["content"]
-        except Exception as e:
+            return _request(f"{self.host}/api/chat", body, timeout=240)["message"]["content"]
+        except Exception as e:   # (240 s: a thought that takes longer than that counts as a slip)
             raise BrainUnavailable(f"my own brain stumbled: {e}") from e
 
 
@@ -480,4 +480,13 @@ class Chain:
             except QuotaExhausted:
                 until = next_reset() if self.current.kind == "gemini" else next_utc_midnight()
                 self.status.setdefault("exhausted", {})[self.current.kind] = until.isoformat()
+                self.current = None
+            except BrainUnavailable:
+                # this brain isn't answering just now (busy, not out for the day): give it a short rest and think
+                # with the next one, rather than ending the day; only when none is left does he go back to bed
+                kind = self.current.kind
+                later = self.order[self.order.index(kind) + 1:] if kind in self.order else []
+                if not any(self._usable(k) for k in later):
+                    raise
+                self.status.setdefault("exhausted", {})[kind] = (datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat()
                 self.current = None

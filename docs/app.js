@@ -324,6 +324,12 @@ function renderJournal() {
 function renderCheckup() {
   const quiet = new Set(["wake", "diary"]), sessions = [...new Set(S.recent.map((e) => e.session))].reverse().slice(0, 8);
   let html = '<p class="muted">How his last sessions went. A loop is the same kind of thing many times in a row; trouble is something he tried that didn\'t work.</p>';
+  const own = S.me.own_brain;
+  if (own) {   // his own brain: how much he trusts it, how it's been doing, and why it slipped lately
+    const tries = own.tries || [], right = tries.filter(Boolean).length;
+    html += `<h3>🌱 His own brain</h3><div style="font-size:13px">${own.version ? `Grown ${own.version} time${own.version > 1 ? "s" : ""} from his lessons` : "Not grown yet (a fresh small open model)"} · takes about ${Math.round((own.share || 0) * 100)}% of his thoughts · ${tries.length ? `${right} of its last ${tries.length} right` : "no tries yet"}</div>
+      ${(own.slips || []).length ? `<div class="muted" style="font-size:13px">Recent slips: ${own.slips.map(esc).join("; ")}</div>` : ""}`;
+  }
   for (const s of sessions) {
     const evs = S.recent.filter((e) => e.session === s), wake = evs.find((e) => e.action === "wake");
     const acts = evs.filter((e) => !quiet.has(e.action) && !(e.action === "pastime" && /doorstep/.test(e.summary)));
