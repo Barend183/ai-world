@@ -104,6 +104,9 @@ const roomOf = (id) => S.rooms.find((r) => r.id === id) || S.rooms[0];
 const roomW = (id) => roomOf(id).width || 320;
 const liveIn = (roomId) => S.specimens.filter((s) => s.status !== "released" && (s.room || "study") === roomId);
 const floorY = (room) => room.builtin ? 152 : room.kind === "outdoor" ? 146 : 140;
+const itemFloorY = (item, room) => item.place === "floor" && Number.isFinite(item.distance)
+  ? Math.round((room.kind === "outdoor" ? 100 : 118) + item.distance * (room.kind === "outdoor" ? 80 : 62))
+  : floorY(room);
 
 function specimenX(sp) {
   const room = roomOf(sp.room || "study"), W = room.width || 320, here = liveIn(room.id);
@@ -129,7 +132,7 @@ function spotFor(e) {   // where he stands for an event: {room, x, y, pose}
   }
   if (e.item) {
     const it = room.items.find((i) => i.id === e.item);
-    if (it) return { room: room.id, x: Math.min(W - 12, itemX(it, room) + 20), y: room.builtin ? 160 : floorY(room) + 14, pose: "stand" };
+    if (it) return { room: room.id, x: Math.min(W - 12, itemX(it, room) + 20), y: Math.min(176, itemFloorY(it, room) + 14), pose: "stand" };
   }
   if (room.builtin && STUDY_PLACES[e.place]) return { room: "study", ...STUDY_PLACES[e.place] };
   return { room: room.id, x: Math.round(W / 2), y: room.builtin ? 150 : 158, pose: "stand" };
@@ -590,8 +593,9 @@ function drawView(t) {
   const w = weatherNow();
   if (w && w.env_rain > 0 && room.kind === "outdoor") rain(ctx, W, H, t, w.env_rain);
   const fy = floorY(room);
-  [...room.items].sort((a, b) => (a.place === "wall" ? -1 : 1) - (b.place === "wall" ? -1 : 1)).forEach((it) => {
-    const box = drawItem(ctx, it, itemX(it, room), fy, 26);
+  [...room.items].sort((a, b) => (a.place === "wall" ? -1 : itemFloorY(a, room))
+    - (b.place === "wall" ? -1 : itemFloorY(b, room))).forEach((it) => {
+    const box = drawItem(ctx, it, itemX(it, room), itemFloorY(it, room), 26);
     if (box) S.boxes.push({ ...box, label: it.name });
   });
   const botFront = S.bot.room === room.id && S.bot.y >= 166;
@@ -624,7 +628,8 @@ function lightsIn(room, fy) {
   }
   for (const it of room.items) {
     if (!GLOWS.test(`${it.name} ${it.preset || ""}`) || (cut && !flame.test(`${it.name} ${it.preset || ""}`))) continue;
-    out.push({ x: itemX(it, room), y: it.place === "wall" ? 50 : fy - 22, r: 70, flicker: /candle|fire|lantern|torch/i.test(`${it.name} ${it.preset || ""}`) });
+    out.push({ x: itemX(it, room), y: it.place === "wall" ? 50 : itemFloorY(it, room) - 22,
+               ground: itemFloorY(it, room), r: 70, flicker: /candle|fire|lantern|torch/i.test(`${it.name} ${it.preset || ""}`) });
   }
   return out;
 }

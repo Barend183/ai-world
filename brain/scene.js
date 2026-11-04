@@ -55,7 +55,7 @@ this.__world = function (input) {
     for (const it of rm.items) if (it.place === "wall" && it.preset === "window" && !it.sprite)
       drawItem(ctx, it, itemX(it, rm), fy, 26);
     for (const it of rm.items) if (it.place === "floor" && (it.preset === "rug" || it.preset === "pond") && !it.sprite)
-      drawItem(ctx, it, itemX(it, rm), fy, 26);
+      drawItem(ctx, it, itemX(it, rm), itemFloorY(it, rm), 26);
     return Float32Array.from(canvas.px);
   };
   const things = [];
@@ -91,13 +91,16 @@ this.__world = function (input) {
     if ((it.place === "wall" && it.preset === "window" ||
          it.place === "floor" && (it.preset === "rug" || it.preset === "pond")) && !it.sprite) continue;
     if (it.place === "floor" && ["sofa", "armchair", "chair"].includes(it.preset) && !it.sprite) {
-      seats.push({ x: itemX(it, rm), ground: fy, preset: it.preset, color: it.color, depth: it.depth });
+      seats.push({ x: itemX(it, rm), ground: itemFloorY(it, rm), preset: it.preset, color: it.color, depth: it.depth });
       continue;
     }
-    const c = blank(); drawItem(c.getContext("2d"), it, itemX(it, rm), fy, 26);
-    keep(c.px, it.place === "wall" ? top : fy, it.place === "wall" ? "wall" : "furniture", it.name,
+    const ground = itemFloorY(it, rm);
+    const c = blank(); drawItem(c.getContext("2d"), it, itemX(it, rm), ground, 26);
+    keep(c.px, it.place === "wall" ? top : ground, it.place === "wall" ? "wall" : "furniture", it.name,
          { preset: it.preset, depth: it.depth,
-           shaped: !!it.sprite || ["plant", "tree", "bush", "flowerbed", "lamp"].includes(it.preset) });
+           shaped: (!!it.sprite && !it.side_sprite)
+             || ["plant", "tree", "bush", "flowerbed", "lamp"].includes(it.preset),
+           sideSprite: it.side_sprite, backSprite: it.back_sprite });
   }
   for (const sp of liveIn(view)) { const c = blank(); drawSpecimen(c.getContext("2d"), sp, specimenX(sp), 166, T); keep(c.px, 166, "creation", sp.spec.name, { shaped: true }); }
   for (const b of S.comp ? [S.bot, S.bot2] : [S.bot]) {   // whoever else is here (never himself)
@@ -120,7 +123,8 @@ this.__world = function (input) {
   if (rm.builtin) mats.push({ x0: 96, x1: 224, near: 140, far: 170, color: "#7a3b3b" });
   for (const it of rm.items) if (it.place === "floor" && (it.preset === "rug" || it.preset === "pond") && !it.sprite) {
     const x = itemX(it, rm), w = it.preset === "rug" ? 52 : 48, h = it.preset === "rug" ? 6 : 8;
-    mats.push({ x0: x - w / 2, x1: x + w / 2, near: fy - h, far: fy,
+    const ground = itemFloorY(it, rm);
+    mats.push({ x0: x - w / 2, x1: x + w / 2, near: ground - h, far: ground,
                 color: it.color || (it.preset === "rug" ? "#9b4d4a" : "#4f8fc0"), depth: it.depth });
   }
   return { W, top, back, things, chairModel, shelfModel, books, windows, mats, seats, lights: lightsIn(rm, fy), fy,
@@ -164,7 +168,7 @@ const mix = (c, k, d) => [c[0] + (d[0] - c[0]) * k, c[1] + (d[1] - c[1]) * k, c[
 // Light: daylight, or at night darkness with pools of light around his lamps, candles and screens.
 const lights = data.lights.map((L) => {
   const wallThing = L.y <= 60 || L.cool;
-  return { p: [L.x, Math.max(4, top - L.y), L.cool ? 17 : wallThing ? 3 : zOf(data.fy)], r: L.r * 1.6, cool: L.cool };
+  return { p: [L.x, Math.max(4, top - L.y), L.cool ? 17 : wallThing ? 3 : zOf(L.ground ?? data.fy)], r: L.r * 1.6, cool: L.cool };
 });
 const shade = (c, p) => {
   if (!data.night) return c;
@@ -183,6 +187,11 @@ const sky = (d) => {   // outdoors: the sky and hills all around, from the paint
   return tex(u, Math.max(0, Math.min(top - 1, top * (1 - el / 0.6))));
 };
 
+const faceArt = (art) => art && { rows: art.pixels, w: Math.max(...art.pixels.map((r) => r.length)), h: art.pixels.length,
+  colors: Object.fromEntries(Object.entries(art.palette).map(([ch, color]) => [ch, parseColor(color).slice(0, 3)])) };
+const artAt = (art, u, v) => art?.colors[art.rows[Math.max(0, Math.min(art.h - 1, Math.floor(v * art.h)))]
+  ?.[Math.max(0, Math.min(art.w - 1, Math.floor(u * art.w)))]] || null;
+
 // The page's pixel art has a fixed front and a little depth here, instead of turning to face me.
 const solids = data.things.filter((t) => !(data.study && !e.entered && t.kind === "furniture" && t.name === e.place
     && (e.place === "bed" || e.place === "armchair"))).map((t) => {
@@ -194,7 +203,7 @@ const solids = data.things.filter((t) => !(data.study && !e.entered && t.kind ==
   const depth = Number.isFinite(chosen) && chosen >= 2 && chosen <= 80 ? chosen
     : named[t.name] || preset[t.preset] || (t.kind === "wall" ? Math.min(8, Math.max(2, t.w * 0.15))
       : t.kind === "creation" ? 8 : t.kind === "someone" ? 6 : Math.min(20, Math.max(5, t.w * 0.3)));
-  const z = t.kind === "wall" ? depth / 2 + 1 : Math.max(depth / 2 + 1, Math.min(D - depth / 2 - 1, zOf(t.ground)));
+  const z = t.kind === "wall" ? depth / 2 + 1 : Math.max(depth / 2 + 1, Math.min(D - depth / 2 - 14, zOf(t.ground)));
   const rows = [];
   for (let y = 0; y < t.h; y++) {
     let run = 0, widest = 0, count = 0;
@@ -225,7 +234,8 @@ const solids = data.things.filter((t) => !(data.study && !e.entered && t.kind ==
   }
   const y0 = Math.max(0, t.ground - t.y - t.h);
   return { t, x0: t.x, x1: t.x + t.w, y0, y1: y0 + t.h,
-           z0: Math.max(1, z - depth / 2), z1: Math.min(D - 1, z + depth / 2), rows };
+           z0: Math.max(1, z - depth / 2), z1: Math.min(D - 1, z + depth / 2), rows,
+           sideArt: faceArt(t.sideSprite), backArt: faceArt(t.backSprite) };
 });
 // The study chair has a back, seat, arms and feet at different depths; a single extruded sprite hides them.
 const chairZ = zOf(132);
@@ -244,7 +254,7 @@ for (const s of data.seats) {
   const w = wide ? 44 : simple ? 20 : 28;
   const chosen = Number(s.depth), depth = s.depth != null && Number.isFinite(chosen) && chosen >= 2 && chosen <= 80
     ? chosen : wide ? 24 : simple ? 16 : 20;
-  const z = Math.max(depth / 2 + 1, Math.min(D - depth / 2 - 1, zOf(s.ground)));
+  const z = Math.max(depth / 2 + 1, Math.min(D - depth / 2 - 14, zOf(s.ground)));
   const x0 = s.x - w / 2, x1 = s.x + w / 2, rear = z - depth / 2, front = z + depth / 2;
   const color = s.color || (wide ? "#7a5c9e" : simple ? "#8a6542" : "#5b7fa6");
   const edge = (k) => parseColor(color).slice(0, 3).map((v) => Math.max(0, Math.min(255, v * k)));
@@ -289,6 +299,18 @@ const matBoxes = data.mats.map((m) => {
   return { ...box(m.x0, m.x1, 0, 0.6, Math.max(1, center - depth / 2), Math.min(D - 1, center + depth / 2), m.color), mat: true };
 });
 const roomBoxes = [...chairBoxes, ...seatBoxes, ...shelfBoxes, ...windowBoxes, ...matBoxes];
+const footprints = [
+  ...solids.filter((o) => o.t.kind !== "wall" && o.y0 <= 5).map((o) => o),
+  ...roomBoxes.filter((o) => !o.mat && o.y0 <= 5),
+];
+const floorShadow = (c, p) => {
+  let light = 1;
+  for (const o of footprints) {
+    const dx = Math.max(o.x0 - p[0], 0, p[0] - o.x1), dz = Math.max(o.z0 - p[2], 0, p[2] - o.z1);
+    if (dx < 8 && dz < 8) light = Math.min(light, 0.82 + 0.18 * Math.max(dx, dz) / 8);
+  }
+  return light === 1 ? c : c.map((v) => v * light);
+};
 const traceBox = (o, cam, d, limit) => {
   let enter = 0.01, leave = limit, face = "front";
   for (let axis = 0; axis < 3; axis++) {
@@ -327,8 +349,14 @@ const traceSolid = (o, cam, d, limit) => {
     const u = Math.floor(p[0] - o.x0), v = Math.floor(o.y1 - p[1]);
     if (u < 0 || u >= o.t.w || v < 0 || v >= o.t.h) break;
     const k = (v * o.t.w + u) * 4, a = o.t.img[k + 3], row = o.rows[v], cell = row.cells ? row.cells[u] : row;
-    if (a >= 0.5 && cell && p[2] >= cell.z0 && p[2] <= cell.z1)
-      return { t, p, face, c: face === "back" ? row.back : [o.t.img[k] / a, o.t.img[k + 1] / a, o.t.img[k + 2] / a] };
+    if (a >= 0.5 && cell && p[2] >= cell.z0 && p[2] <= cell.z1) {
+      const side = (face === "left" || face === "right")
+        ? artAt(o.sideArt, face === "right" ? 1 - (p[2] - o.z0) / (o.z1 - o.z0)
+          : (p[2] - o.z0) / (o.z1 - o.z0), v / o.t.h) : null;
+      const back = face === "back" ? artAt(o.backArt, 1 - u / o.t.w, v / o.t.h) : null;
+      return { t, p, face, c: side || back || (face === "back" ? row.back
+        : [o.t.img[k] / a, o.t.img[k + 1] / a, o.t.img[k + 2] / a]) };
+    }
     const xEdge = o.x0 + u + (d[0] > 0 ? 1 : 0);
     const yEdge = o.y1 - v - (d[1] < 0 ? 1 : 0);
     const tx = Math.abs(d[0]) < 1e-8 ? Infinity : (xEdge - cam[0]) / d[0];
@@ -372,6 +400,7 @@ for (let py = 0; py < SH; py++) for (let px = 0; px < SW; px++) {
       const z = data.outdoor ? (((p[2] % D) + D) % D) : p[2], u = data.outdoor ? (((p[0] % W) + W) % W) : p[0];
       c = tex(u, top + (z / D) * (180 - top - 1));
       if (data.outdoor) c = mix(c, Math.min(1, best / 900), sky([d[0], 0.02, d[2]]));   // the far field fades into the horizon
+      c = floorShadow(c, p);
     } else if (hit === "back") c = tex(p[0], HW - p[1]);
     else if (hit === "ceiling") c = mix(tex(W / 2, 2), 0.25, [40, 30, 25]);
     else if (hit === "front") c = frontWall;

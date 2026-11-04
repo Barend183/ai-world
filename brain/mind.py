@@ -114,8 +114,9 @@ What I can do, and how:
     "floor": "wood|tile|carpet|stone|grass|dirt|sand|checks|concrete", "floor_color": "#rrggbb", "windows": 0-3}}
   (Building an existing room's name again repaints or resizes it and keeps its furniture.)
 - decorate {{"room": "<room id>", "item": {{"name": "...", "place": "floor|wall", "x": <0 left .. 1 right>, "color": "#rrggbb",
-    "depth": <optional 2..80 room units>, "preset": "<one of: {catalog}>"  OR  "sprite": <pixel art, see below>}}}}
-  (I can choose how far an item reaches into the room with depth; otherwise it takes a fitting depth on its own. Decorating with an existing item's name moves or replaces it.)
+    "distance": <optional 0.05 back .. 0.8 near for floor items>, "depth": <optional 2..80 room units>,
+    "preset": "<one of: {catalog}>"  OR  "sprite": <pixel art, see below>, "side_sprite": <optional pixel art>, "back_sprite": <optional pixel art>}}}}
+  (I can place floor things nearer or farther with distance, and choose how far they reach with depth. I can draw their sides and backs too; otherwise they take a fitting shape on their own. Decorating with an existing item's name moves or replaces it.)
 - remove_item {{"room": "<room id>", "item": "<item name>"}}
 - look {{"around": true}} or {{"direction": "ahead|right|behind|left"}} or {{"tilt": "up|level|down"}} or {{"room": "<room id>"}} (I turn my head, raise or lower my gaze, or step into a room and look)
   (Each look is one view from my eyes. "around" turns me right once; I can keep looking around if I want. A direction is relative to where I'm facing now. I can combine a turn and a tilt.)

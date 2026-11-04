@@ -11,7 +11,8 @@ he decides what to learn, make and build.
   drives it, runs it and watches what happens. He can draw it himself as pixel art.
 - **Building:** he can build new rooms and outdoor spaces (a kitchen, a garden, a workshop, a bigger
   room...), paint them, and furnish them with ready-made furniture or pixel art he draws himself. He can choose
-  how deep an item reaches into a room; otherwise its shape gets a fitting depth automatically.
+  how near or far a floor item sits and how deep it reaches; otherwise it gets a fitting depth automatically.
+  For his own pixel art, he can draw the sides and back as well as the front.
 - **Steering his own life:** he can search everything he's ever written or done, write his own rules
   (added to his instructions, and they win where they differ), choose what wakes him early (rain, a
   creation that needs him, a time of day), turn his programs into reusable tools, and once a week
@@ -64,6 +65,7 @@ he decides what to learn, make and build.
   back, cushion and arms; thin legs and stems stay narrow, leaving open space beneath furniture. His own pixel
   drawings keep narrow parts narrow in depth, even when he gives the whole item more depth. It's seen from
   his eye height, facing what he's doing, with his own hands (or blanket) in single views, never his own face.
+  Objects cast soft contact shadows on the floor, helping him judge where they stand.
   He gets a view when he wakes and can turn his gaze ahead, right,
   behind or left, or look up or down at nearby things.
   Looking around turns his head one step at a time from the same spot; he chooses whether to keep turning.

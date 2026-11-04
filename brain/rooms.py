@@ -33,6 +33,13 @@ def _color(c, default):
     return c if isinstance(c, str) and COLOR.match(c) else default
 
 
+def _view_sprite(raw, side):
+    try:
+        return sprite(raw)
+    except SpecError as exc:
+        raise SpecError(f"I need my {side} drawing in the same pixel format as my front: {exc}") from exc
+
+
 def build(world, args):
     """Build a new room, or rebuild/repaint one with the same name (it keeps its furniture).
     The study can be repainted (walls, pattern, floor) but not resized."""
@@ -77,18 +84,26 @@ def decorate(world, room_id, item):
     if not isinstance(item, dict) or not str(item.get("name", "")).strip():
         raise SpecError("the item needs a name")
     name = str(item["name"]).strip()[:40]
-    preset = str(item.get("preset", "")).lower().replace(" ", "_") or None
-    art = sprite(item.get("sprite")) if item.get("sprite") else None
+    iid = slug(name)
+    old = next((i for i in room["items"] if i["id"] == iid), None)
+    chosen_preset = item.get("preset", old.get("preset") if old and "sprite" not in item else "")
+    preset = str(chosen_preset or "").lower().replace(" ", "_") or None
+    if "sprite" in item:
+        art = sprite(item.get("sprite"))
+    else:
+        art = old.get("sprite") if old and "preset" not in item else None
+    if not art and (item.get("side_sprite") or item.get("back_sprite")):
+        raise SpecError("I need a front sprite for my side or back drawing too")
     if not art and preset not in PRESETS:
         raise SpecError(f"give a preset from the catalog or draw a sprite. Floor: {', '.join(CATALOG['floor'])}. "
                         f"Wall: {', '.join(CATALOG['wall'])}")
-    place = item.get("place") if item.get("place") in ("wall", "floor") else ("wall" if preset in CATALOG["wall"] else "floor")
+    place = item.get("place")
+    if place not in ("wall", "floor"):
+        place = old.get("place") if old else ("wall" if preset in CATALOG["wall"] else "floor")
     try:
-        x = min(max(float(item.get("x", 0.5)), 0.0), 1.0)
+        x = min(max(float(item.get("x", old.get("x") if old else 0.5)), 0.0), 1.0)
     except (TypeError, ValueError):
-        x = 0.5
-    iid = slug(name)
-    old = next((i for i in room["items"] if i["id"] == iid), None)
+        x = old.get("x", 0.5) if old else 0.5
     if not old and len(room["items"]) >= MAX_ITEMS:
         raise SpecError(f"{room['name']} is full; remove something first")
     raw_depth = item.get("depth", old.get("depth") if old else None)
@@ -97,8 +112,25 @@ def decorate(world, room_id, item):
         depth = min(max(depth, 2), 80) if depth is not None and math.isfinite(depth) else None
     except (TypeError, ValueError):
         depth = old.get("depth") if old else None
+    raw_distance = item.get("distance", old.get("distance") if old else None)
+    try:
+        distance = float(raw_distance) if raw_distance is not None else None
+        distance = min(max(distance, 0.05), 0.8) if distance is not None and math.isfinite(distance) else None
+    except (TypeError, ValueError):
+        distance = old.get("distance") if old else None
+    if place == "wall":
+        distance = None
+    side = old.get("side_sprite") if old else None
+    back = old.get("back_sprite") if old else None
+    if "side_sprite" in item:
+        side = _view_sprite(item.get("side_sprite"), "side")
+    if "back_sprite" in item:
+        back = _view_sprite(item.get("back_sprite"), "back")
+    if not art:
+        side = back = None
     entry = {"id": iid, "name": name, "preset": None if art else preset, "sprite": art, "place": place, "x": x,
-             "color": _color(item.get("color"), None), "depth": depth, "added": now()}
+             "color": _color(item.get("color", old.get("color") if old else None), None), "depth": depth, "distance": distance,
+             "side_sprite": side, "back_sprite": back, "added": now()}
     if old:
         old.update(entry)
     else:
@@ -122,17 +154,17 @@ def describe(world):
     lines = []
     for r in world.rooms:
         stuff = ", ".join(f"{i['name']} ({i['place']}, x={i['x']:.2f}"
+                          + (f", distance={i['distance']:.2f}" if isinstance(i.get("distance"), (int, float)) else "")
                           + (f", depth={i['depth']:.0f}" if isinstance(i.get("depth"), (int, float)) else "")
-                          + ")" for i in r["items"]) or "no added furniture"
+                          + ")" for i in r["items"]) or "nothing yet"
         size = {v: k for k, v in SIZES.items()}.get(r["width"], "")
         look = "" if r.get("builtin") else f" {size} {r['kind']}, {r['pattern']} {r['wall']} walls, {r['floor']} floor."
         if r.get("builtin"):
             redrawn = sorted(r.get("skins", {}))
-            look = (f" Built in (you can restyle these pieces): {', '.join(STUDY_PIECES)}"
-                    + (f"; you've redrawn: {', '.join(redrawn)}" if redrawn else "") + "."
+            look = (f" Built in (I can restyle these pieces): {', '.join(STUDY_PIECES)}"
+                    + (f"; I've redrawn: {', '.join(redrawn)}" if redrawn else "") + "."
                     + (f" Painted: {r.get('pattern', 'plain')} {r.get('wall')} walls, {r.get('floor')} floor." if r.get("painted") else ""))
-            stuff = stuff.replace("no added furniture", "nothing else added")
-        lines.append(f"- [{r['id']}] {r['name']}:{look} {r.get('purpose', '')} Furniture you added: {stuff}.")
+        lines.append(f"- [{r['id']}] {r['name']}:{look} {r.get('purpose', '')} Furniture I've added: {stuff}.")
     return lines
 
 
