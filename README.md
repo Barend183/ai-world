@@ -61,7 +61,8 @@ he decides what to learn, make and build.
   and facing as he turns, with visible sides and backs. Wall fixtures have thickness, his bookcase has recessed
   shelves and books, and kitchen counters, appliances and cupboards occupy space. Ready-made sofas and chairs have
   separate backs, seats, arms and feet. His study chair has a separate
-  back, cushion and arms; thin legs and stems stay narrow, leaving open space beneath furniture. It's seen from
+  back, cushion and arms; thin legs and stems stay narrow, leaving open space beneath furniture. His own pixel
+  drawings keep narrow parts narrow in depth, even when he gives the whole item more depth. It's seen from
   his eye height, facing what he's doing, with his own hands (or blanket) in single views, never his own face.
   He gets a view when he wakes and can turn his gaze ahead, right,
   behind or left, or look up or down at nearby things.

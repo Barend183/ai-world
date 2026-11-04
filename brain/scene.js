@@ -84,7 +84,8 @@ this.__world = function (input) {
       if (Math.abs(full[i] - without[i]) + Math.abs(full[i + 1] - without[i + 1]) + Math.abs(full[i + 2] - without[i + 2]) > 0.5)
         for (let c = 0; c < 4; c++) px[i + c] = full[i + c];
     }
-    if ((name !== "armchair" || !chairModel) && (name !== "bookshelf" || !shelfModel)) keep(px, ground, kind, name);
+    if ((name !== "armchair" || !chairModel) && (name !== "bookshelf" || !shelfModel))
+      keep(px, ground, kind, name, { shaped: name === "plant" || !!rm.skins?.[name] });
   }
   for (const it of rm.items) {
     if ((it.place === "wall" && it.preset === "window" ||
@@ -95,9 +96,10 @@ this.__world = function (input) {
     }
     const c = blank(); drawItem(c.getContext("2d"), it, itemX(it, rm), fy, 26);
     keep(c.px, it.place === "wall" ? top : fy, it.place === "wall" ? "wall" : "furniture", it.name,
-         { preset: it.preset, depth: it.depth });
+         { preset: it.preset, depth: it.depth,
+           shaped: !!it.sprite || ["plant", "tree", "bush", "flowerbed", "lamp"].includes(it.preset) });
   }
-  for (const sp of liveIn(view)) { const c = blank(); drawSpecimen(c.getContext("2d"), sp, specimenX(sp), 166, T); keep(c.px, 166, "creation", sp.spec.name); }
+  for (const sp of liveIn(view)) { const c = blank(); drawSpecimen(c.getContext("2d"), sp, specimenX(sp), 166, T); keep(c.px, 166, "creation", sp.spec.name, { shaped: true }); }
   for (const b of S.comp ? [S.bot, S.bot2] : [S.bot]) {   // whoever else is here (never himself)
     if (b === eye || b.room !== view) continue;
     const c = blank(), whom = b === S.bot2 ? S.comp : S.me;
@@ -204,7 +206,21 @@ const solids = data.things.filter((t) => !(data.study && !e.entered && t.kind ==
       if (a >= 0.5) { for (let c = 0; c < 3; c++) back[c] += t.img[k + c] / a; count++; }
     }
     const thick = Math.max(2, depth * Math.sqrt(widest / t.w));
-    rows.push({ z0: Math.max(1, z - thick / 2), z1: Math.min(D - 1, z + thick / 2),
+    const cells = t.shaped ? new Array(t.w).fill(null) : null;
+    if (cells) for (let x = 0; x < t.w;) {
+      if (t.img[(y * t.w + x) * 4 + 3] < 0.5) { x++; continue; }
+      const start = x;
+      while (x < t.w && t.img[(y * t.w + x) * 4 + 3] >= 0.5) x++;
+      const width = x - start;
+      // A thin stem or leg stays thin even when the whole drawing has a deep base.
+      const span = Math.max(2, Math.min(depth, width * 1.5, depth * (width / t.w) ** 2));
+      for (let u = start; u < x; u++) {
+        const across = (2 * (u + 0.5 - (start + x) / 2)) / width;
+        const local = Math.max(2, span * Math.sqrt(Math.max(0.12, 1 - across * across)));
+        cells[u] = { z0: Math.max(1, z - local / 2), z1: Math.min(D - 1, z + local / 2) };
+      }
+    }
+    rows.push({ z0: Math.max(1, z - thick / 2), z1: Math.min(D - 1, z + thick / 2), cells,
                 back: t.name === "computer" ? [42, 42, 48] : back.map((c) => c / (count || 1)) });
   }
   const y0 = Math.max(0, t.ground - t.y - t.h);
@@ -310,14 +326,14 @@ const traceSolid = (o, cam, d, limit) => {
     const p = [cam[0] + d[0] * (t + 1e-5), cam[1] + d[1] * (t + 1e-5), cam[2] + d[2] * (t + 1e-5)];
     const u = Math.floor(p[0] - o.x0), v = Math.floor(o.y1 - p[1]);
     if (u < 0 || u >= o.t.w || v < 0 || v >= o.t.h) break;
-    const k = (v * o.t.w + u) * 4, a = o.t.img[k + 3], row = o.rows[v];
-    if (a >= 0.5 && p[2] >= row.z0 && p[2] <= row.z1)
+    const k = (v * o.t.w + u) * 4, a = o.t.img[k + 3], row = o.rows[v], cell = row.cells ? row.cells[u] : row;
+    if (a >= 0.5 && cell && p[2] >= cell.z0 && p[2] <= cell.z1)
       return { t, p, face, c: face === "back" ? row.back : [o.t.img[k] / a, o.t.img[k + 1] / a, o.t.img[k + 2] / a] };
     const xEdge = o.x0 + u + (d[0] > 0 ? 1 : 0);
     const yEdge = o.y1 - v - (d[1] < 0 ? 1 : 0);
     const tx = Math.abs(d[0]) < 1e-8 ? Infinity : (xEdge - cam[0]) / d[0];
     const ty = Math.abs(d[1]) < 1e-8 ? Infinity : (yEdge - cam[1]) / d[1];
-    const zEdge = a < 0.5 ? null : p[2] < row.z0 && d[2] > 0 ? row.z0 : p[2] > row.z1 && d[2] < 0 ? row.z1 : null;
+    const zEdge = !cell ? null : p[2] < cell.z0 && d[2] > 0 ? cell.z0 : p[2] > cell.z1 && d[2] < 0 ? cell.z1 : null;
     const tz = zEdge == null ? Infinity : (zEdge - cam[2]) / d[2];
     const prev = t;
     if (tx <= ty && tx <= tz) { t = tx; face = d[0] > 0 ? "left" : "right"; }
