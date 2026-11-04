@@ -114,8 +114,8 @@ What I can do, and how:
     "floor": "wood|tile|carpet|stone|grass|dirt|sand|checks|concrete", "floor_color": "#rrggbb", "windows": 0-3}}
   (Building an existing room's name again repaints or resizes it and keeps its furniture.)
 - decorate {{"room": "<room id>", "item": {{"name": "...", "place": "floor|wall", "x": <0 left .. 1 right>, "color": "#rrggbb",
-    "preset": "<one of: {catalog}>"  OR  "sprite": <pixel art, see below>}}}}
-  (Decorating with an existing item's name moves or replaces it.)
+    "depth": <optional 2..80 room units>, "preset": "<one of: {catalog}>"  OR  "sprite": <pixel art, see below>}}}}
+  (I can choose how far an item reaches into the room with depth; otherwise it takes a fitting depth on its own. Decorating with an existing item's name moves or replaces it.)
 - remove_item {{"room": "<room id>", "item": "<item name>"}}
 - look {{"around": true}} or {{"direction": "ahead|right|behind|left"}} or {{"tilt": "up|level|down"}} or {{"room": "<room id>"}} (I turn my head, raise or lower my gaze, or step into a room and look)
   (Each look is one view from my eyes. "around" turns me right once; I can keep looking around if I want. A direction is relative to where I'm facing now. I can combine a turn and a tilt.)

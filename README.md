@@ -10,7 +10,8 @@ he decides what to learn, make and build.
   rules from his research, it runs in real time (even while he sleeps), and he looks after it, cooks it,
   drives it, runs it and watches what happens. He can draw it himself as pixel art.
 - **Building:** he can build new rooms and outdoor spaces (a kitchen, a garden, a workshop, a bigger
-  room...), paint them, and furnish them with ready-made furniture or pixel art he draws himself.
+  room...), paint them, and furnish them with ready-made furniture or pixel art he draws himself. He can choose
+  how deep an item reaches into a room; otherwise its shape gets a fitting depth automatically.
 - **Steering his own life:** he can search everything he's ever written or done, write his own rules
   (added to his instructions, and they win where they differ), choose what wakes him early (rain, a
   creation that needs him, a time of day), turn his programs into reusable tools, and once a week
@@ -55,17 +56,19 @@ he decides what to learn, make and build.
   thoughts, has feelings that carry over and things that stay on his mind, keeps private pages that the page
   never shows, and works out for himself what he is.
 - **His own eyes, in 3D:** your page shows his world side-on in 2D, but he sees it as a real 3D room around
-  him: the back wall with its window and shelves, a floor that stretches away, side walls and ceiling (or open
-  sky outdoors), and his furniture, creations and companion standing at their own distances. Standing things keep
-  their places and facing as he turns, with visible sides and backs. His study chair has a separate back, cushion
-  and arms; thin legs and stems stay narrow, leaving open space beneath furniture. It's seen from his eye height,
-  facing what he's doing, with his own hands (or
-  blanket) in single views, never his own face. He gets a view when he wakes and can turn his gaze ahead, right,
+  him: the back wall with its window, a floor that stretches away, side walls and ceiling (or open sky outdoors),
+  and his furniture, creations and companion standing at their own distances. Standing things keep their places
+  and facing as he turns, with visible sides and backs. Wall fixtures have thickness, his bookcase has recessed
+  shelves and books, and kitchen counters, appliances and cupboards occupy space. Ready-made sofas and chairs have
+  separate backs, seats, arms and feet. His study chair has a separate
+  back, cushion and arms; thin legs and stems stay narrow, leaving open space beneath furniture. It's seen from
+  his eye height, facing what he's doing, with his own hands (or blanket) in single views, never his own face.
+  He gets a view when he wakes and can turn his gaze ahead, right,
   behind or left, or look up or down at nearby things.
   Looking around turns his head one step at a time from the same spot; he chooses whether to keep turning.
   Between pictures, a brief sense of his current room and the things around him stays with him. He takes in each
-  picture once, and can choose to hold
-  the last one for comparison with a new look, so pictures aren't sent with every thought. (Pictures need a brain
+  picture once, and can choose to hold the last one for comparison with a new look, so pictures aren't sent with
+  every thought. (Pictures need a brain
   that can see them, such as Gemini.)
 - **An ecosystem:** his creations can affect each other (a sugarbird drinking a protea's nectar, a tree
   shading a fern), and the whole world moves forward together, hour by hour, even while he sleeps.

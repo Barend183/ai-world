@@ -3,6 +3,7 @@
 Furniture is either a ready-made piece from CATALOG (tinted with its own colour) or pixel art
 the AI draws itself (see specimens.sprite).
 """
+import math
 import re
 
 from .specimens import COLOR, SpecError, sprite
@@ -90,8 +91,14 @@ def decorate(world, room_id, item):
     old = next((i for i in room["items"] if i["id"] == iid), None)
     if not old and len(room["items"]) >= MAX_ITEMS:
         raise SpecError(f"{room['name']} is full; remove something first")
+    raw_depth = item.get("depth", old.get("depth") if old else None)
+    try:
+        depth = float(raw_depth) if raw_depth is not None else None
+        depth = min(max(depth, 2), 80) if depth is not None and math.isfinite(depth) else None
+    except (TypeError, ValueError):
+        depth = old.get("depth") if old else None
     entry = {"id": iid, "name": name, "preset": None if art else preset, "sprite": art, "place": place, "x": x,
-             "color": _color(item.get("color"), None), "added": now()}
+             "color": _color(item.get("color"), None), "depth": depth, "added": now()}
     if old:
         old.update(entry)
     else:
@@ -114,7 +121,9 @@ def remove(world, room_id, item_name):
 def describe(world):
     lines = []
     for r in world.rooms:
-        stuff = ", ".join(f"{i['name']} ({i['place']}, x={i['x']:.2f})" for i in r["items"]) or "no added furniture"
+        stuff = ", ".join(f"{i['name']} ({i['place']}, x={i['x']:.2f}"
+                          + (f", depth={i['depth']:.0f}" if isinstance(i.get("depth"), (int, float)) else "")
+                          + ")" for i in r["items"]) or "no added furniture"
         size = {v: k for k, v in SIZES.items()}.get(r["width"], "")
         look = "" if r.get("builtin") else f" {size} {r['kind']}, {r['pattern']} {r['wall']} walls, {r['floor']} floor."
         if r.get("builtin"):
