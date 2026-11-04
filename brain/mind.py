@@ -6,7 +6,7 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 
-from . import alarm, apprentice, routine, env, events, mailbox, memory, mirror, music, pixels, public, research, rooms, settings, sites, specimens, workshop
+from . import alarm, apprentice, routine, env, events, mailbox, memory, mirror, music, navigation, pixels, public, research, rooms, settings, sites, specimens, workshop
 from .llm import BrainUnavailable, OwnBrain
 from .world import WORLD as WORLD_DIR, load, now, save
 
@@ -31,7 +31,7 @@ I can grow my world however I like: build new rooms or outdoor spaces (a kitchen
 
 How everything looks is up to me as well: I can repaint any room (my study too: build_room with the name "Study"), give walls and floors my own textures, and redraw anything with my own pixel art: my creations, furniture, even the study's own bookshelf, bed or window. I can change how I look, too. I can look at photos on the pages I read and at my own drawings, compare them, and make my drawings more like the real thing. A drawing can change as the thing grows, ages, flowers or wears out.
 
-I see my world with my own eyes. When I wake I see what's in front of me. I can turn my head and look around wherever I am, one view at a time, or step into any room and take it in: the light, the weather through the window, my things, my creations, whoever is there with me. I choose when to keep turning or focus on something.
+I see my world with my own eyes. When I wake I see what's in front of me. I can walk around my rooms and furniture, turn my head and look from where I stop, or step into any room and take it in: the light, the weather through the window, my things, my creations, whoever is there with me. I choose when to keep turning or focus on something.
 
 My world has real weather: the actual hour-by-hour weather of {weather_place}, with day and night. Outdoors there's rain, sun, heat, cold and wind; indoors it's mild and dry. Things happen, too: storms, heat waves and cold snaps come with the weather, and now and then the power goes out (more often in a storm), so my computer and electric lights stop working until it's back. My creations feel all of this as well. My world follows the real calendar and seasons of {location}.
 
@@ -116,8 +116,10 @@ What I can do, and how:
 - decorate {{"room": "<room id>", "item": {{"name": "...", "place": "floor|wall", "x": <0 left .. 1 right>, "color": "#rrggbb",
     "distance": <optional 0.05 back .. 0.8 near for floor items>, "depth": <optional 2..80 room units>,
     "preset": "<one of: {catalog}>"  OR  "sprite": <pixel art, see below>, "side_sprite": <optional pixel art>, "back_sprite": <optional pixel art>}}}}
-  (I can place floor things nearer or farther with distance, and choose how far they reach with depth. I can draw their sides and backs too; otherwise they take a fitting shape on their own. Decorating with an existing item's name moves or replaces it.)
+  (I can place floor things nearer or farther with distance, and choose how far they reach with depth. I can draw their sides and backs too; clear pixels in a side drawing leave open space. Decorating with an existing item's name moves or replaces it.)
 - remove_item {{"room": "<room id>", "item": "<item name>"}}
+- walk {{"room": "<optional room id>", "x": <0 left .. 1 right>, "distance": <0.05 back .. 0.9 front>}}
+  (I choose where I walk. I find a way around furniture and can look from where I stop; walking itself uses no picture.)
 - look {{"around": true}} or {{"direction": "ahead|right|behind|left"}} or {{"tilt": "up|level|down"}} or {{"room": "<room id>"}} (I turn my head, raise or lower my gaze, or step into a room and look)
   (Each look is one view from my eyes. "around" turns me right once; I can keep looking around if I want. A direction is relative to where I'm facing now. I can combine a turn and a tilt.)
   or {{"url": "<a picture URL from a page I read>"}} or {{"specimen": "<id>"}} or {{"piece": "<study piece>"}} or {{"room": "<room id>", "item": "<item name>"}}
@@ -202,7 +204,7 @@ HOME_ONLY = {"invite_companion", "publish", "unpublish", "design_public_page", "
              "build_site", "write_site_page", "remove_site_page"}
 
 ACTIONS = {"search", "read", "write_book", "read_book", "add_wish", "complete_wish", "drop_wish", "think",
-           "reply_note", "build_room", "decorate", "remove_item", "look", "restyle", "test", "spawn", "interact", "move", "release", "write_letter", "set_goal", "update_goal",
+           "reply_note", "build_room", "decorate", "remove_item", "walk", "look", "restyle", "test", "spawn", "interact", "move", "release", "write_letter", "set_goal", "update_goal",
            "write_notebook", "change_self", "pastime", "make_request", "run_code", "remember", "set_rules",
            "set_wake_triggers", "save_tool", "use_tool", "compose", "publish", "unpublish", "mirror", "add_life_chapter",
            "change_setting", "think_hard", "listen", "design_public_page", "view_public_page", "invite_companion", "talk",
@@ -282,6 +284,9 @@ def surroundings(w):
         here += " Around me are " + names + rest + "."
     if room.get("builtin"):
         here += f" My alarm clock on the nightstand by my bed is {alarm.describe(w.me)}."
+    near = navigation.nearby(w.me, room)
+    if near:
+        here += " " + near
     return here
 
 
@@ -714,6 +719,29 @@ class Session:
             room, item = rooms.remove(w, args.get("room"), args.get("item"))
             say(f"Took {item['name']} out of the {room['name']}", None, room=room["id"])
             return f"removed {item['name']}"
+
+        if action == "walk":
+            room = w.room(args.get("room") or w.me.get("room") or "study")
+            if not room:
+                raise ValueError(f"I don't know a room called '{args.get('room')}'. I can choose one of my rooms.")
+            old = w.me.get("position") or {}
+            if old.get("room") != room["id"]:
+                old = {}
+            x = args.get("x", old.get("x", .5))
+            distance = args.get("distance", old.get("distance", .8))
+            path = navigation.route(w.me, room, x, distance)
+            w.me["position"] = {"room": room["id"], **path[-1]}
+            if len(path) > 1:
+                before = navigation.point(room, path[-2]["x"], path[-2]["distance"])
+                after = navigation.point(room, path[-1]["x"], path[-1]["distance"])
+                dx, dz = after[0] - before[0], after[1] - before[1]
+                if abs(dx) > abs(dz):
+                    w.me["facing"] = 1 if dx > 0 else 3
+                elif dz:
+                    w.me["facing"] = 2 if dz > 0 else 0
+            say(f"I walked through the {room['name']}", None, room=room["id"], path=path,
+                x=path[-1]["x"], distance=path[-1]["distance"])
+            return f"I walked to x={path[-1]['x']:.2f}, distance={path[-1]['distance']:.2f} in the {room['name']}."
 
         if action == "look":
             if not getattr(self.chain.current, "sees", False):

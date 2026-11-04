@@ -34,7 +34,7 @@ PLACES = {
     "reply_note": "mailbox",
     "spawn": "specimen", "interact": "specimen", "release": "specimen", "move": "specimen",
     "build_room": "room", "decorate": "item", "remove_item": "room",
-    "look": "computer", "restyle": "room", "test": "computer",
+    "look": "computer", "walk": "room", "restyle": "room", "test": "computer",
     "set_goal": "board", "update_goal": "board", "write_letter": "mailbox",
     "make_request": "mailbox", "write_notebook": "armchair", "change_self": "armchair", "pastime": "room", "run_code": "computer", "compose": "armchair", "mirror": "room", "add_life_chapter": "armchair", "change_setting": "armchair", "think_hard": "armchair", "listen": "armchair", "publish": "computer", "unpublish": "computer", "design_public_page": "computer", "view_public_page": "computer",
     "talk": "talk", "invite_companion": "mailbox", "companion": "door", "event": "armchair",
@@ -107,6 +107,9 @@ class World:
         if detail:
             event["detail"] = detail[:4000]
         event.update({k: v for k, v in extra.items() if v is not None})
+        position = self.me.get("position") or {}
+        if event["place"] == "room" and position.get("room") == event["room"]:
+            event.setdefault("position", position)
         if self.me is not self.home:
             event["who"] = self.me.get("id", "companion")
         self.recent.append(event)

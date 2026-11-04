@@ -34,7 +34,9 @@ this.__world = function (input) {
   Object.assign(S, input.state);
   if (input.state.rooms) S.rooms = input.state.rooms;
   S.comp = (input.companions || []).find((c) => c.status === "living") || null;
-  const where = (m) => (m.state === "asleep" || !m.room ? { room: "study", ...STUDY_PLACES.bed } : spotFor({ room: m.room, place: m.place }));
+  const where = (m) => (m.state === "asleep" || !m.room ? { room: "study", ...STUDY_PLACES.bed }
+    : { ...spotFor({ room: m.room, place: m.place, position: m.position }),
+        positioned: m.place === "room" && m.position?.room === m.room });
   Object.assign(S.bot, where(S.me), { walking: false });
   if (S.comp) Object.assign(S.bot2, restSpot(), { walking: false });
   const eye = input.who === "companion" && S.comp ? S.bot2 : S.bot, self = eye === S.bot2 ? S.comp : S.me;
@@ -129,7 +131,8 @@ this.__world = function (input) {
   }
   return { W, top, back, things, chairModel, shelfModel, books, windows, mats, seats, lights: lightsIn(rm, fy), fy,
            outdoor: rm.kind === "outdoor", study: !!rm.builtin,
-           eye: { x: whereEyes.x, ground: whereEyes.y, place: self.place, entered }, body: col.body || "#66c28a",
+           eye: { x: whereEyes.x, ground: whereEyes.y, place: self.place, entered,
+                  positioned: !!whereEyes.positioned }, body: col.body || "#66c28a",
            night: isNight(), hour: worldHourF(), wall: rm.wall || "#d9b98f" };
 };
 this.__Px = Px;`, sandbox);
@@ -154,7 +157,7 @@ const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a
 // His eyes stay where the page places him after each action.
 const e = data.eye;
 const atComputer = data.study && !e.entered && e.place === "computer";
-const roomView = e.entered || (!data.study && e.place === "room");
+const roomView = e.entered || (!data.study && e.place === "room" && !e.positioned);
 const eyeCam = [Math.max(6, Math.min(W - 6, e.x)), roomView ? 34 : e.place === "bed" ? 14 : e.place === "armchair" ? 17 : atComputer ? 36 : 22,
                 roomView ? D - 12 : zOf(e.ground) + (atComputer ? 28 : 0)];
 const SW = 320, SH = 180;
@@ -344,15 +347,15 @@ const traceSolid = (o, cam, d, limit) => {
     if (leave <= enter) return null;
   }
   let t = enter;
-  for (let step = 0; step < 2 * (o.t.w + o.t.h) + 8 && t < leave; step++) {
+  for (let step = 0; step < 2 * (o.t.w + o.t.h + (o.sideArt?.w || 0)) + 8 && t < leave; step++) {
     const p = [cam[0] + d[0] * (t + 1e-5), cam[1] + d[1] * (t + 1e-5), cam[2] + d[2] * (t + 1e-5)];
     const u = Math.floor(p[0] - o.x0), v = Math.floor(o.y1 - p[1]);
     if (u < 0 || u >= o.t.w || v < 0 || v >= o.t.h) break;
     const k = (v * o.t.w + u) * 4, a = o.t.img[k + 3], row = o.rows[v], cell = row.cells ? row.cells[u] : row;
-    if (a >= 0.5 && cell && p[2] >= cell.z0 && p[2] <= cell.z1) {
-      const side = (face === "left" || face === "right")
-        ? artAt(o.sideArt, face === "right" ? 1 - (p[2] - o.z0) / (o.z1 - o.z0)
-          : (p[2] - o.z0) / (o.z1 - o.z0), v / o.t.h) : null;
+    const sideU = 1 - (p[2] - o.z0) / (o.z1 - o.z0);
+    const sideColor = artAt(o.sideArt, sideU, v / o.t.h);
+    if (a >= 0.5 && cell && p[2] >= cell.z0 && p[2] <= cell.z1 && (!o.sideArt || sideColor)) {
+      const side = face === "left" || face === "right" ? sideColor : null;
       const back = face === "back" ? artAt(o.backArt, 1 - u / o.t.w, v / o.t.h) : null;
       return { t, p, face, c: side || back || (face === "back" ? row.back
         : [o.t.img[k] / a, o.t.img[k + 1] / a, o.t.img[k + 2] / a]) };
@@ -362,7 +365,12 @@ const traceSolid = (o, cam, d, limit) => {
     const tx = Math.abs(d[0]) < 1e-8 ? Infinity : (xEdge - cam[0]) / d[0];
     const ty = Math.abs(d[1]) < 1e-8 ? Infinity : (yEdge - cam[1]) / d[1];
     const zEdge = !cell ? null : p[2] < cell.z0 && d[2] > 0 ? cell.z0 : p[2] > cell.z1 && d[2] < 0 ? cell.z1 : null;
-    const tz = zEdge == null ? Infinity : (zEdge - cam[2]) / d[2];
+    const frontEdge = zEdge == null ? Infinity : (zEdge - cam[2]) / d[2];
+    const sideColumn = o.sideArt && !sideColor && Math.abs(d[2]) > 1e-8
+      ? Math.max(0, Math.min(o.sideArt.w - 1, Math.floor(sideU * o.sideArt.w))) : null;
+    const sideEdge = sideColumn == null ? Infinity : (o.z0 + (1 - (sideColumn + (d[2] < 0 ? 1 : 0)) / o.sideArt.w)
+      * (o.z1 - o.z0) - cam[2]) / d[2];
+    const tz = Math.min(frontEdge, sideEdge);
     const prev = t;
     if (tx <= ty && tx <= tz) { t = tx; face = d[0] > 0 ? "left" : "right"; }
     else if (ty <= tz) { t = ty; face = d[1] > 0 ? "bottom" : "top"; }

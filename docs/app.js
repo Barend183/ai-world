@@ -87,7 +87,7 @@ async function load(first) {
 
   if (first) {
     const asleep = me.state === "asleep";
-    const spot = asleep ? { ...STUDY_PLACES.bed, room: "study" } : spotFor({ room: me.room, place: me.place, specimen: null });
+    const spot = asleep ? { ...STUDY_PLACES.bed, room: "study" } : spotFor({ room: me.room, place: me.place, position: me.position });
     Object.assign(S.bot, { room: spot.room, x: spot.x, y: spot.y, tx: spot.x, ty: spot.y, pose: spot.pose });
     S.view = S.bot.room;
   } else if (prevKey && prevKey !== S.lastKey && !S.replaying) {
@@ -107,6 +107,9 @@ const floorY = (room) => room.builtin ? 152 : room.kind === "outdoor" ? 146 : 14
 const itemFloorY = (item, room) => item.place === "floor" && Number.isFinite(item.distance)
   ? Math.round((room.kind === "outdoor" ? 100 : 118) + item.distance * (room.kind === "outdoor" ? 80 : 62))
   : floorY(room);
+const walkPoint = (room, x, distance) => ({ room: room.id,
+  x: Math.round(16 + x * ((room.width || 320) - 32)),
+  y: Math.round((room.kind === "outdoor" ? 100 : 118) + distance * (room.kind === "outdoor" ? 80 : 62)), pose: "stand" });
 
 function specimenX(sp) {
   const room = roomOf(sp.room || "study"), W = room.width || 320, here = liveIn(room.id);
@@ -123,6 +126,10 @@ const itemX = (item, room) => Math.round(16 + item.x * ((room.width || 320) - 32
 
 function spotFor(e) {   // where he stands for an event: {room, x, y, pose}
   const room = roomOf(e.room || "study"), W = room.width || 320;
+  if (e.action === "walk" && Number.isFinite(e.x) && Number.isFinite(e.distance))
+    return walkPoint(room, e.x, e.distance);
+  if (e.place === "room" && e.position?.room === room.id)
+    return walkPoint(room, e.position.x, e.position.distance);
   if (e.specimen) {
     const sp = S.specimens.find((s) => s.id === e.specimen);
     if (sp) {
@@ -141,7 +148,7 @@ function spotFor(e) {   // where he stands for an event: {room, x, y, pose}
 function restSpot() {
   const c = S.comp;
   if (c.state === "asleep" || !c.room) return { room: "study", x: 256, y: 146, pose: "sleep" };
-  const s = spotFor({ room: c.room, place: c.place });
+  const s = spotFor({ room: c.room, place: c.place, position: c.position });
   return (s.room === S.bot.room && Math.abs(s.x - S.bot.x) < 14) ? { ...s, x: s.x > 40 ? s.x - 20 : s.x + 20, pose: s.pose === "type" ? "stand" : s.pose } : s;
 }
 function talkSpot(e) {   // walk over to whoever they're talking to
@@ -446,7 +453,7 @@ function stopReplay() {
   S.queue = []; S.replaying = false; S.current = null; hideBubble();
   $("replay").textContent = "▶ Replay last session"; $("replay").classList.remove("stop"); $("replay-pos").textContent = "";
   const asleep = S.me.state === "asleep";
-  walkTo(asleep ? { room: "study", ...STUDY_PLACES.bed } : spotFor({ room: S.me.room, place: S.me.place }), null);
+  walkTo(asleep ? { room: "study", ...STUDY_PLACES.bed } : spotFor({ room: S.me.room, place: S.me.place, position: S.me.position }), null);
   if (S.comp) walkTo(restSpot(), null, S.bot2);
 }
 function walkTo(spot, prop, b = S.bot) {
@@ -456,7 +463,7 @@ function walkTo(spot, prop, b = S.bot) {
     b.x = entry.x; b.y = entry.y;
     setView(spot.room);
   } else if (S.view !== b.room && (S.replaying || S.current)) setView(b.room);
-  Object.assign(b, { tx: spot.x, ty: spot.y, walking: true, pose: "stand", targetPose: spot.pose, prop });
+  Object.assign(b, { tx: spot.x, ty: spot.y, walking: true, pose: "stand", targetPose: spot.pose, prop, waypoints: [] });
 }
 function propFor(e) {
   if (e.action === "interact") return /water|spray|feed|pour|fill/.test(e.did || "") ? "can" : e.did === "observe" ? "lens" : "tool";
@@ -469,7 +476,12 @@ function playNext() {
   const spot = e.action === "talk" && S.comp ? talkSpot(e) : e.who && S.comp && e.action === "wake" ? { room: "study", x: 256, y: 146, pose: "stand" } : spotFor(e);
   const other = actorOf(e) === S.bot ? S.bot2 : S.bot;   // two can't stand in the same spot
   if (S.comp && e.action !== "talk" && spot.room === other.room && Math.abs(spot.x - other.x) < 12) spot.x += spot.x > 40 ? -20 : 20;
-  walkTo(spot, propFor(e), actorOf(e));
+  const actor = actorOf(e);
+  if (e.action === "walk" && Array.isArray(e.path) && e.path.length > 1) {
+    const way = e.path.slice(1).map((p) => walkPoint(roomOf(e.room), p.x, p.distance));
+    walkTo(way.shift(), null, actor);
+    actor.waypoints = way;
+  } else walkTo(spot, propFor(e), actor);
   if (S.replaying) { const all = lastSession(); $("replay-pos").textContent = `${all.length - S.queue.length} / ${all.length} · ${when(e.t)}`; }
 }
 function showBubble(e) {
@@ -674,6 +686,10 @@ function frame(t) {
     const dx = b.tx - b.x, dy = b.ty - b.y, d = Math.hypot(dx, dy);
     if (d > 0.5) { const step = Math.min(d, 60 * dt); b.x += (dx / d) * step; b.y += (dy / d) * step; b.walking = true; }
     else if (b.walking) {
+      if (b.waypoints?.length) {
+        const next = b.waypoints.shift(); b.x = b.tx; b.y = b.ty; b.tx = next.x; b.ty = next.y;
+        continue;
+      }
       b.x = b.tx; b.y = b.ty; b.walking = false; b.pose = b.targetPose || "stand";
       if (S.current && actorOf(S.current) === b) { showBubble(S.current); S.holdUntil = t + Number($("speed").value) * 1000; }
     }

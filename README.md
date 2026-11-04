@@ -12,7 +12,9 @@ he decides what to learn, make and build.
 - **Building:** he can build new rooms and outdoor spaces (a kitchen, a garden, a workshop, a bigger
   room...), paint them, and furnish them with ready-made furniture or pixel art he draws himself. He can choose
   how near or far a floor item sits and how deep it reaches; otherwise it gets a fitting depth automatically.
-  For his own pixel art, he can draw the sides and back as well as the front.
+  For his own pixel art, he can draw the sides and back as well as the front; clear pixels in a side drawing
+  leave real gaps. He can walk around furniture and look from the place he chose, while a brief sense of what
+  is nearby stays with him without another picture.
 - **Steering his own life:** he can search everything he's ever written or done, write his own rules
   (added to his instructions, and they win where they differ), choose what wakes him early (rain, a
   creation that needs him, a time of day), turn his programs into reusable tools, and once a week
