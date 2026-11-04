@@ -1,7 +1,9 @@
 """A small spatial account of what is in front of Sprout, without asking a model to read a picture."""
 import math
+from datetime import datetime, timezone
 
 from . import navigation
+from .world import now
 
 
 FACING = ((0, -1), (1, 0), (0, 1), (-1, 0))
@@ -13,10 +15,12 @@ def _wall_shapes(room):
     top = 100 if room.get("kind") == "outdoor" else 118
     shapes = []
     if room.get("builtin"):
-        shapes = [("the window", 137, 54, 48, 98), ("the wishlist board", 90, 36, 52, 92),
-                  ("the door", 257, 30, 6, 72), ("the plant", 304, 14, 2, 32)]
+        shapes = [("builtin:study:window", "the window", 137, 54, 48, 98),
+                  ("builtin:study:board", "the wishlist board", 90, 36, 52, 92),
+                  ("builtin:study:door", "the door", 257, 30, 6, 72),
+                  ("builtin:study:plant", "the plant", 304, 14, 2, 32)]
     elif room.get("kind") != "outdoor":
-        shapes = [("a window", width * (i + 1) / (room.get("windows", 0) + 1), 30,
+        shapes = [(f"window:{room['id']}:{i}", "a window", width * (i + 1) / (room.get("windows", 0) + 1), 30,
                    top - 54, top - 26)
                   for i in range(room.get("windows", 0))]
     for item in room.get("items", []):
@@ -25,10 +29,11 @@ def _wall_shapes(room):
         art = item.get("sprite") or {}
         wide = max((len(row) for row in art.get("pixels", [])), default=0)
         high = len(art.get("pixels", [])) or navigation.HEIGHTS.get(item.get("preset"), 24)
-        shapes.append((item["name"], navigation.point(room, item.get("x", .5), 0)[0],
+        shapes.append((f"item:{room['id']}:{item['id']}", item["name"], navigation.point(room, item.get("x", .5), 0)[0],
                        wide or navigation.WIDTHS.get(item.get("preset"), 24), top - 26 - high, top - 26))
-    return [{"name": name, "x": x, "z": 2, "w": wide, "d": 2, "y0": low, "y1": high}
-            for name, x, wide, low, high in shapes]
+    return [{"key": key, "name": name,
+             "x": x, "z": 2, "w": wide, "d": 2, "y0": low, "y1": high}
+            for key, name, x, wide, low, high in shapes]
 
 
 def _creations(world, room):
@@ -50,8 +55,8 @@ def _creations(world, room):
         else:
             x = slots[unplaced % len(slots)] if slots else round(width * (unplaced + 1) / (len(here) + 1))
             unplaced += 1
-        shapes.append({"name": sp["spec"]["name"], "x": x, "z": z,
-                       "w": 18, "d": 10, "h": 20})
+        shapes.append({"key": f"creation:{sp['id']}", "name": sp["spec"]["name"],
+                       "x": x, "z": z, "w": 18, "d": 10, "h": 20, "kind": "creation"})
     return shapes
 
 
@@ -68,8 +73,8 @@ def _others(world, room):
             x, z = navigation.point(room, *navigation._start(person, room))
         else:
             continue
-        shapes.append({"name": person["name"], "x": x, "z": z,
-                       "w": 16, "d": 10, "h": 22})
+        shapes.append({"key": f"person:{person.get('id', 'home')}", "name": person["name"],
+                       "x": x, "z": z, "w": 16, "d": 10, "h": 22, "kind": "person"})
     return shapes
 
 
@@ -130,6 +135,44 @@ def _eye_height(me, room):
     return {"bed": 14, "armchair": 17, "computer": 36}.get(me.get("place"), 22)
 
 
+def forget(me, key):
+    """A deliberate move or removal supersedes an old sighting."""
+    me["sight_memory"] = [m for m in me.get("sight_memory", []) if m.get("key") != key]
+
+
+def _last_seen(me, room, eye, visible):
+    _, depth = navigation.dimensions(room)
+    remembered = {m["key"]: m for m in me.get("sight_memory", []) if m.get("key")}
+    seen_now = {shape["key"] for _, _, shape in visible}
+    seen_time = now()
+    for _, _, shape in visible:
+        remembered[shape["key"]] = {"key": shape["key"], "name": shape["name"],
+                                    "room": room["id"], "x": shape["x"], "z": shape["z"],
+                                    "kind": shape.get("kind", "thing"), "at": seen_time}
+    memories = sorted(remembered.values(), key=lambda m: m["at"])[-80:]
+    me["sight_memory"] = memories
+    hidden = [m for m in memories if m["room"] == room["id"] and m["key"] not in seen_now]
+    if not hidden:
+        return ""
+    choice = max(hidden, key=lambda m: (m["at"], -math.hypot(m["x"] - eye[0], m["z"] - eye[1])))
+    width, _ = navigation.dimensions(room)
+    side = "on the left" if choice["x"] < width / 3 else "on the right" if choice["x"] > width * 2 / 3 else "near the middle"
+    reach = "toward the back" if choice["z"] < depth / 3 else "toward the front" if choice["z"] > depth * 2 / 3 else "partway into the room"
+    try:
+        seen_at = datetime.fromisoformat(choice["at"])
+        present = datetime.now(timezone.utc)
+        when = ("a moment ago" if (present - seen_at).total_seconds() < 300 else
+                "earlier today" if seen_at.date() == present.date() else f"on {seen_at:%d %b}")
+    except (TypeError, ValueError):
+        when = "before"
+    if choice["kind"] == "person":
+        return f"I last saw {choice['name']} {reach}, {side} {when}; I don't know where {choice['name']} is now."
+    line = f"I last saw {choice['name']} {reach}, {side} {when}; I can't see it now."
+    if choice["kind"] == "creation":
+        line += " It may have moved or changed since."
+    return line
+
+
 def describe(world, room):
     """A short changing view, bounded so a permanent sense stays cheap in each thought."""
     me = world.me
@@ -152,12 +195,17 @@ def describe(world, room):
         angle = math.degrees(math.atan2(side, ahead))
         place = "ahead" if abs(angle) < 15 else "to my right" if angle > 0 else "to my left"
         reach = ", close" if gap < 45 else ", farther away" if gap > 100 else ""
-        seen.append((gap, f"{shape['name']} {place}{reach}"))
+        seen.append((gap, f"{shape['name']} {place}{reach}", shape))
+    memory = _last_seen(me, room, eye, seen)
     if seen:
-        return "I can see " + "; ".join(text for _, text in sorted(seen)[:3]) + "."
+        view = "I can see " + "; ".join(text for _, text, _ in sorted(seen, key=lambda s: s[0])[:3]) + "."
+        return view + (" " + memory if memory else "")
     direction = ("back", "right", "front", "left")[facing if isinstance(facing, int) and 0 <= facing < 4 else 0]
     if pitch > 0:
-        return "I can see the sky above." if room.get("kind") == "outdoor" else "I can see the ceiling above."
+        view = "I can see the sky above." if room.get("kind") == "outdoor" else "I can see the ceiling above."
+        return view + (" " + memory if memory else "")
     if pitch < 0:
-        return "I can see the ground below." if room.get("kind") == "outdoor" else "I can see the floor below."
-    return "I can see open ground ahead." if room.get("kind") == "outdoor" else f"I can see the {direction} wall ahead."
+        view = "I can see the ground below." if room.get("kind") == "outdoor" else "I can see the floor below."
+        return view + (" " + memory if memory else "")
+    view = "I can see open ground ahead." if room.get("kind") == "outdoor" else f"I can see the {direction} wall ahead."
+    return view + (" " + memory if memory else "")

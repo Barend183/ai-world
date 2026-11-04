@@ -82,7 +82,9 @@ he decides what to learn, make and build.
   Looking around turns his head one step at a time from the same spot; he chooses whether to keep turning.
   Between pictures, he keeps a short sense of what lies in his current field of view. It changes when he walks,
   turns, looks up or down, or moves things. Nearby furniture can hide what is behind it. This comes from positions
-  and shapes in his world, without another picture or image request. He takes in each picture once, and can choose to hold
+  and shapes in his world, without another picture or image request. He remembers where he last saw something after
+  it leaves his view, while allowing that a companion or creation may have moved or changed. He takes in each
+  picture once, and can choose to hold
   the last one for comparison with a new look, so pictures aren't sent with
   every thought. (Pictures need a brain
   that can see them, such as Gemini.)

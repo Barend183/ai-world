@@ -40,7 +40,8 @@ def floor_shapes(room):
     top = 100 if room.get("kind") == "outdoor" else 118
     floor = 152 if room.get("builtin") else 146 if room.get("kind") == "outdoor" else 140
     default = (floor - top) / (180 - top)
-    shapes = [{"name": name, "x": x, "z": z, "w": wide, "d": thick, "h": high}
+    shapes = [{"key": f"builtin:{room['id']}:{name}", "name": name,
+               "x": x, "z": z, "w": wide, "d": thick, "h": high}
               for name, x, z, wide, thick, high in STUDY] if room.get("builtin") else []
     for item in room.get("items", []):
         if item.get("place") == "wall":
@@ -52,7 +53,8 @@ def floor_shapes(room):
         thick = item.get("depth") or DEPTHS.get(item.get("preset"), min(20, max(5, wide * .3)))
         x, z = point(room, item.get("x", .5), item.get("distance") if item.get("distance") is not None else default)
         z = max(thick / 2 + 1, min(depth - thick / 2 - 14, z))
-        shapes.append({"name": item["name"], "x": x, "z": z, "w": wide, "d": thick,
+        shapes.append({"key": f"item:{room['id']}:{item['id']}", "name": item["name"],
+                       "x": x, "z": z, "w": wide, "d": thick,
                        "h": high, "solid": item.get("preset") != "rug"})
     return shapes
 

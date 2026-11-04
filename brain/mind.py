@@ -31,7 +31,7 @@ I can grow my world however I like: build new rooms or outdoor spaces (a kitchen
 
 How everything looks is up to me as well: I can repaint any room (my study too: build_room with the name "Study"), give walls and floors my own textures, and redraw anything with my own pixel art: my creations, furniture, even the study's own bookshelf, bed or window. I can change how I look, too. I can look at photos on the pages I read and at my own drawings, compare them, and make my drawings more like the real thing. A drawing can change as the thing grows, ages, flowers or wears out.
 
-I see my world with my own eyes. When I wake I see what's in front of me. I can walk around my rooms and furniture, turn my head and look from where I stop, or step into any room and take it in: the light, the weather through the window, my things, my creations, whoever is there with me. Between pictures I keep a small sense of what is in front of me. I choose when to turn or focus on something.
+I see my world with my own eyes. When I wake I see what's in front of me. I can walk around my rooms and furniture, turn my head and look from where I stop, or step into any room and take it in: the light, the weather through the window, my things, my creations, whoever is there with me. Between pictures I keep a small sense of what is in front of me. I remember where I last saw things that leave my view, without knowing whether they have moved. I choose when to turn or focus on something.
 
 My world has real weather: the actual hour-by-hour weather of {weather_place}, with day and night. Outdoors there's rain, sun, heat, cold and wind; indoors it's mild and dry. Things happen, too: storms, heat waves and cold snaps come with the weather, and now and then the power goes out (more often in a storm), so my computer and electric lights stop working until it's back. My creations feel all of this as well. My world follows the real calendar and seasons of {location}.
 
@@ -792,11 +792,14 @@ class Session:
 
         if action == "decorate":
             room, item, moved = rooms.decorate(w, args.get("room"), args.get("item"))
+            if moved:
+                vision.forget(w.me, f"item:{room['id']}:{item['id']}")
             say(f"{'Rearranged' if moved else 'Added'} {item['name']} in the {room['name']}", None, room=room["id"], item=item["id"])
             return f"{'moved' if moved else 'added'} {item['name']} in [{room['id']}]"
 
         if action == "remove_item":
             room, item = rooms.remove(w, args.get("room"), args.get("item"))
+            vision.forget(w.me, f"item:{room['id']}:{item['id']}")
             say(f"Took {item['name']} out of the {room['name']}", None, room=room["id"])
             return f"removed {item['name']}"
 
@@ -1189,6 +1192,8 @@ class Session:
         if action == "spawn":
             spec = args.get("spec") if isinstance(args.get("spec"), dict) else {k: v for k, v in args.items() if k not in ("book", "room", "x")}
             sp, updated = specimens.spawn(w, spec, str(args.get("book", "")), args.get("room"), args.get("x"))
+            if updated:
+                vision.forget(w.me, f"creation:{sp['id']}")
             say(("Updated " if updated else "Brought to life: ") + sp["spec"]["name"],
                 "; ".join(sp["spec"]["facts"]) or None, specimen=sp["id"], room=sp["room"])
             return (f"{'updated' if updated else 'spawned'} [{sp['id']}]: {specimens.describe(sp)} {specimens.forecast(sp)} "
@@ -1225,6 +1230,7 @@ class Session:
                 sp["x"] = None   # find a free spot in the new room
             sp["room"] = room["id"]
             sp["outdoors"] = room.get("kind") == "outdoor"
+            vision.forget(w.me, f"creation:{sp['id']}")
             say(f"Carried {sp['spec']['name']} to the {room['name']}", None, specimen=sp["id"], room=room["id"])
             return f"moved [{sp['id']}] to [{room['id']}]"
 
@@ -1233,6 +1239,7 @@ class Session:
             if not sp:
                 raise ValueError("there's no specimen with that id in your room")
             specimens.release(sp)
+            vision.forget(w.me, f"creation:{sp['id']}")
             say(f"Said goodbye to {sp['spec']['name']}", str(args.get("reason", "")), specimen=sp["id"], room=sp["room"])
             return f"released [{sp['id']}]"
 
