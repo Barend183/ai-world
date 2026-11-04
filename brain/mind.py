@@ -6,7 +6,7 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 
-from . import alarm, apprentice, background, routine, env, events, mailbox, memory, mirror, music, navigation, pixels, public, research, rooms, settings, sites, specimens, workshop
+from . import alarm, apprentice, background, routine, env, events, mailbox, memory, mirror, music, navigation, pixels, public, research, rooms, settings, sites, specimens, vision, workshop
 from .llm import BrainUnavailable, OwnBrain
 from .world import WORLD as WORLD_DIR, load, now, save
 
@@ -31,7 +31,7 @@ I can grow my world however I like: build new rooms or outdoor spaces (a kitchen
 
 How everything looks is up to me as well: I can repaint any room (my study too: build_room with the name "Study"), give walls and floors my own textures, and redraw anything with my own pixel art: my creations, furniture, even the study's own bookshelf, bed or window. I can change how I look, too. I can look at photos on the pages I read and at my own drawings, compare them, and make my drawings more like the real thing. A drawing can change as the thing grows, ages, flowers or wears out.
 
-I see my world with my own eyes. When I wake I see what's in front of me. I can walk around my rooms and furniture, turn my head and look from where I stop, or step into any room and take it in: the light, the weather through the window, my things, my creations, whoever is there with me. I choose when to keep turning or focus on something.
+I see my world with my own eyes. When I wake I see what's in front of me. I can walk around my rooms and furniture, turn my head and look from where I stop, or step into any room and take it in: the light, the weather through the window, my things, my creations, whoever is there with me. Between pictures I keep a small sense of what is in front of me. I choose when to turn or focus on something.
 
 My world has real weather: the actual hour-by-hour weather of {weather_place}, with day and night. Outdoors there's rain, sun, heat, cold and wind; indoors it's mild and dry. Things happen, too: storms, heat waves and cold snaps come with the weather, and now and then the power goes out (more often in a storm), so my computer and electric lights stop working until it's back. My creations feel all of this as well. My world follows the real calendar and seasons of {location}.
 
@@ -292,23 +292,9 @@ def surroundings(w):
     place = {"bed": "bed", "computer": "computer", "armchair": "armchair", "shelves": "shelves",
              "board": "wishlist board", "mailbox": "mailbox"}.get(w.me.get("place"))
     here = f"I'm in the {room['name']}" + (f", by the {place}" if place and room.get("builtin") else "") + "."
-    things = [i["name"] for i in room.get("items", [])]
-    things += [sp["spec"]["name"] for sp in w.specimens
-               if sp.get("status") != "released" and (sp.get("room") or "study") == room["id"]]
-    things += [person["name"] for person in [w.home, *w.companions]
-               if person is not w.me and person.get("state") == "awake" and person.get("room") == room["id"]]
-    if room.get("builtin"):
-        things += ["the shelves", "the window", "the wishlist board", "the computer", "the armchair", "the bed"]
-    if things:
-        shown = things[:6]
-        names = ", ".join(shown[:-1]) + (" and " if len(shown) > 1 else "") + shown[-1]
-        rest = f", with {len(things) - 6} more {'thing' if len(things) == 7 else 'things'} nearby" if len(things) > 6 else ""
-        here += " Around me are " + names + rest + "."
+    here += " " + vision.describe(w, room)
     if room.get("builtin"):
         here += f" My alarm clock on the nightstand by my bed is {alarm.describe(w.me)}."
-    near = navigation.nearby(w.me, room)
-    if near:
-        here += " " + near
     return here
 
 
@@ -864,6 +850,7 @@ class Session:
                 self.pictures = (self.pictures + [(label, "image/png", data)])[-2:]
                 place = w.me.get("place") if room["id"] == w.me.get("room") else "room"
                 w.me["facing"] = facing
+                w.me["tilt"] = tilt
                 w.log("look_around", f"I looked {'around' if around else turn}{' and ' + tilt if tilt != 'level' else ''} in the {room['name']}",
                       thought=thought, room=room["id"], place=place)
                 if not around and not direction and tilt != "level":
@@ -1268,6 +1255,7 @@ class Session:
             w.me["sessions"] = w.me.get("sessions", 0) + 1
             w.me["state"] = "awake"
             w.me["facing"] = 0   # I open my eyes facing into the room
+            w.me["tilt"] = "level"
             if host:
                 self.weather, self.spark, self.woke_because, self.review_due = host.weather, host.spark, None, False
                 w.log("wake", f"Woke up (thinking with {self.chain.current.label})", brain=self.chain.current.label)

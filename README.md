@@ -13,8 +13,7 @@ he decides what to learn, make and build.
   room...), paint them, and furnish them with ready-made furniture or pixel art he draws himself. He can choose
   how near or far a floor item sits and how deep it reaches; otherwise it gets a fitting depth automatically.
   For his own pixel art, he can draw the sides and back as well as the front; clear pixels in a side drawing
-  leave real gaps. He can walk around furniture and look from the place he chose, while a brief sense of what
-  is nearby stays with him without another picture.
+  leave real gaps. He can walk around furniture and look from the place he chose.
 - **Steering his own life:** he can search everything he's ever written or done, write his own rules
   (added to his instructions, and they win where they differ), choose what wakes him early (rain, a
   creation that needs him, a time of day), turn his programs into reusable tools, and once a week
@@ -81,8 +80,10 @@ he decides what to learn, make and build.
   He gets a view when he wakes and can turn his gaze ahead, right,
   behind or left, or look up or down at nearby things.
   Looking around turns his head one step at a time from the same spot; he chooses whether to keep turning.
-  Between pictures, a brief sense of his current room and the things around him stays with him. He takes in each
-  picture once, and can choose to hold the last one for comparison with a new look, so pictures aren't sent with
+  Between pictures, he keeps a short sense of what lies in his current field of view. It changes when he walks,
+  turns, looks up or down, or moves things. Nearby furniture can hide what is behind it. This comes from positions
+  and shapes in his world, without another picture or image request. He takes in each picture once, and can choose to hold
+  the last one for comparison with a new look, so pictures aren't sent with
   every thought. (Pictures need a brain
   that can see them, such as Gemini.)
 - **An ecosystem:** his creations can affect each other (a sugarbird drinking a protea's nectar, a tree

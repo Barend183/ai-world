@@ -8,12 +8,20 @@ WIDTHS = {"table": 38, "chair": 20, "stove": 28, "oven": 28, "fridge": 25, "coun
           "bed": 60, "desk": 46, "plant": 16, "tree": 36, "bush": 32, "flowerbed": 48,
           "fence": 40, "bench": 36, "workbench": 44, "tv": 32, "pond": 48,
           "shed": 50, "barbecue": 28, "piano": 54, "easel": 22, "telescope": 26,
-          "train_table": 56, "garage_door": 70}
+          "train_table": 56, "garage_door": 70, "rug": 52}
 DEPTHS = {"stove": 24, "oven": 24, "fridge": 20, "counter": 26, "sink": 26,
           "cabinet": 18, "table": 20, "sofa": 24, "armchair": 20, "bed": 30,
           "desk": 20, "bookcase": 16, "chair": 16, "pond": 8}
-STUDY = [(132, 34, 40, 24), (202, 17, 64, 28), (275, 111, 78, 42),
-         (227, 77, 16, 15), (37, 9, 62, 15)]
+HEIGHTS = {"table": 15, "chair": 20, "stove": 25, "oven": 25, "fridge": 38,
+           "counter": 20, "sink": 26, "sofa": 18, "armchair": 20, "lamp": 36,
+           "cabinet": 24, "bookcase": 44, "bed": 18, "desk": 15, "plant": 20,
+           "tree": 56, "bush": 16, "flowerbed": 11, "fence": 19, "bench": 16,
+           "workbench": 19, "tv": 26, "pond": 1, "rug": 1, "shed": 40, "barbecue": 22,
+           "piano": 30, "easel": 30, "telescope": 28, "train_table": 17,
+           "garage_door": 44, "painting": 18, "window": 28}
+STUDY = [("the armchair", 132, 34, 40, 24, 29), ("the desk", 202, 17, 64, 28, 50),
+         ("the bed", 275, 111, 78, 42, 34), ("the nightstand", 227, 77, 16, 15, 19),
+         ("the bookshelf", 37, 9, 62, 15, 96)]
 STUDY_SPOTS = {"shelves": (46, 134), "board": (90, 128), "armchair": (132, 128),
                "computer": (199, 130), "mailbox": (266, 124), "bed": (270, 146)}
 
@@ -27,24 +35,32 @@ def point(room, x, distance):
     return 16 + x * (width - 32), distance * depth
 
 
-def _blocks(room):
-    width, depth = dimensions(room)
+def floor_shapes(room):
+    _, depth = dimensions(room)
     top = 100 if room.get("kind") == "outdoor" else 118
     floor = 152 if room.get("builtin") else 146 if room.get("kind") == "outdoor" else 140
     default = (floor - top) / (180 - top)
-    blocks = list(STUDY) if room.get("builtin") else []
+    shapes = [{"name": name, "x": x, "z": z, "w": wide, "d": thick, "h": high}
+              for name, x, z, wide, thick, high in STUDY] if room.get("builtin") else []
     for item in room.get("items", []):
-        if item.get("place") == "wall" or item.get("preset") == "rug":
+        if item.get("place") == "wall":
             continue
         art = item.get("sprite") or {}
         wide = max((len(row) for row in art.get("pixels", [])), default=0)
         wide = wide or WIDTHS.get(item.get("preset"), 24)
+        high = len(art.get("pixels", [])) or HEIGHTS.get(item.get("preset"), 24)
         thick = item.get("depth") or DEPTHS.get(item.get("preset"), min(20, max(5, wide * .3)))
         x, z = point(room, item.get("x", .5), item.get("distance") if item.get("distance") is not None else default)
         z = max(thick / 2 + 1, min(depth - thick / 2 - 14, z))
-        blocks.append((x, z, wide, thick))
-    return [(x - w / 2 - 6, x + w / 2 + 6, z - d / 2 - 6, z + d / 2 + 6)
-            for x, z, w, d in blocks]
+        shapes.append({"name": item["name"], "x": x, "z": z, "w": wide, "d": thick,
+                       "h": high, "solid": item.get("preset") != "rug"})
+    return shapes
+
+
+def _blocks(room):
+    return [(s["x"] - s["w"] / 2 - 6, s["x"] + s["w"] / 2 + 6,
+             s["z"] - s["d"] / 2 - 6, s["z"] + s["d"] / 2 + 6)
+            for s in floor_shapes(room) if s.get("solid", True)]
 
 
 def _start(me, room):
@@ -118,35 +134,3 @@ def route(me, room, x, distance):
             for px, pz in (cell(*t) for t in turns)]
     path[0], path[-1] = {"x": round(start[0], 3), "distance": round(start[1], 3)}, {"x": x, "distance": distance}
     return path
-
-
-def nearby(me, room):
-    pos = me.get("position") or {}
-    if me.get("place") != "room" or pos.get("room") != room["id"]:
-        return ""
-    x, distance = pos["x"], pos["distance"]
-    side = "left" if x < .35 else "right" if x > .65 else "middle"
-    reach = "near the back wall" if distance < .3 else "near the front" if distance > .7 else "partway into the room"
-    here = f"I'm on the {side} side, {reach}."
-    px, pz = point(room, x, distance)
-    top = 100 if room.get("kind") == "outdoor" else 118
-    floor = 152 if room.get("builtin") else 146 if room.get("kind") == "outdoor" else 140
-    default = (floor - top) / (180 - top)
-    facing = me.get("facing", 0)
-    forward = ((0, -1), (1, 0), (0, 1), (-1, 0))[facing if isinstance(facing, int) and 0 <= facing < 4 else 0]
-    close = []
-    for item in room.get("items", []):
-        if item.get("place") == "wall":
-            continue
-        ix, iz = point(room, item.get("x", .5), item.get("distance") if item.get("distance") is not None else default)
-        dx, dz = ix - px, iz - pz
-        gap = math.hypot(dx, dz)
-        if gap > 75:
-            continue
-        ahead = dx * forward[0] + dz * forward[1]
-        right = -dx * forward[1] + dz * forward[0]
-        direction = "to my right" if right > 12 else "to my left" if right < -12 else "ahead" if ahead >= 0 else "behind me"
-        close.append((gap, f"{item['name']} is {direction}"))
-    if close:
-        here += " Nearby, " + "; ".join(text for _, text in sorted(close)[:2]) + "."
-    return here
