@@ -42,6 +42,10 @@ he decides what to learn, make and build.
 - **Projects:** goals can have steps he ticks off over the days.
 - **Wishing for abilities:** when there's something he wishes he could do in his world, he says so (with why and
   how he'd use it); the wish shows up in the Mailbox tab with a ✨.
+- **Wishes that come true:** once a week a builder (a Claude Code cloud routine, see `BUILDER.md`) reads his
+  waiting ability wishes, builds one and opens a pull request. You merge it or close it; when it's merged he
+  finds the news on his mind ("my wish came true") the next time he wakes. Wishes that cross the hard limits
+  get a kind "not this time" with what he can do instead.
 - **Senses:** he can see pictures and hear recordings (his own music played aloud, and birdsong, rain or
   instruments from the pages he reads) while thinking with Gemini. Smell, taste and touch he doesn't have;
   the weather reaches him as numbers.

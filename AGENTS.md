@@ -23,6 +23,8 @@ When you change something, ask whether it gives him more freedom, or less.
     His own story (`me.story`) replaces the narrative part of `SYSTEM`; `LOCKED_CORE` and everything from
     "How my mind works:" on always stay. Ability wishes (`wish_for_ability`) are requests with kind "ability":
     read them when deciding what to build next.
+  - `wishes.py` + `brain/granted.json`: answers to his wishes (public: ids and short notes only), applied when he
+    wakes. The weekly builder follows `BUILDER.md`.
   - `canvas.js`, `render.js`, `scene.js`: Node.js scripts that run the page's own drawing code. `scene.js`
     turns the 2D world into the 3D first-person view his eyes see.
 - `docs/` is the web page (GitHub Pages): `app.js`, `sprites.js` (draws everything), `vault.js` (unlocks the

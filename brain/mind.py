@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from . import alarm, apprentice, background, routine, env, events, mailbox, memory, mirror, music, navigation, pixels, public, research, rooms, settings, sites, specimens, vision, workshop
+from . import wishes as ability_wishes
 from .llm import BrainUnavailable, OwnBrain
 from .world import WORLD as WORLD_DIR, load, now, save
 
@@ -1321,6 +1322,8 @@ class Session:
                           specimens.describe(sp), specimen=sp["id"], did="found_dead", room=sp["room"])
         self.woke_because = w.me.pop("woke_because", None)
         self.alarm_rang = w.me.pop("alarm_rang", None)
+        for news in ability_wishes.apply(w):   # wishes the builder made real (and the owner approved) while I slept
+            w.log("pastime", news[:1].upper() + news[1:], room="study")
         # old "a letter arrived" reminders outlived their answers and made letters seem to still be waiting
         w.home["on_my_mind"] = [m for m in w.home.get("on_my_mind", []) if not re.fullmatch(r"a letter from .+ arrived", m["what"])]
         last = w.me.get("last_review") or w.me.get("born")

@@ -218,6 +218,7 @@ def main():
     sub.add_parser("lock", help="seal docs/world into docs/vault with WORLD_PASSWORD")
     sub.add_parser("unlock", help="open docs/vault into docs/world with WORLD_PASSWORD")
     sub.add_parser("due", help="exit 0 if he'll wake on this check, 1 if he'll sleep on")
+    sub.add_parser("wishes", help="print his ability wishes that are still waiting (for the weekly builder)")
     exp = sub.add_parser("lessons", help="export his good lessons for his own brain to learn from")
     exp.add_argument("out")
     exp.add_argument("--no-letters", action="store_true", help="leave out everything to do with letters")
@@ -247,6 +248,11 @@ def main():
             print("Unlocked his world." if vault.unlock() else "")
     elif a.cmd == "due":
         sys.exit(0 if due(config) else 1)
+    elif a.cmd == "wishes":
+        from . import wishes
+        world, done = World(config), wishes.answers()
+        print(json.dumps([{k: r.get(k) for k in ("id", "what", "why", "how", "asked")} for r in wishes.waiting(world)
+                          if r["id"] not in done], indent=1, ensure_ascii=False))
     elif a.cmd == "lessons":
         from . import apprentice
         from .mind import ACTIONS
