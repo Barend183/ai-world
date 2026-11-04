@@ -9,21 +9,22 @@ reaches Sprout until the owner merges. That review is the point: his wishes shap
 
 ## 1. Read his waiting wishes
 
-His world is locked. The password is in the environment variable `WORLD_PASSWORD_NEW` (set by the owner in this
-cloud environment). Never print it, log it, write it to a file or put it in a commit, PR or comment.
+His world is locked, and you never get its password. Each time he wakes, his waiting wishes (and only those) are
+sealed with a separate key onto the single-commit `wishes` branch. That key is in the environment variable
+`WISHES_KEY` (set by the owner in this cloud environment). Never print it, log it, write it to a file or put it in
+a commit, PR or comment.
 
 ```bash
 pip install -r requirements.txt
-python -m brain unlock          # opens docs/world (gitignored; it never leaves this machine)
 python -m brain wishes          # his waiting ability wishes, as JSON: id, what, why, how, asked
 ```
 
-If the unlock fails or there are no waiting wishes, stop: there's nothing to do this week. Don't open a PR.
+If that fails or prints `[]`, stop: there's nothing to do this week. Don't open a PR.
 
-His world is private. You may read it to understand him (his books, notebook, creations, recent journal in
-`docs/world/`), but nothing from it may appear in a commit, PR title or description, code comment or test file:
-no quotes from his wishes, letters, diary, notebook or private pages, and nothing about the owner. Describe the
-change as a feature ("a sense of smell for baked creations"), not as his words.
+His wishes are private. Nothing from them may appear word for word in a commit, PR title or description, code
+comment or test file, and nothing about the owner. Describe the change as a feature ("a sense of smell for baked
+creations"), not in his words. To understand how he lives, read the code (`brain/mind.py` has his whole story and
+every action) rather than his world.
 
 ## 2. Choose one wish
 

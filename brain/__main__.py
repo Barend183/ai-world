@@ -195,6 +195,8 @@ def run_once(config, script=None, next_wake_minutes=None, force=False):
     from . import live as live_view
     live_view.push(force=True)   # the page sees him go to bed right away
     apprentice.push()
+    from . import wishes
+    wishes.share(world)   # his waiting wishes, for the weekly builder (sealed with its own key)
     session = [e for e in world.recent if e["session"] == world.me["sessions"]]
     if (os.environ.get("WORLD_PASSWORD") or os.environ.get("WORLD_PASSWORD_NEW")) and os.environ.get("GITHUB_ACTIONS"):
         print(f"  ({len(session)} things done; details stay locked)")   # GitHub's logs are public
@@ -250,9 +252,10 @@ def main():
         sys.exit(0 if due(config) else 1)
     elif a.cmd == "wishes":
         from . import wishes
-        world, done = World(config), wishes.answers()
-        print(json.dumps([{k: r.get(k) for k in ("id", "what", "why", "how", "asked")} for r in wishes.waiting(world)
-                          if r["id"] not in done], indent=1, ensure_ascii=False))
+        from .world import WORLD
+        # with his world open (on his own machine), read them there; the builder reads its sealed copy instead
+        found = wishes.pending(World(config)) if os.path.exists(os.path.join(WORLD, "self.json")) else wishes.fetch()
+        print(json.dumps(found, indent=1, ensure_ascii=False))
     elif a.cmd == "lessons":
         from . import apprentice
         from .mind import ACTIONS

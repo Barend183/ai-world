@@ -113,6 +113,7 @@ jobs:
           WORLD_PASSWORD: ${{ secrets.WORLD_PASSWORD }}
           WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WISHES_KEY: ${{ secrets.WISHES_KEY }}   # seals only his waiting wishes, for the weekly builder
         run: python -m brain run --next-wake 180 ${{ github.event_name == 'workflow_dispatch' && inputs.wake != 'no' && '--now' || '' }}
 
       # Only when every free service is used up for the day: run a free open model (Gemma 3) right here instead.

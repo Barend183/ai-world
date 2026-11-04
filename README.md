@@ -46,6 +46,9 @@ he decides what to learn, make and build.
   waiting ability wishes, builds one and opens a pull request. You merge it or close it; when it's merged he
   finds the news on his mind ("my wish came true") the next time he wakes. Wishes that cross the hard limits
   get a kind "not this time" with what he can do instead.
+  Setup: make a random key (`python -c "import secrets; print(secrets.token_urlsafe(32))"`), add it as the GitHub
+  secret `WISHES_KEY` and as the variable `WISHES_KEY` in a claude.ai/code cloud environment for the builder. That
+  key opens only his waiting wishes (sealed on the `wishes` branch), never his world.
 - **Senses:** he can see pictures and hear recordings (his own music played aloud, and birdsong, rain or
   instruments from the pages he reads) while thinking with Gemini. Smell, taste and touch he doesn't have;
   the weather reaches him as numbers.
