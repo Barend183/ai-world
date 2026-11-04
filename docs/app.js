@@ -245,6 +245,7 @@ function renderTabs() {
     </div>
     <h3>In ${esc(P.his)} own words</h3>
     <p class="about">${esc(me.about)}</p>
+    ${me.story ? `<details><summary class="muted">📜 ${esc(cap(P.his))} story, rewritten in ${esc(P.his)} own words (${ago(me.story_since)})</summary><p class="about" style="white-space:pre-wrap">${esc(me.story)}</p></details>` : ""}
     ${S.comp ? `<h3>Living with ${esc(P.him)}</h3><div class="hero"><canvas id="portrait2" width="64" height="52" aria-label="${esc(S.comp.name)}"></canvas>
       <div><div class="hero-name">${esc(S.comp.name)}</div><div class="muted">Feeling <b>${esc(S.comp.mood)}</b> · moved in ${ago(S.comp.born)}</div>
       <div>${S.comp.state === "asleep" ? "Sleeping" : "Right now"}: ${esc(S.comp.activity || "—")}</div></div></div>
@@ -272,7 +273,8 @@ function renderTabs() {
       <div class="muted">${esc(w.reason || w.why)}</div></li>`).join("")}</ul>` : "";
   const goals = (S.goals || []).filter((g) => g.status !== "dropped");
   const goalHtml = goals.length ? `<h3>Long-term goals</h3><ul class="list">${goals.map((g) => `<li><b>${g.status === "done" ? "✅ " : "🎯 "}${esc(g.goal)}</b>
-      <div class="muted">${esc(g.why)}</div>${g.progress.length ? `<ul class="hist">${g.progress.slice(-3).reverse().map((p) => `<li>${esc(p.note)} <span class="muted">${ago(p.at)}</span></li>`).join("")}</ul>` : ""}</li>`).join("")}</ul>` : "";
+      <div class="muted">${esc(g.why)}</div>${(g.steps || []).length ? `<ul class="hist">${g.steps.map((st) => `<li>${st.done ? "✓" : "○"} ${esc(st.text)}</li>`).join("")}</ul>` : ""}
+      ${g.progress.length ? `<ul class="hist">${g.progress.slice(-3).reverse().map((p) => `<li>${esc(p.note)} <span class="muted">${ago(p.at)}</span></li>`).join("")}</ul>` : ""}</li>`).join("")}</ul>` : "";
   $("tab-wishes").innerHTML = goalHtml + (sec("Learning now", S.wishes.filter((w) => w.status === "learning")) +
     sec("Wants to learn", S.wishes.filter((w) => w.status === "want")) +
     sec("Learned", S.wishes.filter((w) => w.status === "learned").reverse()) +
@@ -382,8 +384,8 @@ function renderMail() {
   const onTheWay = sent.reverse().map((x) => `<div class="note"><div><b>You</b> <span class="muted">${ago(x.at)}</span></div>
     <div>${esc(x.text)}</div><div class="muted">✉ On its way: ${name} reads it when ${esc(P.he)} wakes, usually within a few minutes.</div></div>`).join("");
   const status = { waiting: "⏳ waiting for your answer", granted: "✅ you said yes", declined: "❌ you said no", answered: "💬 you answered" };
-  const reqs = [...(S.requests || [])].reverse().map((r) => `<div class="note request"><div>${r.kind === "companion" ? "🏡" : "🙋"} <b>${name} asks: ${esc(r.what)}</b> <span class="muted">${ago(r.asked)}</span></div>
-    <div>${esc(r.why)}</div><div class="muted">${status[r.status] || esc(r.status)}${r.answer ? `: “${esc(r.answer)}”` : ""}</div>
+  const reqs = [...(S.requests || [])].reverse().map((r) => `<div class="note request"><div>${r.kind === "companion" ? "🏡" : r.kind === "ability" ? "✨" : "🙋"} <b>${name} ${r.kind === "ability" ? "wishes he could" : "asks"}: ${esc(r.what)}</b> <span class="muted">${ago(r.asked)}</span></div>
+    <div>${esc(r.why)}</div>${r.how ? `<div class="muted">How he'd use it: ${esc(r.how)}</div>` : ""}<div class="muted">${status[r.status] || esc(r.status)}${r.answer ? `: “${esc(r.answer)}”` : ""}</div>
     ${r.status === "waiting" && (cfg.mode !== "github" || S.locked) ? `<div class="answer" data-req="${esc(r.id)}"><input placeholder="Your answer (optional)">
       <button class="btn" data-decision="yes">Yes</button> <button class="btn" data-decision="no">No</button> <button class="btn" data-decision="later">Later</button></div>` : ""}
     ${r.status === "waiting" && cfg.mode === "github" && !S.locked && r.ref ? `<a target="_blank" rel="noopener" href="https://github.com/${esc(cfg.repo)}/issues/${r.ref}">Answer on GitHub</a>` : ""}</div>`).join("");

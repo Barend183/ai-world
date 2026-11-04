@@ -19,6 +19,10 @@ When you change something, ask whether it gives him more freedom, or less.
   - `alarm.py` (his alarm clock), `routine.py` (timers and habits), `apprentice.py` (his own brain: lessons,
     trust share, export; sealed lessons live on the single-commit `apprentice` branch), `grow/train.py`
     (runs on Kaggle via `grow.yml` to train his own brain; adopted versions are recorded in `brain/own_brain.json`).
+  - `background.py`: his scheduled workshop tools (they run on every check while he sleeps and can wake him).
+    His own story (`me.story`) replaces the narrative part of `SYSTEM`; `LOCKED_CORE` and everything from
+    "How my mind works:" on always stay. Ability wishes (`wish_for_ability`) are requests with kind "ability":
+    read them when deciding what to build next.
   - `canvas.js`, `render.js`, `scene.js`: Node.js scripts that run the page's own drawing code. `scene.js`
     turns the 2D world into the 3D first-person view his eyes see.
 - `docs/` is the web page (GitHub Pages): `app.js`, `sprites.js` (draws everything), `vault.js` (unlocks the

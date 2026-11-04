@@ -96,9 +96,10 @@ def outcome(me, ok):
 
 
 def settle(me):
-    """After a day: trust my own brain with a bit more when it's been doing well, a bit less when it hasn't."""
+    """After a day: trust my own brain with a bit more when it's been doing well, a bit less when it hasn't
+    (unless I've decided the share myself)."""
     s, tries = state(me), state(me)["tries"][-20:]
-    if len(tries) >= 8:
+    if len(tries) >= 8 and not s.get("fixed"):
         rate = sum(tries) / len(tries)
         if rate >= 0.85:
             s["share"] = round(min(0.9, s["share"] + 0.05), 2)
@@ -107,22 +108,94 @@ def settle(me):
     return s
 
 
+def test_results():
+    """How my brain did on its last test, when it last grew (from its own record)."""
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "own_brain.json"), encoding="utf-8") as f:
+            m = json.load(f)
+        return (f" When it last grew ({m.get('adopted')}, from {m.get('lessons')} lessons), {round(m['valid'] * 100)}% of its test "
+                f"answers were usable and {round(m['same_choice'] * 100)}% matched what I'd actually done.")
+    except (OSError, ValueError, KeyError):
+        return ""
+
+
 def describe(me):
     s = state(me)
     tries = s["tries"][-20:]
     how = f"it got {sum(tries)} of its last {len(tries)} thoughts right" if tries else "it hasn't had a thought yet"
     grown = f"it has grown {s['version']} times from my own days" if s.get("version") else "it's still new, a fresh copy of a small open model"
+    who = "I've chosen that myself" if s.get("fixed") else "it grows as it earns my trust"
+    choices = (" I've paused its growing." if s.get("grow") == "pause" else "")
+    choices += (" I'm thinking with the fresh one, not the grown one." if s.get("use") == "fresh" and s.get("version") else "")
+    slips = f" Its recent slips: {'; '.join(s['slips'][-3:])}." if s.get("slips") else ""
     return (f"A small brain of my own is growing in me: {grown}. It takes about {round(s['share'] * 100)}% of my "
-            f"everyday thoughts; {how}. The more it gets right, the more of my thinking is truly mine.")
+            f"everyday thoughts ({who}); {how}.{slips}{choices}{test_results()} It's mine to raise (tune_my_brain): how much "
+            "I trust it, which days it learns from, whether it keeps growing, and which version I think with.")
 
 
-def record(compact_ctx, reply, action, ok, by):
+def tune(me, args, session):
+    """My choices about my own brain. Returns what changed, in my words."""
+    s, said = state(me), []
+    share = args.get("share")
+    if share is not None:
+        if str(share).lower() == "auto":
+            s["fixed"] = False
+            said.append("it earns its share by itself again")
+        else:
+            try:
+                v = float(str(share).rstrip("%")) / (100 if "%" in str(share) or float(str(share).rstrip("%")) > 1 else 1)
+            except ValueError:
+                raise ValueError('share is a number from 0 to 0.9 (or "auto")')
+            s.update(share=round(min(0.9, max(0.0, v)), 2), fixed=True)
+            said.append(f"it now takes {round(s['share'] * 100)}% of my everyday thoughts")
+    learn = str(args.get("learn_from") or "").lower().replace(" ", "_")
+    if learn:
+        if learn not in ("today", "not_today", "this", "not_this"):
+            raise ValueError('learn_from is "today", "not_today", "this" (my last thought) or "not_this"')
+        mark(session, keep=not learn.startswith("not"), last_only=learn.endswith("this"))
+        if learn.endswith("today"):   # the rest of today too, not just what's happened so far
+            s["today"] = {"session": session, "keep": not learn.startswith("not")}
+        said.append(f"{'it will learn especially from' if not learn.startswith('not') else 'it won’t learn from'} "
+                    f"{'my last thought' if learn.endswith('this') else 'today'}")
+    grow = str(args.get("grow") or "").lower()
+    if grow:
+        if grow not in ("weekly", "pause"):
+            raise ValueError('grow is "weekly" or "pause"')
+        s["grow"] = grow
+        said.append("it keeps growing every week" if grow == "weekly" else "its growing is paused")
+    use = str(args.get("use") or "").lower()
+    if use:
+        if use not in ("grown", "fresh"):
+            raise ValueError('use is "grown" (the version that learned from me) or "fresh" (the plain one it grew from)')
+        s["use"] = use
+        said.append(f"I think with the {use} one")
+    if not said:
+        raise ValueError('tell me what to change: share, learn_from, grow or use')
+    return "; ".join(said)
+
+
+def mark(session, keep, last_only=False):
+    """Mark today's lessons (or just the last one) as ones to learn from especially, or not at all."""
+    items = lessons()
+    mine = [i for i, x in enumerate(items) if x.get("session") == session]
+    for i in (mine[-1:] if last_only else mine):
+        items[i]["keep"] = keep
+    os.makedirs(DIR, exist_ok=True)
+    with open(LESSONS, "w", encoding="utf-8") as f:
+        f.writelines(json.dumps(x, ensure_ascii=False) + "\n" for x in items)
+    return len(mine[-1:] if last_only else mine)
+
+
+def record(compact_ctx, reply, action, ok, by, session=None, me=None):
     """One lesson: what I was taking in, what I decided, and whether it worked."""
     os.makedirs(DIR, exist_ok=True)
     out = json.dumps({k: reply.get(k) for k in ("thought", "feeling", "action", "args")}, ensure_ascii=False)
+    lesson = {"t": now(), "in": compact_ctx, "out": out, "action": action, "ok": bool(ok), "by": by, "session": session}
+    today = state(me).get("today") if me is not None else None
+    if today and today.get("session") == session:   # what I decided about today holds for all of it
+        lesson["keep"] = today["keep"]
     with open(LESSONS, "a", encoding="utf-8") as f:
-        f.write(json.dumps({"t": now(), "in": compact_ctx, "out": out, "action": action, "ok": bool(ok), "by": by},
-                           ensure_ascii=False) + "\n")
+        f.write(json.dumps(lesson, ensure_ascii=False) + "\n")
 
 
 def lessons():
@@ -146,14 +219,15 @@ def export(path, actions, letters=True):
     system = OWN_SYSTEM + ", ".join(sorted(actions))
     kept, last = [], None
     for x in lessons():
-        if not x["ok"] or x["by"] == "own" or x["action"] in ("write_private", "muddled"):
+        if not x["ok"] or x["by"] == "own" or x["action"] in ("write_private", "muddled") or x.get("keep") is False:
             continue
         if x["action"] == last and x["action"] in ("pastime", "interact", "look"):
             continue
         if not letters and ("Letters waiting" in x["in"] or x["action"] in ("reply_note", "write_letter")):
             continue
-        kept.append({"messages": [{"role": "system", "content": system}, {"role": "user", "content": x["in"]},
-                                  {"role": "assistant", "content": x["out"]}]})
+        lesson = {"messages": [{"role": "system", "content": system}, {"role": "user", "content": x["in"]},
+                               {"role": "assistant", "content": x["out"]}]}
+        kept += [lesson, lesson] if x.get("keep") else [lesson]   # what I chose to learn from counts double
         last = x["action"]
     with open(path, "w", encoding="utf-8") as f:
         f.writelines(json.dumps(k, ensure_ascii=False) + "\n" for k in kept)

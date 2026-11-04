@@ -138,17 +138,24 @@ def due(config):
 
 def run_once(config, script=None, next_wake_minutes=None, force=False):
     world = World(config)
-    from . import mailbox
+    from . import background, mailbox
     wake_after = world.me.get("wake_after")
     if not force and script is None and wake_after and datetime.fromisoformat(wake_after) > datetime.now(timezone.utc):
         before = len(world.pending_notes())
         mailbox.collect(world)   # a new note wakes him early
         reason = "a note arrived" if len(world.pending_notes()) > before else trigger_fired(world)
+        ran = bool(background.due(world.home))
+        reason = reason or background.run_due(world, config)   # his programs, at work while he sleeps
         if not reason:
+            if ran:
+                world.save()
+                print(f"  (his programs ran while he slept)")
             print(f"{config['name']} is asleep until {wake_after} (his choice).")
             return None
         world.me["woke_because"] = reason
         world.save()
+    elif script is None:
+        background.run_due(world, config)   # what's due runs first, so its findings are waiting when he wakes
     # his alarm clock rings only when it's what wakes him (not a note, nor someone waking him early)
     if world.me.pop("alarm_wake", False) and wake_after and not world.me.get("woke_because") \
             and datetime.fromisoformat(wake_after) <= datetime.now(timezone.utc):
@@ -244,7 +251,11 @@ def main():
         from . import apprentice
         from .mind import ACTIONS
         apprentice.pull()
-        print(f"{apprentice.export(a.out, ACTIONS, letters=not a.no_letters)} lessons to learn from")
+        me = World(config).me
+        if apprentice.state(me).get("grow") == "pause":   # his choice: no growing for now
+            print("0 lessons to learn from (he has paused his brain's growing)")
+        else:
+            print(f"{apprentice.export(a.out, ACTIONS, letters=not a.no_letters)} lessons to learn from")
     elif a.cmd == "answer":
         world = World(config)
         req = next((r for r in world.requests if r["id"] == a.id), None)

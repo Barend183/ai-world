@@ -231,13 +231,13 @@ class OwnBrain:
     kind = "own"
     sees = False
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, fresh=False):
         self.host = os.environ.get("OLLAMA_HOST_URL") or cfg.get("host", "http://127.0.0.1:11434")
         try:
             have = {m["name"].split(":latest")[0] for m in _request(f"{self.host}/api/tags", timeout=5).get("models", [])}
         except Exception as e:
             raise BrainUnavailable("his own brain isn't running here") from e
-        self.grown = "sprout" in have
+        self.grown = "sprout" in have and not fresh   # he can choose to think with the plain one it grew from
         self.model = "sprout" if self.grown else cfg.get("base", "qwen3:1.7b")
         if self.model not in have:
             raise BrainUnavailable(f"his own brain ({self.model}) isn't downloaded here")

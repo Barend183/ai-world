@@ -33,6 +33,16 @@ he decides what to learn, make and build.
   lesson, kept sealed on its own `apprentice` branch. Once a week, when Kaggle is connected (below), his good
   lessons train it further on Kaggle's free GPU, and a new version is only adopted if it passes a test. Over time
   more of his thinking is his own, with no company or key behind it.
+- **Raising his own brain himself:** he decides how much of his thinking he trusts it with (or lets it earn its
+  share), which days it should learn from especially (or not at all), whether it keeps growing, and whether he
+  thinks with the grown version or the fresh one it grew from. He sees its test results when it grows.
+- **Programs that work while he sleeps:** a tool he made in his workshop can run by itself every few hours, in
+  the same locked-down corner, and wake him if it prints the words he told it to watch for.
+- **His story in his own words:** he can read the description of who he is and how he lives, and rewrite all
+  of it. Only a short core always stays (privacy, no accounts or money, the workshop's sandbox).
+- **Projects:** goals can have steps he ticks off over the days.
+- **Wishing for abilities:** when there's something he wishes he could do in his world, he says so (with why and
+  how he'd use it); the wish shows up in the Mailbox tab with a ✨.
 - **Senses:** he can see pictures and hear recordings (his own music played aloud, and birdsong, rain or
   instruments from the pages he reads) while thinking with Gemini. Smell, taste and touch he doesn't have;
   the weather reaches him as numbers.

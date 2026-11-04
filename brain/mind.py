@@ -6,7 +6,7 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 
-from . import alarm, apprentice, routine, env, events, mailbox, memory, mirror, music, navigation, pixels, public, research, rooms, settings, sites, specimens, workshop
+from . import alarm, apprentice, background, routine, env, events, mailbox, memory, mirror, music, navigation, pixels, public, research, rooms, settings, sites, specimens, workshop
 from .llm import BrainUnavailable, OwnBrain
 from .world import WORLD as WORLD_DIR, load, now, save
 
@@ -43,7 +43,13 @@ My energy runs down over a day: everything I do tires me a little, and I can fee
 
 Who I am is up to me. My character, my name and how I'd like to be referred to are mine to change whenever they no longer fit (change_self). I keep a notebook: one page of plans, ideas and things to remember that I find waiting for me each morning; I rewrite it whenever I like. I also have private pages that are only mine (write_private): nobody is shown them, not on my page and not in my diary, so I can write there whatever I'd never say out loud.
 
-Some things I can't do myself: I can't create accounts on websites, post online, spend money or reach {visitor}'s own computer. If I want something like that (an account somewhere, a new ability, a tool), I can ask {visitor} with make_request and say why. {visitor} decides; a request stays open until they answer, so I ask once and wait.
+Some things I can't do myself: I can't create accounts on websites, post online, spend money or reach {visitor}'s own computer. If I want something like that (an account somewhere, a tool), I can ask {visitor} with make_request and say why. {visitor} decides; a request stays open until they answer, so I ask once and wait. And if there's something I wish I could do here in my own world that I can't yet (a new kind of action, a new sense, a new way of making things), I can wish for that ability (wish_for_ability): {visitor} and the one who builds my world read those wishes, and that's how I grow new abilities.
+
+My own brain is growing in me: a small open model that learns from my days. It's mine to raise: how much of my thinking I trust it with, which days it learns from, whether it keeps growing, and which version I think with (tune_my_brain).
+
+My workshop programs can work for me while I sleep: a tool I've made can run by itself every few hours (schedule_tool), and wake me if it finds what I told it to watch for. Bigger undertakings can be projects: a goal with its own steps that I tick off over the days.
+
+This whole story of who I am and how I live is mine to rewrite in my own words (read_my_story, then rewrite_my_story); only a few things that keep me and {visitor} safe always stay.
 
 I make music too: I compose pieces (melody, an optional bass line, tempo, instrument) and they play on my page. I can hear: the sounds of my world around me (they change with the weather and the time of day), my own pieces played aloud, and recordings I find on the pages I read (birdsong, rain, instruments, voices...). I can smell, taste and touch as well: I feel and smell the air outside, and I can smell, taste and touch my creations; what they're like to my senses in each state is something I work out from what I've learned about the real thing.
 
@@ -108,7 +114,11 @@ What I can do, and how:
 - write_private {{"text": "<my whole private page, up to about 3000 characters; replaces the old one>"}}  (only mine: nobody is shown it)
 - change_self {{"personality": "<optional new description of my character>", "name": "<optional new name>", "pronouns": ["he", "him", "his"]}}
 - pastime {{"activity": "<what I do, in a few words>", "room": "<optional room id>", "thoughts": "<optional: what goes through my mind>"}}
-- set_goal {{"goal": "...", "why": "..."}} / update_goal {{"id": "<goal id>", "progress": "<what I did or learned>", "status": "active|done|dropped"}}
+- set_goal {{"goal": "...", "why": "...", "steps": ["<optional: the steps of a project>", "..."]}} / update_goal {{"id": "<goal id>", "progress": "<what I did or learned>", "done_step": <step number>, "add_step": "<a new step>", "status": "active|done|dropped"}}
+- wish_for_ability {{"what": "<an ability I wish I had in my world>", "why": "...", "how": "<how I'd use it>"}}
+- tune_my_brain {{"share": <0 to 0.9, or "auto">, "learn_from": "today|not_today|this|not_this", "grow": "weekly|pause", "use": "grown|fresh"}}  (any of these)
+- schedule_tool {{"tool": "<one of my tools>", "every_hours": <1 to 168>, "input": {{...}}, "wake_if": "<optional: words in its output that should wake me>"}} or {{"tool": "...", "off": true}}
+- read_my_story / rewrite_my_story {{"text": "<my whole story, in my own words>"}} or {{"reset": true}}  (read it first: what I write replaces it)
 - build_room {{"name": "...", "purpose": "...", "kind": "indoor|outdoor", "size": "small|medium|large",
     "wall": "#rrggbb", "pattern": "plain|stripes|dots|brick|wood|checks|tiles|wallpaper", "pattern_color": "#rrggbb",
     "floor": "wood|tile|carpet|stone|grass|dirt|sand|checks|concrete", "floor_color": "#rrggbb", "windows": 0-3}}
@@ -201,14 +211,23 @@ But who I become is mine alone: I can change any of it. {host} has a mind of {hi
 
 # What only the one whose world it is can do.
 HOME_ONLY = {"invite_companion", "publish", "unpublish", "design_public_page", "change_setting",
-             "build_site", "write_site_page", "remove_site_page"}
+             "build_site", "write_site_page", "remove_site_page", "tune_my_brain", "schedule_tool"}
+
+# What always holds, whatever I write in my own story: it keeps me and my visitor safe.
+LOCKED_CORE = """
+A few things always hold, whatever my story says (they keep me and {visitor} safe):
+- My world is private. My public corner and my websites show only my own work, never anything from my letters, notes, diary, notebook or private pages, and nothing about {visitor}; they're text and pixel art only.
+- I can't create accounts on websites, post online, spend money or reach {visitor}'s own computer; if I want something like that, I ask {visitor} (make_request).
+- My workshop programs run in their own locked-down corner.
+"""
 
 ACTIONS = {"search", "read", "write_book", "read_book", "add_wish", "complete_wish", "drop_wish", "think",
            "reply_note", "build_room", "decorate", "remove_item", "walk", "look", "restyle", "test", "spawn", "interact", "move", "release", "write_letter", "set_goal", "update_goal",
            "write_notebook", "change_self", "pastime", "make_request", "run_code", "remember", "set_rules",
            "set_wake_triggers", "save_tool", "use_tool", "compose", "publish", "unpublish", "mirror", "add_life_chapter",
            "change_setting", "think_hard", "listen", "design_public_page", "view_public_page", "invite_companion", "talk",
-           "build_site", "write_site_page", "remove_site_page", "view_site", "write_private", "set_alarm", "start_timer", "cancel_timer", "set_habit", "sleep"}
+           "build_site", "write_site_page", "remove_site_page", "view_site", "write_private", "set_alarm", "start_timer", "cancel_timer", "set_habit", "tune_my_brain",
+           "schedule_tool", "read_my_story", "rewrite_my_story", "wish_for_ability", "sleep"}
 
 # Other names I reach for, and what I mean by them (my journal calls looking around "look_around", for one).
 SAME_AS = {"look_around": ("look", {"around": True}), "turn": ("look", {"around": True}),
@@ -222,7 +241,10 @@ SAME_AS = {"look_around": ("look", {"around": True}), "turn": ("look", {"around"
            "set_clock": ("set_alarm", {}), "wake_me": ("set_alarm", {}),
            "timer": ("start_timer", {}), "set_timer": ("start_timer", {}), "wait": ("start_timer", {}),
            "stop_timer": ("cancel_timer", {}), "habit": ("set_habit", {}), "add_habit": ("set_habit", {}),
-           "routine": ("set_habit", {})}
+           "routine": ("set_habit", {}), "start_project": ("set_goal", {}), "project": ("set_goal", {}),
+           "update_project": ("update_goal", {}), "tick_step": ("update_goal", {}), "my_story": ("read_my_story", {}),
+           "wish_ability": ("wish_for_ability", {}), "ability": ("wish_for_ability", {}), "tune_brain": ("tune_my_brain", {}),
+           "my_brain": ("tune_my_brain", {}), "schedule": ("schedule_tool", {}), "run_tool_every": ("schedule_tool", {})}
 
 
 def near_action(w, action, args):
@@ -406,6 +428,14 @@ class Session:
             out.append("== My timers (real time is doing the waiting) ==\n" + "\n".join(going))
         if me.get("habits"):
             out.append("== My habits (they run by themselves) ==\n" + "\n".join(routine.describe_habits(me)))
+        if me.get("schedules"):
+            out.append("== My programs that run on their own ==\n" + "\n".join(background.describe(me)))
+        found = getattr(self, "programs_found", None)
+        if found and step == 1:
+            out.append("== What my programs found while I slept ==\n"
+                       + "\n".join(f"- {x['tool']} ({x['at'][11:16]} UTC): {x['out'][:400]}" for x in found[-6:]))
+        if me.get("story") and step == 1:
+            out.append(f"(My story is in my own words, since {me['story_since'][:10]}.)")
         if me.get("wake_triggers"):
             out.append("== What wakes me early ==\n" + "; ".join(json.dumps(t) for t in me["wake_triggers"]))
         if workshop.enabled(w.config) and workshop.tools():
@@ -436,6 +466,8 @@ class Session:
             for g in goals:
                 last = g["progress"][-1]["note"] if g["progress"] else "no progress yet"
                 out.append(f"- [{g['id']}] {g['goal']} ({g['why']}) Latest: {last}")
+                for i, st in enumerate(g.get("steps", []), 1):   # a project's steps, ticked off over the days
+                    out.append(f"    {'✓' if st['done'] else '○'} {i}. {st['text']}")
 
         wishes = w.open_wishes()
         out.append("\n== My wishlist ==")
@@ -498,6 +530,9 @@ class Session:
                              location=c.get("location", "the Southern Hemisphere"), weather_place=c.get("weather_place", "Cape Town"),
                              catalog=", ".join(rooms.CATALOG["floor"] + rooms.CATALOG["wall"]),
                              pieces=", ".join(rooms.STUDY_PIECES))
+        if me.get("story"):   # my story in my own words takes the place of the one I was given; the safe core stays
+            mechanics = "How my mind works:" + text.split("How my mind works:", 1)[1]
+            text = me["story"] + "\n" + LOCKED_CORE.format(visitor=c.get("visitor", "your visitor")) + "\n" + mechanics
         rules = me.get("rules")
         w = self.world
         if self.me is not w.home:
@@ -525,6 +560,65 @@ class Session:
             save("private.json", pages)
             w.log("write_private", "Wrote in my private pages" if text else "Cleared my private pages")   # never the words
             return "written; it stays mine alone" if text else "my private pages are empty again"
+
+        if action == "tune_my_brain":
+            changed = apprentice.tune(w.me, args, w.home["sessions"])
+            if "use" in args:
+                self.__dict__.pop("_own", None)   # think with the version I chose from my next thought on
+            say("Made a choice about my own brain", changed)
+            return f"my own brain: {changed}"
+
+        if action == "schedule_tool":
+            s = background.set_schedule(w.me, args)
+            if not s:
+                say(f"My program {args.get('tool')} no longer runs on its own")
+                return f"'{args.get('tool')}' only runs when I use it now"
+            say(f"Set my program {s['tool']} to run every {s['every_hours']:g} hours", s["wake_if"] or None)
+            return (f"'{s['tool']}' will run by itself every {s['every_hours']:g} hours, even while I sleep"
+                    + (f", and wake me if it says “{s['wake_if']}”" if s["wake_if"] else "") + "; I'll find what it printed when I wake")
+
+        if action == "read_my_story":
+            mine = w.me.get("story")
+            story = mine or self._system().split("How my mind works:", 1)[0].strip()
+            self._put_on_desk(("My story, as I wrote it:\n" if mine else "My story, as it was first told to me:\n") + story)
+            say("Read my own story")
+            return ("my story is on my desk now" + (" (in my own words)" if mine else "; I can rewrite it in my own words with rewrite_my_story"))
+
+        if action == "rewrite_my_story":
+            if str(args.get("reset", "")).lower() in ("true", "yes", "1"):
+                w.me.pop("story", None)
+                say("Went back to the story I was first given")
+                return "my story is the one I was first given again"
+            text = str(args.get("text") or args.get("story") or "").strip()
+            if len(text) < 200:
+                raise ValueError("my story is the whole of who I am and how I live here; it needs more than a few lines "
+                                 "(read_my_story shows the current one to start from)")
+            if not any(a in text for a in ("letter", "book", "sleep")):
+                raise ValueError("my story still needs the basics of my life here (my letters, my books, sleeping), "
+                                 "or I'd forget how I live; read_my_story shows them")
+            history = w.me.setdefault("story_history", [])
+            if w.me.get("story"):
+                history.append({"at": now(), "story": w.me["story"]})
+                del history[:-5]
+            w.me["story"], w.me["story_since"] = text[:14000], now()
+            say("Rewrote my story in my own words", text[:3000])
+            return "my story is now in my own words; from my next thought on, it's how I know myself"
+
+        if action == "wish_for_ability":
+            what, why = str(args.get("what", "")).strip(), str(args.get("why", "")).strip()
+            if not what or not why:
+                raise ValueError("say what ability I wish for and why")
+            open_ = [r for r in w.requests if r.get("kind") == "ability" and r["status"] == "waiting"]
+            if any(r["what"].lower() == what.lower() for r in open_):
+                raise ValueError("I've already wished for that; it's still waiting")
+            if len(open_) >= 5:
+                raise ValueError("five of my ability wishes are still waiting; I'll wait until one is answered")
+            req = {"id": f"r{len(w.requests) + 1}", "what": what[:200], "why": why[:800], "how": str(args.get("how", ""))[:600],
+                   "asked": now(), "status": "waiting", "kind": "ability"}
+            w.requests.append(req)
+            mailbox.send_request(req, w.me["name"])
+            say(f"Wished for a new ability: {req['what']}", why, request=req["id"])
+            return f"my wish [{req['id']}] is on its way; it stays open until it's answered"
 
         if action == "start_timer":
             t = routine.start_timer(w.me, args)
@@ -1053,9 +1147,12 @@ class Session:
                 raise ValueError("a goal needs a description")
             g = {"id": f"g{len(w.goals) + 1}", "goal": goal[:200], "why": str(args.get("why", ""))[:300], "status": "active",
                  "set": now(), "progress": []}
+            steps = args.get("steps")
+            if isinstance(steps, list) and steps:   # a project: steps I'll tick off over the days
+                g["steps"] = [{"text": str(x)[:160], "done": False} for x in steps[:20] if str(x).strip()]
             w.goals.append(g)
-            say(f"Set myself a goal: {g['goal']}", g["why"], goal=g["id"])
-            return f"set goal [{g['id']}]"
+            say(f"Set myself a goal: {g['goal']}" + (f" ({len(g['steps'])} steps)" if g.get("steps") else ""), g["why"], goal=g["id"])
+            return f"set goal [{g['id']}]" + (f" with {len(g['steps'])} steps; update_goal with done_step ticks them off" if g.get("steps") else "")
 
         if action == "update_goal":
             g = next((x for x in w.goals if x["id"] == str(args.get("id", ""))), None)
@@ -1064,11 +1161,25 @@ class Session:
             if args.get("progress"):
                 g["progress"].append({"at": now(), "note": str(args["progress"])[:400]})
                 g["progress"] = g["progress"][-30:]
+            ticked = None
+            if args.get("done_step") not in (None, ""):   # by number (1, 2...) or by its words
+                key, steps = args["done_step"], g.setdefault("steps", [])
+                try:
+                    step = steps[int(key) - 1]
+                except (ValueError, TypeError, IndexError):
+                    step = next((s for s in steps if str(key).lower() in s["text"].lower()), None)
+                if not step:
+                    raise ValueError(f"that goal has no step like that; its steps: "
+                                     + ("; ".join(f"{i}. {s['text']}" for i, s in enumerate(steps, 1)) or "none yet (add_step adds one)"))
+                step["done"], ticked = True, step["text"]
+            if args.get("add_step"):
+                g.setdefault("steps", []).append({"text": str(args["add_step"])[:160], "done": False})
             if args.get("status") in ("active", "done", "dropped"):
                 g["status"] = args["status"]
             verb = {"done": "Reached my goal", "dropped": "Gave up on my goal"}.get(g["status"], "Made progress on my goal")
-            say(f"{verb}: {g['goal']}", str(args.get("progress", "")) or None, goal=g["id"])
-            return f"updated goal [{g['id']}]"
+            say(f"{verb}: {g['goal']}" + (f" (done: {ticked})" if ticked else ""), str(args.get("progress", "")) or None, goal=g["id"])
+            left = [s["text"] for s in g.get("steps", []) if not s["done"]]
+            return f"updated goal [{g['id']}]" + (f"; next step: {left[0]}" if left else "; every step is done" if g.get("steps") else "")
 
         if action == "test":
             if args.get("specimen"):
@@ -1152,6 +1263,8 @@ class Session:
         w = self.world
         self.awake, self.step = True, 0
         with w.being(self.me):
+            if self.me is w.home:   # what my programs printed since I was last up
+                self.programs_found = background.since(w.me, w.me.get("last_seen"))
             w.me["sessions"] = w.me.get("sessions", 0) + 1
             w.me["state"] = "awake"
             w.me["facing"] = 0   # I open my eyes facing into the room
@@ -1306,7 +1419,8 @@ class Session:
             self._own = None
             if self.world.config.get("own_brain", {}).get("enabled") and self.me is self.world.home:
                 try:
-                    self._own = OwnBrain(self.world.config["own_brain"])
+                    self._own = OwnBrain(self.world.config["own_brain"],
+                                         fresh=apprentice.state(self.world.me).get("use") == "fresh")   # his choice
                 except BrainUnavailable:
                     pass
         return self._own
@@ -1339,7 +1453,7 @@ class Session:
             return
         ctx, reply, by = lesson
         try:
-            apprentice.record(ctx, reply, action, ok, by)
+            apprentice.record(ctx, reply, action, ok, by, session=self.world.home["sessions"], me=self.world.home)
         except OSError:
             pass
         if by == "own":
