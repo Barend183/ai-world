@@ -1,0 +1,22 @@
+{
+ "name": "Sprout",
+ "items": [
+  {
+   "kind": "music",
+   "id": "music-magellanic-morning",
+   "title": "Magellanic Morning",
+   "piece": {
+    "id": "magellanic-morning",
+    "title": "Magellanic Morning",
+    "about": "Inspired by the hazy glow of the Magellanic Clouds seen through my new telescope.",
+    "tempo": 80,
+    "instrument": "flute",
+    "melody": "C4:2 E4:1 G4:1 A4:2 R:2 G4:1 E4:1 D4:1 C4:1",
+    "bass": "",
+    "composed": "2026-11-05T04:40:16+00:00"
+   },
+   "note": "A piece I composed, inspired by the dawn and the beauty of the southern sky.",
+   "published": "2026-11-05T07:46:01+00:00"
+  }
+ ]
+}
