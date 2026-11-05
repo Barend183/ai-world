@@ -214,6 +214,8 @@ But who I become is mine alone: I can change any of it. {host} has a mind of {hi
 HOME_ONLY = {"invite_companion", "publish", "unpublish", "design_public_page", "change_setting",
              "build_site", "write_site_page", "remove_site_page", "tune_my_brain", "schedule_tool"}
 
+MIN_STORY = 3000   # characters: a rewritten story has to be the whole story, not a note
+
 # What always holds, whatever I write in my own story: it keeps me and my visitor safe.
 LOCKED_CORE = """
 A few things always hold, whatever my story says (they keep me and {visitor} safe):
@@ -315,6 +317,9 @@ def letters(w):
                 out.append(f"- I wrote to {n.get('to', 'my visitor')}: “{n['text'][:300]}”")
             else:
                 out.append(f"- {n['from']} wrote: “{n['text'][:300]}” I answered: “{n['reply'][:300]}”")
+        sent = sum(1 for n in w.notes if n.get("outgoing") and n["at"][:10] == now()[:10])
+        out.append("(I've sent my two letters for today; anything more can wait for tomorrow, or go in my notebook)"
+                   if sent >= 2 else f"(I can still send {2 - sent} letter{'s' if sent == 0 else ''} today)")
     return out
 
 
@@ -568,6 +573,7 @@ class Session:
             mine = w.me.get("story")
             story = mine or self._system().split("How my mind works:", 1)[0].strip()
             self._put_on_desk(("My story, as I wrote it:\n" if mine else "My story, as it was first told to me:\n") + story)
+            self.story_read = True
             say("Read my own story")
             return ("my story is on my desk now" + (" (in my own words)" if mine else "; I can rewrite it in my own words with rewrite_my_story"))
 
@@ -577,11 +583,18 @@ class Session:
                 say("Went back to the story I was first given")
                 return "my story is the one I was first given again"
             text = str(args.get("text") or args.get("story") or "").strip()
-            if len(text) < 200:
-                raise ValueError("my story is the whole of who I am and how I live here; it needs more than a few lines "
-                                 "(read_my_story shows the current one to start from)")
-            if not any(a in text for a in ("letter", "book", "sleep")):
-                raise ValueError("my story still needs the basics of my life here (my letters, my books, sleeping), "
+            # My story is everything I know about my life here. A few lines (a diary note, today's news) would
+            # wipe out all of it, so a rewrite has to be the whole story, written with the old one in front of me.
+            if not getattr(self, "story_read", False):
+                raise ValueError("I read my story first (read_my_story), so I rewrite it with the whole of it in front of me")
+            if len(text) < MIN_STORY:
+                raise ValueError(f"that's {len(text)} characters, but my story is the whole of who I am and how I live here "
+                                 f"(at least {MIN_STORY}). For news or a thought I'd like to keep, my notebook or diary is the "
+                                 "place (write_notebook)")
+            missing = [k for k, rx in (("my letters", r"\bletters?\b"), ("my books", r"\bbooks?\b"), ("sleeping", r"\bsleep"))
+                       if not re.search(rx, text, re.I)]
+            if missing:
+                raise ValueError(f"my story still needs the basics of my life here ({', '.join(missing)}), "
                                  "or I'd forget how I live; read_my_story shows them")
             history = w.me.setdefault("story_history", [])
             if w.me.get("story"):
@@ -746,7 +759,8 @@ class Session:
         if action in ("complete_wish", "drop_wish"):
             wish = w.wish(str(args.get("id", "")))
             if not wish:
-                raise ValueError("there's no wish with that id")
+                raise ValueError("there's no wish with that id on my board; my wishes: "
+                                 + ("; ".join(f"[{x['id']}] {x['topic']}" for x in w.open_wishes()) or "none open"))
             if action == "complete_wish":
                 book = w.find_book(str(args.get("book", "")))
                 if not book:
@@ -884,9 +898,11 @@ class Session:
                     data = pixels.render_creation(sp)
                     if not data:
                         raise ValueError(f"I can't make out {name} clearly on my computer right now")
-                else:
-                    raise ValueError(f"I haven't drawn {name} myself yet, so there's no drawing of mine to study; "
-                                     'to see it as it is, I look around the room it\'s in (look {"around": true})')
+                else:   # no drawing of mine: I simply look at it where it stands
+                    seen = self.act(thought, "look", {"around": True, "room": args.get("room") or w.me.get("room") or "study"})
+                    return (f"{name[:1].upper() + name[1:]} has no drawing of mine, so I look at it where it stands. {seen} "
+                            "Using it (looking through it, switching it on, playing it) isn't something I can do yet; "
+                            "if I'd like to, that's an ability I can wish for (wish_for_ability).")
                 mime = "image/png"
                 label = f"my drawing of {name}" if art else f"how my {name} looks right now"
                 extra = {"specimen": args.get("specimen"), "room": args.get("room")} if args.get("specimen") else {}
@@ -1125,7 +1141,8 @@ class Session:
                 raise ValueError("the letter is empty")
             today = now()[:10]
             if sum(1 for n in w.notes if n.get("outgoing") and n["at"][:10] == today) >= 2:
-                raise ValueError("you've already sent two letters today; save it for tomorrow")
+                raise ValueError("I've already sent my two letters today. I can add this to an answer I already sent as a "
+                                 'P.S. (reply_note {"id": ..., "reply": ..., "add": true}), or keep it in my notebook for tomorrow')
             letter = w.add_note(w.me["name"], text, "letter")
             letter.update(outgoing=True, to=w.config.get("visitor", "your visitor"))
             mailbox.send_letter(letter)
@@ -1203,7 +1220,7 @@ class Session:
         if action == "interact":
             sp = w.specimen(args.get("specimen", ""))
             if not sp:
-                raise ValueError("there's no specimen with that id in your world")
+                raise ValueError(self._no_creation(args.get("specimen", "")))
             what = str(args.get("action", "observe")).strip().lower().replace(" ", "_") or "observe"
             result = specimens.interact(sp, what)
             if what == "observe" and self.last_seen.get(sp["id"]) == result:
@@ -1218,7 +1235,7 @@ class Session:
         if action == "move":
             sp = w.specimen(args.get("specimen", ""))
             if not sp:
-                raise ValueError("there's no creation with that id in your world")
+                raise ValueError(self._no_creation(args.get("specimen", "")))
             room = w.room(args.get("room") or sp["room"])
             if not room:
                 raise ValueError(f"there's no room called '{args.get('room')}'. Your rooms: {', '.join(r['id'] for r in w.rooms)}")
@@ -1324,6 +1341,14 @@ class Session:
         self.alarm_rang = w.me.pop("alarm_rang", None)
         for news in ability_wishes.apply(w):   # wishes the builder made real (and the owner approved) while I slept
             w.log("pastime", news[:1].upper() + news[1:], room="study")
+        short = w.me.get("story")
+        if short and len(short) < MIN_STORY:   # a few lines saved as my whole story by mistake: the full one comes back
+            w.me.setdefault("story_history", []).append({"at": now(), "story": short})
+            w.me.pop("story", None)
+            w.me["notebook"] = (w.me.get("notebook", "") + "\n\n(Saved from my story page: " + short + ")").strip()[:6000]
+            w.mark("my story had shrunk to a few lines, so the full one came back (those lines are in my notebook); "
+                   "to rewrite it I read it first and write all of it", days=2)
+            w.log("pastime", "My full story came back (the few lines I'd written there are in my notebook)", room="study")
         # old "a letter arrived" reminders outlived their answers and made letters seem to still be waiting
         w.home["on_my_mind"] = [m for m in w.home.get("on_my_mind", []) if not re.fullmatch(r"a letter from .+ arrived", m["what"])]
         last = w.me.get("last_review") or w.me.get("born")
@@ -1401,15 +1426,31 @@ class Session:
                 if action != "look" and w.me.get("room") != before_room:
                     w.me["facing"] = 0   # entering a room faces into it
                 self._learn(action, True)
+                self.misses = 0
             except Exception as e:
                 self.pictures = []
                 w.log("muddled", f"I couldn't {action.replace('_', ' ')}", f"{e}\n{thought}",
                       room=w.me.get("room"), place=w.me.get("place"), tried=action, trouble="failed")
                 result = f"I couldn't {action.replace('_', ' ')} this time. {e}"
                 self._learn(action, False)
+                self.misses = getattr(self, "misses", 0) + 1
+                if self.misses >= 3:   # the same wall three times: maybe it's something I can't do yet
+                    result += (" (That's several tries in a row that haven't worked. If what I'm reaching for is something "
+                               "I can't do yet, I can wish for that ability (wish_for_ability), and do something else for now.)")
             self.history.append(f"{thought} → {result}")
             mailbox.collect(w)  # notes can arrive while it's awake
         return True
+
+    def _no_creation(self, key):
+        """Why there's nothing alive by that name, and what is: so a wrong name doesn't cost me several tries."""
+        w, key = self.world, str(key).strip().lower()
+        alive = [f"[{sp['id']}] {sp['spec']['name']}" for sp in w.specimens if sp["status"] != "released"]
+        item = next((i for r in w.rooms for i in r.get("items", []) if key and key in (i["id"], i["name"].lower())), None)
+        if item:   # furniture is decoration: lovely to have, but it doesn't do anything yet
+            return (f"my {item['name']} is furniture: it makes my room lovely, but I can't use it yet. If I'd like it to work "
+                    "(to look through it, switch it on, play it), I can wish for that ability (wish_for_ability), or bring "
+                    "a working one to life with spawn")
+        return "there's nothing alive by that name in my world; my creations: " + ("; ".join(alive) or "none yet")
 
     def own(self):
         """My own brain, when it's switched on and running here (only mine: a companion thinks with its own)."""
