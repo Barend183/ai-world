@@ -131,15 +131,29 @@ def due(config):
     import glob
     from .world import WORLD
     world = World(config)
-    wake_after = world.me.get("wake_after")
+    wake_after = shorten_old_alarm_sleep(world, config)
     return (not wake_after or datetime.fromisoformat(wake_after) <= datetime.now(timezone.utc)
             or bool(glob.glob(os.path.join(WORLD, "inbox", "*.json"))) or bool(trigger_fired(world)))
+
+
+def shorten_old_alarm_sleep(world, config):
+    """Before 8 November an alarm could keep him asleep until the next morning when his day ended without his
+    choosing how long to sleep (23 hours). A sleep like that, set before the fix, ends after his usual sleep.
+    Returns when he wakes."""
+    wake_after, went_to_bed = world.me.get("wake_after"), world.me.get("last_seen")
+    if wake_after and world.me.get("alarm_wake") and went_to_bed and went_to_bed < "2026-11-08T14:00" \
+            and datetime.fromisoformat(wake_after) - datetime.fromisoformat(went_to_bed) > timedelta(hours=12):
+        usual = datetime.fromisoformat(went_to_bed) + timedelta(hours=config.get("default_sleep_hours", 3))
+        wake_after = usual.isoformat(timespec="seconds")
+        world.me.update(wake_after=wake_after, alarm_wake=False)
+        world.save()
+    return wake_after
 
 
 def run_once(config, script=None, next_wake_minutes=None, force=False):
     world = World(config)
     from . import background, mailbox
-    wake_after = world.me.get("wake_after")
+    wake_after = shorten_old_alarm_sleep(world, config)
     if not force and script is None and wake_after and datetime.fromisoformat(wake_after) > datetime.now(timezone.utc):
         before = len(world.pending_notes())
         mailbox.collect(world)   # a new note wakes him early

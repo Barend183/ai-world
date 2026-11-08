@@ -60,11 +60,12 @@ def next_ring(me, offset_hours, after=None):
 
 
 def bedtime(me, hours, chose_hours, offset_hours):
-    """When I wake: after the hours I chose, or when my alarm clock rings, whichever comes first.
-    With the alarm on and no length of sleep chosen, the alarm decides. Returns (wake time UTC, rang)."""
+    """When I wake: after the hours I chose (or my usual sleep), or when my alarm clock rings, whichever comes
+    first. An alarm only ever wakes me; it never keeps me asleep longer (a day that ended because I ran out of
+    energy once slept on for 23 hours, until the next morning's alarm). Returns (wake time UTC, rang)."""
     now_ = datetime.now(timezone.utc)
     natural = now_ + timedelta(hours=hours)
     ring = next_ring(me, offset_hours, now_)
-    if ring and (ring < natural or not chose_hours):
+    if ring and ring < natural:
         return ring, True
     return natural, False

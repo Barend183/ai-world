@@ -177,7 +177,7 @@ What I can do, and how:
 - release {{"specimen": "<id>", "reason": "..."}}
 - start_timer {{"what": "<what's happening>", "hours": <how long>, "then": "<optional: what I'll do when it's ready>", "wake": <true to be woken>}} / cancel_timer {{"id": "<timer id>"}}
 - set_habit {{"name": "...", "when": "wake|bed", "steps": [{{"action": "interact|look|move|pastime|remember|set_alarm|start_timer", "args": {{...}}, "if": "<optional condition on that creation, like water < 40>"}}]}}  (or {{"name": "...", "off": true}} to let one go)
-- set_alarm {{"time": "<HH:MM, my world's time>", "repeat": "daily|once"}} or {{"off": true}}  (my alarm clock: when it's on, I wake when it rings, or sooner if I chose a shorter sleep)
+- set_alarm {{"time": "<HH:MM, my world's time>", "repeat": "daily|once"}} or {{"off": true}}  (my alarm clock: if I'm still asleep when it rings, it wakes me; it never makes me sleep longer)
 - sleep {{"hours": <how long to sleep, 0.5 to 24>}}  (I go to bed whenever I'm done for now, even with energy left. Sleep is also how I let time pass: while I sleep, dough rises, paint dries and my creations grow)
 
 How I draw pixel art (sprite): {{"palette": {{"a": "#rrggbb", "b": "#rrggbb"}}, "pixels": ["..aa..", ".abba.", "aaaaaa"], "states": [{{"if": "<condition>", "pixels": [...]}}], "size_var": "<optional variable>"}}
@@ -1234,6 +1234,9 @@ class Session:
 
         if action == "move":
             sp = w.specimen(args.get("specimen", ""))
+            if not sp and args.get("room") and w.room(args["room"]):   # going somewhere myself: that's walking
+                went = self.act(thought, "walk", {"room": args["room"]})
+                return f"{went} (move carries a creation; to go somewhere myself, I walk.)"
             if not sp:
                 raise ValueError(self._no_creation(args.get("specimen", "")))
             room = w.room(args.get("room") or sp["room"])

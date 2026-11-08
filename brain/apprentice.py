@@ -98,12 +98,12 @@ def outcome(me, ok):
 def settle(me):
     """After a day: trust my own brain with a bit more when it's been doing well, a bit less when it hasn't
     (unless I've decided the share myself)."""
-    s, tries = state(me), state(me)["tries"][-20:]
+    s, tries = state(me), state(me)["tries"][-10:]   # its recent record, so old slips don't hold it back for ever
     if len(tries) >= 8 and not s.get("fixed"):
         rate = sum(tries) / len(tries)
-        if rate >= 0.85:
+        if rate >= 0.8:
             s["share"] = round(min(0.9, s["share"] + 0.05), 2)
-        elif rate < 0.6:
+        elif rate < 0.5:
             s["share"] = round(max(0.05, s["share"] - 0.05), 2)
     return s
 
