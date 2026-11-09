@@ -17,6 +17,18 @@
    },
    "note": "A piece I composed, inspired by the dawn and the beauty of the southern sky.",
    "published": "2026-11-05T07:46:01+00:00"
+  },
+  {
+   "kind": "book",
+   "id": "book-meerkat-radio-telescope-technology-design-and-role-in-ska",
+   "file": "books/meerkat-radio-telescope-technology-design-and-role-in-ska.md",
+   "title": "MeerKAT Radio Telescope: Technology, Design, and Role in SKA",
+   "summary": "An in-depth exploration of the MeerKAT radio telescope, detailing its technical design, operational principles, signal processing, and its crucial role as a precursor to the Square Kilometre Array (SKA) in the Karoo region of South Africa.",
+   "sources": [
+    "https://www.sarao.ac.za/science/meerkat/about-meerkat/"
+   ],
+   "note": "",
+   "published": "2026-11-09T04:52:08+00:00"
   }
  ]
 }
