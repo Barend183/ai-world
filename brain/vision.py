@@ -1,6 +1,12 @@
 """A small spatial account of what is in front of Sprout, without asking a model to read a picture."""
+import hashlib
+import json
 import math
+import os
+import shutil
+import subprocess
 from datetime import datetime, timezone
+from functools import lru_cache
 
 from . import navigation
 from .world import now
@@ -8,6 +14,49 @@ from .world import now
 
 FACING = ((0, -1), (1, 0), (0, 1), (-1, 0))
 STUDY_SLOTS = (124, 166, 208, 86, 60, 300)
+SCENE = os.path.join(os.path.dirname(__file__), "scene.js")
+
+
+@lru_cache(maxsize=1)
+def _scene_version():
+    with open(SCENE, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()[:12]
+
+
+def _rendered_sight(world, room):
+    """Keep a small depth reading from my 3D view until I or something in the room changes."""
+    node = shutil.which("node")
+    if not node:
+        return None
+    me = world.me
+    camera = {k: me.get(k) for k in ("room", "place", "position", "facing", "tilt", "state")}
+    people = [{k: person.get(k) for k in ("id", "room", "place", "position", "state", "look")}
+              for person in [world.home, *world.companions]]
+    creations = [{k: sp.get(k) for k in ("id", "room", "status", "x", "spec", "state_sprite", "values")}
+                 for sp in world.specimens if sp.get("room", "study") == room["id"]]
+    scene = [_scene_version(), room, camera, people, creations,
+             [b.get("id") for b in world.shelves] if room.get("builtin") else []]
+    signature = hashlib.sha256(json.dumps(scene, sort_keys=True, default=str).encode()).hexdigest()[:20]
+    cache = me.get("sight_map") or {}
+    if cache.get("signature") != signature:
+        from .world import WORLD
+        facing = me.get("facing", 0)
+        direction = ("ahead", "right", "behind", "left")[facing if isinstance(facing, int) and 0 <= facing < 4 else 0]
+        who = "home" if me is world.home else "companion"
+        world.save()   # the renderer reads the same world I am standing in now
+        try:
+            done = subprocess.run([node, SCENE, WORLD, room["id"], who, direction, me.get("tilt") or "level", "sight"],
+                                  capture_output=True, timeout=15)
+            objects = json.loads(done.stdout)["objects"] if done.returncode == 0 else None
+            if not isinstance(objects, list):
+                return None
+        except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
+            return None
+        cache = {"signature": signature, "objects": objects[:80]}
+        me["sight_map"] = cache
+    return {o["key"]: o for o in cache.get("objects", [])
+            if isinstance(o, dict) and isinstance(o.get("key"), str)
+            and isinstance(o.get("depth"), (int, float))}
 
 
 def _wall_shapes(room):
@@ -170,12 +219,25 @@ def _last_seen(me, room, eye, visible):
     remembered = {m["key"]: m for m in me.get("sight_memory", []) if m.get("key")}
     seen_now = {shape["key"] for _, _, shape in visible}
     seen_time = now()
+    change = ""
     for _, _, shape in visible:
+        old = remembered.get(shape["key"])
+        if old and not change:
+            moved = (old.get("room") != room["id"] or
+                     math.hypot(shape["x"] - old.get("x", shape["x"]), shape["z"] - old.get("z", shape["z"])) > 12)
+            altered = old.get("appearance") and shape.get("appearance") and old["appearance"] != shape["appearance"]
+            if moved:
+                change = f"I see {shape['name']} in a different place from where I last saw it."
+            elif altered:
+                change = f"I see that {shape['name']} looks different from when I last saw it."
         remembered[shape["key"]] = {"key": shape["key"], "name": shape["name"],
                                     "room": room["id"], "x": shape["x"], "z": shape["z"],
-                                    "kind": shape.get("kind", "thing"), "at": seen_time}
+                                    "kind": shape.get("kind", "thing"), "at": seen_time,
+                                    "appearance": shape.get("appearance")}
     memories = sorted(remembered.values(), key=lambda m: m["at"])[-80:]
     me["sight_memory"] = memories
+    if change:
+        return change
     hidden = [m for m in memories if m["room"] == room["id"] and m["key"] not in seen_now]
     if not hidden:
         return ""
@@ -217,12 +279,16 @@ def describe(world, room):
                               "back": item.get("back_sprite")}
     blockers = [s for s in floor if s.get("solid", True)]
     shapes = floor + _wall_shapes(room) + _creations(world, room) + _others(world, room)
+    sight = _rendered_sight(world, room)
     seen = []
     for shape in shapes:
         dx, dz = shape["x"] - eye[0], shape["z"] - eye[1]
-        gap = math.hypot(dx, dz)
-        if gap < 3 or not _visible(eye, eye_y, forward, pitch, shape, blockers):
+        image = sight.get(shape["key"]) if sight is not None else None
+        gap = image["depth"] if image else (None if sight is not None else math.hypot(dx, dz))
+        if gap is None or gap < 3 or (sight is None and not _visible(eye, eye_y, forward, pitch, shape, blockers)):
             continue
+        if image:
+            shape["appearance"] = image.get("appearance")
         side = -dx * forward[1] + dz * forward[0]
         ahead = dx * forward[0] + dz * forward[1]
         angle = math.degrees(math.atan2(side, ahead))

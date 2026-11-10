@@ -90,10 +90,11 @@ he decides what to learn, make and build.
   Looking around turns his head one step at a time from the same spot; he chooses whether to keep turning.
   Between pictures, he keeps a short sense of what lies in his current field of view. It changes when he walks,
   turns, looks up or down, or moves things. Nearby furniture can hide what is behind it. This comes from positions
-  and shapes in his world, including clear gaps in the pixel art he drew, without another picture or image request.
-  His sense uses the same forward camera position when he is at his study computer. He remembers where he last saw something after
-  it leaves his view, while allowing that a companion or creation may have moved or changed. He takes in each
-  picture once, and can choose to hold
+  and shapes in his world, including clear gaps in the pixel art he drew, without another image-model request.
+  A small depth map from the same 3D renderer identifies what is actually visible; he keeps it until he turns,
+  walks or something in the room changes. He remembers where he last saw something after it leaves his view,
+  while allowing that a companion or creation may have moved or changed. When he sees it again, he can notice
+  a changed place or appearance. He takes in each picture once, and can choose to hold
   the last one for comparison with a new look, so pictures aren't sent with
   every thought. (Pictures need a brain
   that can see them, such as Gemini.)

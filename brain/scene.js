@@ -5,11 +5,12 @@
 // looks like his world, then rebuilt in perspective from where his eyes are. Never his own face; single views
 // show his hands (or his blanket, in bed) at the bottom.
 // Usage: node scene.js <world folder> [room id] [home|companion] [ahead|right|behind|left] [up|level|down] > view.png
+// Add sight as the last argument to print a small JSON depth map instead.
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const { Canvas, png, parseColor } = require("./canvas.js");
 
-const [dir, roomArg, who = "home", mode = "", tiltMode = "level"] = process.argv.slice(2);
+const [dir, roomArg, who = "home", mode = "", tiltMode = "level", outputMode = "image"] = process.argv.slice(2);
 const read = (name, fallback) => { try { return JSON.parse(fs.readFileSync(path.join(dir, name), "utf8")); } catch { return fallback; } };
 
 // ---- the page's own drawing code, with just enough of a browser around it --------------------------------
@@ -67,7 +68,9 @@ this.__world = function (input) {
     if (x1 < 0) return;
     const w = x1 - x0 + 1, h = y1 - y0 + 1, img = new Float32Array(w * h * 4);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) for (let c = 0; c < 4; c++) img[(y * w + x) * 4 + c] = px[((y + y0) * W + x + x0) * 4 + c];
-    things.push({ img, w, h, x: x0, y: y0, ground, kind, name, ...meta });
+    let appearance = Math.imul(w * 257 + h, 16777619);
+    for (let i = 0; i < img.length; i++) appearance = Math.imul(appearance ^ Math.round(img[i] * (i % 4 === 3 ? 255 : 1)), 16777619);
+    things.push({ img, w, h, x: x0, y: y0, ground, kind, name, appearance: (appearance >>> 0).toString(16), ...meta });
   };
   const chairModel = !!rm.builtin && !rm.skins?.armchair;
   const shelfModel = !!rm.builtin && !rm.skins?.bookshelf;
@@ -86,47 +89,54 @@ this.__world = function (input) {
       if (Math.abs(full[i] - without[i]) + Math.abs(full[i + 1] - without[i + 1]) + Math.abs(full[i + 2] - without[i + 2]) > 0.5)
         for (let c = 0; c < 4; c++) px[i + c] = full[i + c];
     }
+    const keys = { armchair: "the armchair", bookshelf: "the bookshelf", desk: "the desk",
+      bed: "the bed", nightstand: "the nightstand", wishboard: "board", plant: "plant",
+      door: "door", window: "window" };
     if ((name !== "armchair" || !chairModel) && (name !== "bookshelf" || !shelfModel))
-      keep(px, ground, kind, name, { shaped: name === "plant" || !!rm.skins?.[name] });
+      keep(px, ground, kind, name, { key: keys[name] && "builtin:study:" + keys[name],
+        shaped: name === "plant" || !!rm.skins?.[name] });
   }
   for (const it of rm.items) {
     if ((it.place === "wall" && it.preset === "window" ||
          it.place === "floor" && (it.preset === "rug" || it.preset === "pond")) && !it.sprite) continue;
     if (it.place === "floor" && ["sofa", "armchair", "chair"].includes(it.preset) && !it.sprite) {
-      seats.push({ x: itemX(it, rm), ground: itemFloorY(it, rm), preset: it.preset, color: it.color, depth: it.depth });
+      seats.push({ key: "item:" + view + ":" + it.id, x: itemX(it, rm), ground: itemFloorY(it, rm),
+        preset: it.preset, color: it.color, depth: it.depth });
       continue;
     }
     const ground = itemFloorY(it, rm);
     const c = blank(); drawItem(c.getContext("2d"), it, itemX(it, rm), ground, 26);
     keep(c.px, it.place === "wall" ? top : ground, it.place === "wall" ? "wall" : "furniture", it.name,
-         { preset: it.preset, depth: it.depth,
+         { key: "item:" + view + ":" + it.id, preset: it.preset, depth: it.depth,
            shaped: (!!it.sprite && !it.side_sprite)
              || ["plant", "tree", "bush", "flowerbed", "lamp"].includes(it.preset),
            sideSprite: it.side_sprite, backSprite: it.back_sprite });
   }
-  for (const sp of liveIn(view)) { const c = blank(); drawSpecimen(c.getContext("2d"), sp, specimenX(sp), 166, T); keep(c.px, 166, "creation", sp.spec.name, { shaped: true }); }
+  for (const sp of liveIn(view)) { const c = blank(); drawSpecimen(c.getContext("2d"), sp, specimenX(sp), 166, T);
+    keep(c.px, 166, "creation", sp.spec.name, { key: "creation:" + sp.id, shaped: true }); }
   for (const b of S.comp ? [S.bot, S.bot2] : [S.bot]) {   // whoever else is here (never himself)
     if (b === eye || b.room !== view) continue;
     const c = blank(), whom = b === S.bot2 ? S.comp : S.me;
     drawSprout(c.getContext("2d"), Math.round(b.x), Math.round(b.y), { t: T, pose: b.pose, mood: whom.mood, look: b === S.bot2 ? compLook(whom) : whom.look });
-    keep(c.px, b.pose === "sleep" ? 163 : b.y, "someone", whom.name);
+    keep(c.px, b.pose === "sleep" ? 163 : b.y, "someone", whom.name,
+      { key: "person:" + (whom.id || "home") });
   }
   const col = (eye === S.bot2 ? compLook(self) : self.look || {}).colors || {};
   const entered = view !== eye.room, whereEyes = entered ? spotFor({ room: view, place: "room" }) : eye;
   const books = shelfModel ? [...S.shelves].sort((a, b) => a.created.localeCompare(b.created)).slice(0, 52).map((b, i) =>
     ({ x: 11 + (i % 13) * 4, row: Math.floor(i / 13), h: 14 + (Px.hash(b.id) % 5), color: spineColor(b.shelf) })) : [];
   const windows = [];
-  if (studyWindow) windows.push({ x: 110, y: 20, w: 54, h: 50, color: "#6e4a2d", sill: true });
+  if (studyWindow) windows.push({ key: "builtin:study:window", x: 110, y: 20, w: 54, h: 50, color: "#6e4a2d", sill: true });
   if (!rm.builtin && rm.kind !== "outdoor") for (let i = 0; i < (rm.windows || 0); i++)
-    windows.push({ x: W * (i + 1) / ((rm.windows || 0) + 1) - 15, y: 24, w: 30, h: 28, color: "#6e4a2d" });
+    windows.push({ key: "window:" + view + ":" + i, x: W * (i + 1) / ((rm.windows || 0) + 1) - 15, y: 24, w: 30, h: 28, color: "#6e4a2d" });
   for (const it of rm.items) if (it.place === "wall" && it.preset === "window" && !it.sprite)
-    windows.push({ x: itemX(it, rm) - 15, y: 26, w: 30, h: 28, color: it.color || "#6e4a2d" });
+    windows.push({ key: "item:" + view + ":" + it.id, x: itemX(it, rm) - 15, y: 26, w: 30, h: 28, color: it.color || "#6e4a2d" });
   const mats = [];
   if (rm.builtin) mats.push({ x0: 96, x1: 224, near: 140, far: 170, color: "#7a3b3b" });
   for (const it of rm.items) if (it.place === "floor" && (it.preset === "rug" || it.preset === "pond") && !it.sprite) {
     const x = itemX(it, rm), w = it.preset === "rug" ? 52 : 48, h = it.preset === "rug" ? 6 : 8;
     const ground = itemFloorY(it, rm);
-    mats.push({ x0: x - w / 2, x1: x + w / 2, near: ground - h, far: ground,
+    mats.push({ key: "item:" + view + ":" + it.id, x0: x - w / 2, x1: x + w / 2, near: ground - h, far: ground,
                 color: it.color || (it.preset === "rug" ? "#9b4d4a" : "#4f8fc0"), depth: it.depth });
   }
   return { W, top, back, things, chairModel, shelfModel, books, windows, mats, seats, lights: lightsIn(rm, fy), fy,
@@ -242,7 +252,7 @@ const solids = data.things.filter((t) => !(data.study && !e.entered && t.kind ==
 });
 // The study chair has a back, seat, arms and feet at different depths; a single extruded sprite hides them.
 const chairZ = zOf(132);
-const box = (x0, x1, y0, y1, z0, z1, color) => ({ x0, x1, y0, y1, z0, z1, c: parseColor(color).slice(0, 3) });
+const box = (x0, x1, y0, y1, z0, z1, color, key) => ({ x0, x1, y0, y1, z0, z1, key, c: parseColor(color).slice(0, 3) });
 const chairBoxes = data.chairModel && (e.entered || e.place !== "armchair") ? [
   [116, 148, 13, 27, -13, -7, "#4f6e8f"], [118, 146, 27, 29, -12, -7, "#4f6e8f"],
   [115, 149, 7, 11, -9, 14, "#456687"], [117, 147, 11, 15, -8, 15, "#5b7fa6"],
@@ -250,7 +260,8 @@ const chairBoxes = data.chairModel && (e.entered || e.place !== "armchair") ? [
   [113, 118, 20, 22, -6, 16, "#5b7fa6"], [146, 151, 20, 22, -6, 16, "#5b7fa6"],
   [116, 120, 0, 7, -8, -4, "#3a2a1c"], [144, 148, 0, 7, -8, -4, "#3a2a1c"],
   [116, 120, 0, 7, 12, 16, "#3a2a1c"], [144, 148, 0, 7, 12, 16, "#3a2a1c"],
-].map(([x0, x1, y0, y1, z0, z1, color]) => box(x0, x1, y0, y1, chairZ + z0, chairZ + z1, color)) : [];
+].map(([x0, x1, y0, y1, z0, z1, color]) => box(x0, x1, y0, y1, chairZ + z0, chairZ + z1, color,
+  "builtin:study:the armchair")) : [];
 const seatBoxes = [];
 for (const s of data.seats) {
   const wide = s.preset === "sofa", simple = s.preset === "chair";
@@ -261,7 +272,7 @@ for (const s of data.seats) {
   const x0 = s.x - w / 2, x1 = s.x + w / 2, rear = z - depth / 2, front = z + depth / 2;
   const color = s.color || (wide ? "#7a5c9e" : simple ? "#8a6542" : "#5b7fa6");
   const edge = (k) => parseColor(color).slice(0, 3).map((v) => Math.max(0, Math.min(255, v * k)));
-  const add = (a, b, c, d, f, g, tint = 1) => seatBoxes.push({ ...box(a, b, c, d, f, g, color), c: edge(tint) });
+  const add = (a, b, c, d, f, g, tint = 1) => seatBoxes.push({ ...box(a, b, c, d, f, g, color, s.key), c: edge(tint) });
   add(x0 + 2, x1 - 2, 7, simple ? 24 : 22, rear, rear + 4, 0.78); // back
   add(x0 + 2, x1 - 2, 7, 10, rear + 3, front, 0.8); // frame
   add(x0 + 3, x1 - 3, 10, 13, rear + 5, front - 1, 1.12); // cushion
@@ -270,7 +281,7 @@ for (const s of data.seats) {
     add(x1 - 5, x1, 8, 17, rear + 3, front, 0.8);
   }
   for (const x of [x0 + 3, x1 - 5]) for (const zz of [rear + 2, front - 4])
-    seatBoxes.push(box(x, x + 2, 0, 7, zz, zz + 2, "#3a2a1c"));
+    seatBoxes.push(box(x, x + 2, 0, 7, zz, zz + 2, "#3a2a1c", s.key));
 }
 const shelfBoxes = [];
 if (data.shelfModel) {
@@ -286,20 +297,21 @@ if (data.shelfModel) {
     const y = HW - (45 + b.row * 22);
     shelfBoxes.push(box(b.x, b.x + 3, y, y + b.h, 5, 17, b.color));
   }
+  for (const part of shelfBoxes) part.key = "builtin:study:the bookshelf";
 }
 const windowBoxes = [];
 for (const w of data.windows) {
   const y0 = HW - w.y - w.h, y1 = HW - w.y, x = w.x, r = x + w.w;
-  windowBoxes.push(box(x, x + 3, y0, y1, 1, 7, w.color), box(r - 3, r, y0, y1, 1, 7, w.color));
-  windowBoxes.push(box(x, r, y1 - 3, y1, 1, 7, w.color), box(x, r, y0, y0 + 3, 1, 7, w.color));
-  windowBoxes.push(box(x + w.w / 2 - 1, x + w.w / 2 + 1, y0, y1, 1, 6, w.color));
-  windowBoxes.push(box(x, r, y0 + w.h / 2 - 1, y0 + w.h / 2 + 1, 1, 6, w.color));
-  if (w.sill) windowBoxes.push(box(x - 2, r + 2, y0 - 2, y0 + 2, 1, 10, "#8a5d3a"));
+  windowBoxes.push(box(x, x + 3, y0, y1, 1, 7, w.color, w.key), box(r - 3, r, y0, y1, 1, 7, w.color, w.key));
+  windowBoxes.push(box(x, r, y1 - 3, y1, 1, 7, w.color, w.key), box(x, r, y0, y0 + 3, 1, 7, w.color, w.key));
+  windowBoxes.push(box(x + w.w / 2 - 1, x + w.w / 2 + 1, y0, y1, 1, 6, w.color, w.key));
+  windowBoxes.push(box(x, r, y0 + w.h / 2 - 1, y0 + w.h / 2 + 1, 1, 6, w.color, w.key));
+  if (w.sill) windowBoxes.push(box(x - 2, r + 2, y0 - 2, y0 + 2, 1, 10, "#8a5d3a", w.key));
 }
 const matBoxes = data.mats.map((m) => {
   const center = (zOf(m.near) + zOf(m.far)) / 2, chosen = Number(m.depth);
   const depth = Number.isFinite(chosen) && chosen >= 2 && chosen <= 80 ? chosen : zOf(m.far) - zOf(m.near);
-  return { ...box(m.x0, m.x1, 0, 0.6, Math.max(1, center - depth / 2), Math.min(D - 1, center + depth / 2), m.color), mat: true };
+  return { ...box(m.x0, m.x1, 0, 0.6, Math.max(1, center - depth / 2), Math.min(D - 1, center + depth / 2), m.color, m.key), mat: true };
 });
 const roomBoxes = [...chairBoxes, ...seatBoxes, ...shelfBoxes, ...windowBoxes, ...matBoxes];
 const footprints = [
@@ -455,6 +467,45 @@ if (e.place === "bed" && !e.entered) {
 return pic;
 }
 
+function sightMap(cam, look, fov) {
+  // The same rays and solid traces as the picture, sampled sparsely so ordinary sight costs no model tokens.
+  const fwd = norm(sub(look, cam)), right = norm(cross(fwd, [0, 1, 0])), up = cross(right, fwd);
+  const sw = 160, sh = 90, F = (sw / 2) / Math.tan((fov * Math.PI) / 360);
+  const seen = new Map();
+  const appearances = new Map(solids.filter((o) => o.t.key).map((o) => [o.t.key, o.t.appearance]));
+  for (let py = 0; py < sh; py++) for (let px = 0; px < sw; px++) {
+    const sx = (px + 0.5 - sw / 2) / F, sy = (sh / 2 - (py + 0.5)) / F;
+    const d = [fwd[0] + right[0] * sx + up[0] * sy, fwd[1] + right[1] * sx + up[1] * sy,
+      fwd[2] + right[2] * sx + up[2] * sy];
+    let best = 1e9, key = null;
+    const plane = (t) => { if (t > 0.01 && t < best) best = t; };
+    if (d[1] < 0) plane(-cam[1] / d[1]);
+    if (!data.outdoor) {
+      if (d[1] > 0) plane((HW - cam[1]) / d[1]);
+      if (d[2] < 0) plane(-cam[2] / d[2]);
+      if (d[2] > 0) plane((D - cam[2]) / d[2]);
+      if (d[0] < 0) plane(-cam[0] / d[0]);
+      if (d[0] > 0) plane((W - cam[0]) / d[0]);
+    }
+    for (const o of solids) {
+      const hit = traceSolid(o, cam, d, best);
+      if (hit) { best = hit.t; key = o.t.key || null; }
+    }
+    for (const o of roomBoxes) {
+      const hit = traceBox(o, cam, d, best);
+      if (hit) { best = hit.t; key = o.key || null; }
+    }
+    if (key) {
+      const appearance = appearances.get(key);
+      const old = seen.get(key) || { key, pixels: 0, depth: best, appearance };
+      old.pixels++;
+      old.depth = Math.min(old.depth, best);
+      seen.set(key, old);
+    }
+  }
+  return { objects: [...seen.values()].map((o) => ({ ...o, depth: Math.round(o.depth) })) };
+}
+
 // Turning my head or lifting my gaze changes the view, never the place where my eyes are.
 const facing = {
   ahead: [0, -1], right: [1, 0], behind: [0, 1], left: [-1, 0],
@@ -464,4 +515,5 @@ const sight = (direction) => [eyeCam[0] + facing[direction][0] * 100,
                              eyeCam[1] + Math.tan(pitch * Math.PI / 180) * 100,
                              eyeCam[2] + facing[direction][1] * 100];
 const direction = facing[mode] ? mode : "ahead";
-process.stdout.write(png(render(eyeCam, sight(direction), 80), 3, "#000000"));
+process.stdout.write(outputMode === "sight" ? JSON.stringify(sightMap(eyeCam, sight(direction), 80))
+  : png(render(eyeCam, sight(direction), 80), 3, "#000000"));
