@@ -92,8 +92,6 @@ def route(me, room, x, distance):
     gx, gz = point(room, x, distance)
     blocks = _blocks(room)
     blocked = lambda a, b: any(lo <= a <= hi and near <= b <= far for lo, hi, near, far in blocks)
-    if blocked(gx, gz):
-        raise ValueError('That spot is occupied. I can walk beside it by changing x or distance a little.')
     step = 8
     nx, nz = math.floor((width - 32) / step) + 1, math.floor((depth - 16) / step) + 1
     cell = lambda ix, iz: (16 + ix * step, 8 + iz * step)
@@ -104,7 +102,7 @@ def route(me, room, x, distance):
     came, cost = {}, {source: 0}
     while frontier:
         _, here = heapq.heappop(frontier)
-        if here == target:
+        if here == target and not blocked(gx, gz):
             break
         for dx, dz in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)):
             nxt = here[0] + dx, here[1] + dz
@@ -119,8 +117,15 @@ def route(me, room, x, distance):
             if value < cost.get(nxt, float("inf")):
                 came[nxt], cost[nxt] = here, value
                 heapq.heappush(frontier, (value + math.hypot(nxt[0] - target[0], nxt[1] - target[1]), nxt))
-    if target not in cost:
-        raise ValueError('Furniture blocks that path for now. I can choose another spot or move an item.')
+    exact = target in cost and not blocked(gx, gz)
+    if not exact:
+        # A wish to go somewhere needn't fail just because its exact floor point is occupied.
+        reachable = [p for p in cost if p != source and not blocked(*cell(*p))]
+        if not reachable:
+            raise ValueError('Furniture blocks the way around me. I can move an item to make room.')
+        target = min(reachable, key=lambda p: (math.hypot(cell(*p)[0] - gx, cell(*p)[1] - gz), cost[p]))
+        if math.hypot(cell(*target)[0] - gx, cell(*target)[1] - gz) > 60:
+            raise ValueError('Furniture blocks that part of the room. I can choose another place or move an item.')
     cells = [target]
     while cells[-1] != source:
         cells.append(came[cells[-1]])
@@ -134,5 +139,6 @@ def route(me, room, x, distance):
     turns.append(cells[-1])
     path = [{"x": round((px - 16) / (width - 32), 3), "distance": round(pz / depth, 3)}
             for px, pz in (cell(*t) for t in turns)]
-    path[0], path[-1] = {"x": round(start[0], 3), "distance": round(start[1], 3)}, {"x": x, "distance": distance}
+    arrived = (x, distance) if exact else ((cell(*target)[0] - 16) / (width - 32), cell(*target)[1] / depth)
+    path[0], path[-1] = {"x": round(start[0], 3), "distance": round(start[1], 3)}, {"x": round(arrived[0], 3), "distance": round(arrived[1], 3)}
     return path

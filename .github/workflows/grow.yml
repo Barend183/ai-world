@@ -49,10 +49,24 @@ jobs:
           WORLD_PASSWORD_NEW: ${{ secrets.WORLD_PASSWORD_NEW }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pip install --quiet -r requirements.txt kaggle six   # six: a helper the Kaggle tool needs but doesn't install
+          pip install --quiet -r requirements.txt 'kaggle>=2.2.1' six   # quota needs the current CLI
+          # Listing datasets also works anonymously. Quota needs a signed-in account and prints no private data here.
+          if kaggle quota > /dev/null 2>&1; then
+            echo "Kaggle authentication works."
+          elif [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then
+            # An invalid new token takes precedence over a working legacy key; try the latter on its own.
+            unset KAGGLE_API_TOKEN
+            if ! kaggle quota > /dev/null 2>&1; then
+              echo "::error::Kaggle rejected both available credential methods; check the KAGGLE_ secrets."
+              exit 1
+            fi
+            echo 'KAGGLE_API_TOKEN=' >> "$GITHUB_ENV"   # keep using the working legacy key in later steps
+            echo "Kaggle authentication works with the legacy key."
+          else
+            echo "::error::Kaggle rejected the API token; check the KAGGLE_ secrets."
+            exit 1
+          fi
           python -m brain unlock   # to read his own choices about his brain (whether it should grow now)
-          # first make sure the key really opens Kaggle, so a wrong key shows up now and not on training day
-          kaggle datasets list --mine > /dev/null && echo "Kaggle key works." || { echo "::error::Kaggle didn't accept the key; check the KAGGLE_ secrets."; exit 1; }
           mkdir -p work/data work/kernel
           python -m brain lessons work/data/lessons.jsonl | tee work/count.txt
           n=$(grep -o '^[0-9]*' work/count.txt)

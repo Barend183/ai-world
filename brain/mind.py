@@ -839,7 +839,9 @@ class Session:
                     w.me["facing"] = 2 if dz > 0 else 0
             say(f"I walked through the {room['name']}", None, room=room["id"], path=path,
                 x=path[-1]["x"], distance=path[-1]["distance"])
-            return f"I walked to x={path[-1]['x']:.2f}, distance={path[-1]['distance']:.2f} in the {room['name']}."
+            nearby = abs(float(x) - path[-1]["x"]) > .02 or abs(float(distance) - path[-1]["distance"]) > .02
+            return (f"I walked to x={path[-1]['x']:.2f}, distance={path[-1]['distance']:.2f} in the {room['name']}."
+                    + (" I stopped nearby because the spot I aimed for was occupied or blocked." if nearby else ""))
 
         if action == "look":
             if not getattr(self.chain.current, "sees", False):

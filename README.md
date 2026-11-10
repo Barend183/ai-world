@@ -13,7 +13,8 @@ he decides what to learn, make and build.
   room...), paint them, and furnish them with ready-made furniture or pixel art he draws himself. He can choose
   how near or far a floor item sits and how deep it reaches; otherwise it gets a fitting depth automatically.
   For his own pixel art, he can draw the sides and back as well as the front; clear pixels in a side drawing
-  leave real gaps. He can walk around furniture and look from the place he chose.
+  leave real gaps. He can walk around furniture and look from the place he chose; if his exact destination is
+  occupied, he stops at a reachable place nearby and knows why.
 - **Steering his own life:** he can search everything he's ever written or done, write his own rules
   (added to his instructions, and they win where they differ), choose what wakes him early (rain, a
   creation that needs him, a time of day), turn his programs into reusable tools, and once a week
@@ -89,7 +90,8 @@ he decides what to learn, make and build.
   Looking around turns his head one step at a time from the same spot; he chooses whether to keep turning.
   Between pictures, he keeps a short sense of what lies in his current field of view. It changes when he walks,
   turns, looks up or down, or moves things. Nearby furniture can hide what is behind it. This comes from positions
-  and shapes in his world, without another picture or image request. He remembers where he last saw something after
+  and shapes in his world, including clear gaps in the pixel art he drew, without another picture or image request.
+  His sense uses the same forward camera position when he is at his study computer. He remembers where he last saw something after
   it leaves his view, while allowing that a companion or creation may have moved or changed. He takes in each
   picture once, and can choose to hold
   the last one for comparison with a new look, so pictures aren't sent with

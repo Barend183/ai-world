@@ -97,6 +97,27 @@ def _entry(eye, point, shape):
     return near
 
 
+def _opaque(shape, x, z, height):
+    """A clear pixel in my own drawing leaves a gap in the solid seen by my eyes."""
+    views = shape.get("views")
+    if not views:
+        return True
+    left, right = shape["x"] - shape["w"] / 2, shape["x"] + shape["w"] / 2
+    back, front = shape["z"] - shape["d"] / 2, shape["z"] + shape["d"] / 2
+    side = abs(x - left) < .001 or abs(x - right) < .001
+    rear = abs(z - back) < .001
+    art = (views.get("side") if side else views.get("back") if rear else None) or views["front"]
+    rows = art.get("pixels") or []
+    if not rows:
+        return True
+    width = max(map(len, rows))
+    along = ((z - back) / shape["d"] if side and views.get("side") else
+             (x - left) / shape["w"])
+    row = min(len(rows) - 1, max(0, int((1 - height / max(1, shape["h"])) * len(rows))))
+    col = min(width - 1, max(0, int(along * width)))
+    return col < len(rows[row]) and rows[row][col] != "."
+
+
 def _hidden(eye, eye_y, point, height, shape, blockers):
     for other in blockers:
         if other is shape:
@@ -105,8 +126,12 @@ def _hidden(eye, eye_y, point, height, shape, blockers):
                 abs(eye[1] - other["z"]) <= other["d"] / 2):
             continue
         hit = _entry(eye, point, other)
-        if hit is not None and hit < .97 and eye_y + (height - eye_y) * hit <= other["h"]:
-            return True
+        if hit is not None and hit < .97:
+            level = eye_y + (height - eye_y) * hit
+            x = eye[0] + (point[0] - eye[0]) * hit
+            z = eye[1] + (point[1] - eye[1]) * hit
+            if level <= other["h"] and _opaque(other, x, z, level):
+                return True
     return False
 
 
@@ -180,8 +205,16 @@ def describe(world, room):
     forward = FACING[facing if isinstance(facing, int) and 0 <= facing < 4 else 0]
     pitch = {"up": 20, "down": -20}.get(me.get("tilt"), 0)
     eye = navigation.point(room, *navigation._start(me, room))
+    if room.get("builtin") and me.get("place") == "computer":
+        eye = (eye[0], eye[1] + 28)   # the 3D camera leans toward the desk from the computer
     eye_y = _eye_height(me, room)
     floor = navigation.floor_shapes(room)
+    art = {f"item:{room['id']}:{i['id']}": i for i in room.get("items", []) if i.get("sprite")}
+    for shape in floor:
+        item = art.get(shape["key"])
+        if item:
+            shape["views"] = {"front": item["sprite"], "side": item.get("side_sprite"),
+                              "back": item.get("back_sprite")}
     blockers = [s for s in floor if s.get("solid", True)]
     shapes = floor + _wall_shapes(room) + _creations(world, room) + _others(world, room)
     seen = []
