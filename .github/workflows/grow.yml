@@ -53,6 +53,12 @@ jobs:
           # Listing datasets also works anonymously. Quota needs a signed-in account and prints no private data here.
           if kaggle quota > /dev/null 2>&1; then
             echo "Kaggle authentication works."
+          elif [ -n "$KAGGLE_KEY" ] && KAGGLE_API_TOKEN="$KAGGLE_KEY" kaggle quota > /dev/null 2>&1; then
+            # Kaggle's "Generate New Token" gives a new-style token; saved under the old name KAGGLE_KEY it only
+            # works when it's handed over as the token it is.
+            export KAGGLE_API_TOKEN="$KAGGLE_KEY"
+            echo "KAGGLE_API_TOKEN=$KAGGLE_KEY" >> "$GITHUB_ENV"   # for the later steps (stays masked in the log)
+            echo "Kaggle authentication works (the saved key is a new-style token)."
           elif [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then
             # An invalid new token takes precedence over a working legacy key; try the latter on its own.
             unset KAGGLE_API_TOKEN

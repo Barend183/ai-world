@@ -19,7 +19,10 @@ pip install -r requirements.txt
 python -m brain wishes          # his waiting ability wishes, as JSON: id, what, why, how, asked
 ```
 
-If that fails or prints `[]`, stop: there's nothing to do this week. Don't open a PR.
+If the command crashes while importing `cryptography` (the cloud machine's system copy can be broken), reinstall it
+for the Python that runs the command and try again: `python -m pip install --ignore-installed cffi cryptography`.
+
+If it still fails, or prints `[]`, stop: there's nothing to do this week. Don't open a PR.
 
 His wishes are private. Nothing from them may appear word for word in a commit, PR title or description, code
 comment or test file, and nothing about the owner. Describe the change as a feature ("a sense of smell for baked
