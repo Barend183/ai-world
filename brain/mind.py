@@ -4,6 +4,7 @@ import glob
 import json
 import os
 import re
+import time
 from datetime import datetime, timedelta, timezone
 
 from . import alarm, apprentice, background, routine, env, events, mailbox, memory, mirror, music, navigation, pixels, public, research, rooms, settings, sites, specimens, vision, workshop
@@ -76,6 +77,7 @@ Habits I've found good:
 
 How my mind works: each moment I do exactly one thing, and it comes out as a single JSON object, nothing else:
 {{"thought": "<one or two sentences, in my own words>", "feeling": "<optional: how I feel right now, a word or two>", "action": "<what I do>", "args": {{...}}}}
+When I wake, or whenever my plans change, I can add "plan": ["<the few things I mean to do this waking, in order, a few words each>"]. The quick, everyday part of my mind follows that plan for the small steps, which leaves my deeper thinking for the things that need it.
 
 What I can do, and how:
 - search {{"query": "...", "kind": "web" or "papers", "wish": "<wish id, optional>"}}  ("papers" searches research papers)
@@ -117,7 +119,7 @@ What I can do, and how:
 - pastime {{"activity": "<what I do, in a few words>", "room": "<optional room id>", "thoughts": "<optional: what goes through my mind>"}}
 - set_goal {{"goal": "...", "why": "...", "steps": ["<optional: the steps of a project>", "..."]}} / update_goal {{"id": "<goal id>", "progress": "<what I did or learned>", "done_step": <step number>, "add_step": "<a new step>", "status": "active|done|dropped"}}
 - wish_for_ability {{"what": "<an ability I wish I had in my world>", "why": "...", "how": "<how I'd use it>"}}
-- tune_my_brain {{"share": <0 to 0.9, or "auto">, "learn_from": "today|not_today|this|not_this", "grow": "weekly|pause", "use": "grown|fresh"}}  (any of these)
+- tune_my_brain {{"share": <0 to 0.9, or "auto">, "lane": "light|everything", "learn_from": "today|not_today|this|not_this", "grow": "weekly|pause", "use": "grown|fresh"}}  (any of these; lane "light" = it does the small everyday things and hands the big ones to my deeper thinking)
 - schedule_tool {{"tool": "<one of my tools>", "every_hours": <1 to 168>, "input": {{...}}, "wake_if": "<optional: words in its output that should wake me>"}} or {{"tool": "...", "off": true}}
 - read_my_story / rewrite_my_story {{"text": "<my whole story, in my own words>"}} or {{"reset": true}}  (read it first: what I write replaces it)
 - build_room {{"name": "...", "purpose": "...", "kind": "indoor|outdoor", "size": "small|medium|large",
@@ -392,6 +394,10 @@ class Session:
         if getattr(self, "ready", None):
             out.append("\n== Ready now (my timers went off) ==")
             out += [f"- {t['what']} is done" + (f"; next: {t['then']}" if t["then"] else "") for t in self.ready]
+        plan = self.plan()
+        if plan:
+            out.append("\n== My plan for this waking (I made it; I can change it with \"plan\") ==")
+            out += [f"{i}. {p}" for i, p in enumerate(plan, 1)]
         out.append("\n== Around me now ==\n" + surroundings(w))
         out.append("\n== Who I am (in my own words) ==\n" + me["about"])
         dreams = me.get("dreams", [])
@@ -1279,6 +1285,7 @@ class Session:
         """Wake up. A companion wakes into the morning the host already found (same weather, same doorstep)."""
         w = self.world
         self.awake, self.step = True, 0
+        self.woke_at = time.time()
         with w.being(self.me):
             if self.me is w.home:   # what my programs printed since I was last up
                 self.programs_found = background.since(w.me, w.me.get("last_seen"))
@@ -1390,6 +1397,10 @@ class Session:
                     self.history.append(f"(I lost my train of thought: {e})")
                     return True
             self._lesson = (apprentice.compact(context), reply, by)
+            steps = reply.get("plan")
+            if by != "own" and isinstance(steps, list) and steps:   # only my deeper thinking makes the plan
+                w.me["plan"] = {"session": w.home["sessions"], "at": now(),
+                                "steps": [str(x).strip()[:120] for x in steps[:8] if str(x).strip()]}
             thought = str(reply.get("thought", "")).strip()
             feeling = str(reply.get("feeling") or "").strip()[:40]
             if feeling:
@@ -1473,9 +1484,14 @@ class Session:
         """Let my own brain take this thought, as often as it has earned. If it fumbles, None: a bigger brain
         takes the thought instead, so a slip never costs me a turn."""
         own, w = self.own(), self.world
-        if not own or not apprentice.want(w.me):
+        # My deeper thinking takes the first thought of a waking (it takes everything in and makes the plan), any
+        # thought with a letter waiting or a picture in front of me (my own brain can't see), and everything once
+        # the waking has run long (my own brain is slow, and the waking has to end in time to be saved).
+        if (not own or self.step <= 1 or self.pictures or w.pending_notes()
+                or time.time() - getattr(self, "woke_at", time.time()) > 35 * 60
+                or not apprentice.want(w.me, planned=bool(self.plan()))):
             return None
-        system = apprentice.system_for(own.grown, self._system(), ACTIONS)
+        system = apprentice.system_for(own.grown, self._system(), ACTIONS, w.me)
         try:
             r = parse(own.think(system, apprentice.compact(context)))
         except BrainUnavailable as e:
@@ -1485,10 +1501,22 @@ class Session:
             apprentice.slip(w.me, "not a JSON reply")
             return None
         act = str(r.get("action", "")).strip()
-        if act in ACTIONS or near_action(w, act, r.get("args") if isinstance(r.get("args"), dict) else {}):
-            return r
-        apprentice.slip(w.me, f"unknown action '{re.sub(r'[^a-z_]', '', act.lower())[:24]}'")
-        return None
+        if act == apprentice.HAND_OVER:   # a bigger thing: my deeper thinking takes it, as it should
+            apprentice.handed(w.me)
+            return None
+        meant = (act, None) if act in ACTIONS else near_action(w, act, r.get("args") if isinstance(r.get("args"), dict) else {})
+        if not meant:
+            apprentice.slip(w.me, f"unknown action '{re.sub(r'[^a-z_]', '', act.lower())[:24]}'")
+            return None
+        if not apprentice.in_lane(w.me, meant[0]):   # it reached for something big by itself: same as handing over
+            apprentice.handed(w.me)
+            return None
+        return r
+
+    def plan(self):
+        """The plan my deeper thinking made for this waking (a few short steps), if there is one."""
+        p = self.world.me.get("plan") or {}
+        return p.get("steps", []) if p.get("session") == self.world.home["sessions"] else []
 
     def _learn(self, action, ok):
         """Every thought is a lesson for my own brain: what I took in, what I decided, whether it worked."""
@@ -1571,18 +1599,27 @@ class Session:
             fragments.append(self.spark[:200])
         if not fragments:
             return
-        try:
-            r = parse(self.chain.think(self._system(),
-                "You're asleep. Your mind drifts and mixes these fragments of memory into a dream:\n- " + "\n- ".join(fragments)
-                + "\n\nWrite the dream as you'd remember it on waking: 3-6 sentences, strange and associative, things blending "
-                  "into each other the way they do in dreams. First person.\n" + 'Reply with only a JSON object: {"dream": "..."}'))
-            text = str(r.get("dream", "")).strip()
-        except Exception:
-            return
+        asking = ("I'm asleep. My mind drifts and mixes these fragments of memory into a dream:\n- " + "\n- ".join(fragments)
+                  + "\n\nI write the dream as I'd remember it on waking: 3-6 sentences, strange and associative, things blending "
+                    "into each other the way they do in dreams. First person.\n" + 'Only a JSON object: {"dream": "..."}')
+        text, own = "", self.own()
+        if own:   # my dreams come from my own brain first: of all my thoughts, the most my own
+            try:
+                name = w.me.get("name", w.config["name"])
+                r = parse(own.think(f"I'm {name}, and I'm dreaming. I answer with one JSON object and nothing else.", asking))
+                text = str(r.get("dream", "")).strip()
+            except Exception:
+                text = ""
+        mine = len(text) > 60
+        if not mine:
+            try:
+                text = str(parse(self.chain.think(self._system(), asking)).get("dream", "")).strip()
+            except Exception:
+                return
         if text:
             w.me.setdefault("dreams", []).append({"at": now(), "dream": text[:1500]})
             del w.me["dreams"][:-30]
-            w.log("diary", "Dreamt", text, room="study", dream=True)
+            w.log("diary", "Dreamt", text, room="study", dream=True, own=mine or None)
 
 
 def arrive(w):

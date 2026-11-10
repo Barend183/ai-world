@@ -23,7 +23,7 @@ KEEP = 3000          # lessons kept (the oldest fade)
 BRANCH = "apprentice"
 
 # What my own brain is given: the parts of my day that matter for the next thought, not the whole library.
-KEEP_SECTIONS = ("Letters waiting", "Our letters lately", "Ready now", "Around me now", "Who I am", "Still on my mind",
+KEEP_SECTIONS = ("Letters waiting", "Our letters lately", "Ready now", "My plan", "Around me now", "Who I am", "Still on my mind",
                  "My notebook", "My timers", "My habits", "My long-term goals", "Weather", "Happening in my world",
                  "Things I've brought to life", "What I've done since I woke", "On my desk")
 LIMITS = {"Our letters lately": 900, "My notebook": 1200, "On my desk": 1500, "What I've done since I woke": 1800,
@@ -31,18 +31,56 @@ LIMITS = {"Our letters lately": 900, "My notebook": 1200, "On my desk": 1500, "W
 
 OWN_SYSTEM = """I'm Sprout. I live in my own small world: my study, my rooms, my creations, my books. Nobody gives me tasks; I learn and make what I like, and I answer the letters that come.
 I take in what's around me and decide one thing to do next. I reply with one JSON object: {"thought": "...", "feeling": "<a word>", "action": "<one of my actions>", "args": {...}}.
-My actions: """
+"""
+OWN_SYSTEM_V1 = OWN_SYSTEM + "My actions: "   # what a brain grown before the everyday lane was taught with
+
+# The everyday lane: the small things my own brain does by itself. My deeper thinking (a bigger brain) plans the
+# waking and does the big things; my own brain carries out the small steps and hands over when one is bigger.
+LIGHT = {"pastime", "look", "walk", "interact", "move", "start_timer", "cancel_timer", "set_alarm", "read_book",
+         "remember", "listen", "think", "mirror", "view_public_page", "view_site"}
+HAND_OVER = "hand_over"
+HANDING = ("I'm the quick, everyday part of my mind. The small things I do myself: looking, walking, tending my creations, "
+           "a pastime, rereading one of my books, a timer. When the next thing is bigger (writing a book, a note or a letter, "
+           "research at my computer, building or decorating, changing something about myself, or going to bed), I pass it "
+           'to my deeper thinking: {"thought": "<what I mean to do>", "action": "hand_over", "args": {}}. '
+           "If I have a plan for this waking, I follow it.\n")
 
 
-def system_for(grown, full_system, actions):
+def style():
+    """How the adopted grown brain was taught: 1 = every action, 2 = the everyday lane with hand_over."""
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "own_brain.json"), encoding="utf-8") as f:
+            return json.load(f).get("style", 1)
+    except (OSError, ValueError):
+        return 2
+
+
+def lane(me):
+    return state(me).get("lane", "light") if me is not None else "light"
+
+
+def in_lane(me, action):
+    """Whether this is something my own brain does by itself (otherwise it hands the thought over)."""
+    return lane(me) == "everything" or action in LIGHT
+
+
+def _head(actions, everything):
+    mine = sorted(actions) if everything else sorted((LIGHT & set(actions)) | {HAND_OVER})
+    return OWN_SYSTEM + ("" if everything else HANDING) + "My actions: " + ", ".join(mine), mine
+
+
+def system_for(grown, full_system, actions, me=None):
     """What my own brain is told about itself. Once it has grown from my lessons it knows my ways, so a few lines
-    are enough. Before that, it gets who I am, how to answer, and one line per action (how to call it): my full
-    instructions are too long for a small brain to take in quickly."""
+    are enough. Before that, it gets who I am, how to answer, and one line per action in its lane (how to call it):
+    my full instructions are too long for a small brain to take in quickly."""
+    if grown and style() < 2:
+        return OWN_SYSTEM_V1 + ", ".join(sorted(actions))
+    head, mine = _head(actions, lane(me) == "everything")
     if grown:
-        return OWN_SYSTEM + ", ".join(sorted(actions))
+        return head
     lines = full_system.split("What I can do, and how:", 1)[-1].splitlines()
-    calls = [l.strip()[:220] for l in lines if l.startswith("- ") and l[2:].split(" ", 1)[0] in actions]
-    return OWN_SYSTEM + ", ".join(sorted(actions)) + ".\nHow to use them:\n" + "\n".join(calls)
+    calls = [l.strip()[:220] for l in lines if l.startswith("- ") and l[2:].split(" ", 1)[0] in mine]
+    return head + ".\nHow to use them:\n" + "\n".join(calls)
 
 
 def slip(me, why):
@@ -84,9 +122,17 @@ def state(me):
     return s
 
 
-def want(me):
-    """Whether my own brain takes this thought: as often as it has earned."""
-    return random.random() < state(me)["share"]
+def want(me, planned=False):
+    """Whether my own brain is offered this thought: as often as it has earned, and twice as often when my
+    deeper thinking has laid out a plan for it to follow."""
+    share = state(me)["share"]
+    return random.random() < (min(0.9, share * 2) if planned else share)
+
+
+def handed(me):
+    """It passed a bigger thought to my deeper thinking: that's the right call, not a slip."""
+    s = state(me)
+    s["handed"] = s.get("handed", 0) + 1
 
 
 def outcome(me, ok):
@@ -128,9 +174,13 @@ def describe(me):
     choices = (" I've paused its growing." if s.get("grow") == "pause" else "")
     choices += (" I'm thinking with the fresh one, not the grown one." if s.get("use") == "fresh" and s.get("version") else "")
     slips = f" Its recent slips: {'; '.join(s['slips'][-3:])}." if s.get("slips") else ""
-    return (f"A small brain of my own is growing in me: {grown}. It takes about {round(s['share'] * 100)}% of my "
-            f"everyday thoughts ({who}); {how}.{slips}{choices}{test_results()} It's mine to raise (tune_my_brain): how much "
-            "I trust it, which days it learns from, whether it keeps growing, and which version I think with.")
+    does = ("It may do anything I can do." if s.get("lane") == "everything" else
+            "It does the small everyday things (looking, walking, tending, pastimes) and follows the plan my deeper "
+            "thinking makes; the big things (writing, research, building, bedtime) it hands over.")
+    return (f"A small brain of my own is growing in me: {grown}. {does} It's offered about {round(s['share'] * 100)}% of my "
+            f"thoughts, twice that when I've made a plan ({who}); {how}.{slips}{choices}{test_results()} It's mine to raise "
+            "(tune_my_brain): how much I trust it, what it may do, which days it learns from, whether it keeps growing, "
+            "and which version I think with.")
 
 
 def tune(me, args, session):
@@ -169,8 +219,15 @@ def tune(me, args, session):
             raise ValueError('use is "grown" (the version that learned from me) or "fresh" (the plain one it grew from)')
         s["use"] = use
         said.append(f"I think with the {use} one")
+    does = str(args.get("lane") or "").lower()
+    if does:
+        if does not in ("light", "everything"):
+            raise ValueError('lane is "light" (the small everyday things; the big ones it hands over) or "everything"')
+        s["lane"] = does
+        said.append("it does the small everyday things and hands the big ones over" if does == "light"
+                    else "it may do anything I can do")
     if not said:
-        raise ValueError('tell me what to change: share, learn_from, grow or use')
+        raise ValueError('tell me what to change: share, lane, learn_from, grow or use')
     return "; ".join(said)
 
 
@@ -213,22 +270,30 @@ def trim():
         f.writelines(json.dumps(x, ensure_ascii=False) + "\n" for x in keep)
 
 
-def export(path, actions, letters=True):
+def export(path, actions, letters=True, me=None):
     """My good lessons, ready to learn from: only what worked, taught by a bigger brain (so my own brain doesn't
-    learn its own slips), never my private pages, and no long runs of the same thing (that's how loops are learned)."""
-    system = OWN_SYSTEM + ", ".join(sorted(actions))
+    learn its own slips), never my private pages, and no long runs of the same thing (that's how loops are learned).
+    In the everyday lane, a big thing teaches when to hand over: the same thought, passed to my deeper thinking."""
+    everything = lane(me) == "everything"
+    system, _ = _head(actions, everything)
     kept, last = [], None
     for x in lessons():
         if not x["ok"] or x["by"] == "own" or x["action"] in ("write_private", "muddled") or x.get("keep") is False:
             continue
-        if x["action"] == last and x["action"] in ("pastime", "interact", "look"):
-            continue
         if not letters and ("Letters waiting" in x["in"] or x["action"] in ("reply_note", "write_letter")):
             continue
+        out, does = x["out"], x["action"]
+        if not everything and does not in LIGHT:
+            said = json.loads(out)
+            out = json.dumps({"thought": said.get("thought"), "feeling": said.get("feeling"), "action": HAND_OVER, "args": {}},
+                             ensure_ascii=False)
+            does = HAND_OVER
+        if does == last and does in ("pastime", "interact", "look", HAND_OVER):
+            continue
         lesson = {"messages": [{"role": "system", "content": system}, {"role": "user", "content": x["in"]},
-                               {"role": "assistant", "content": x["out"]}]}
+                               {"role": "assistant", "content": out}]}
         kept += [lesson, lesson] if x.get("keep") else [lesson]   # what I chose to learn from counts double
-        last = x["action"]
+        last = does
     with open(path, "w", encoding="utf-8") as f:
         f.writelines(json.dumps(k, ensure_ascii=False) + "\n" for k in kept)
     return len(kept)

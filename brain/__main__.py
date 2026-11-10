@@ -278,7 +278,7 @@ def main():
         if apprentice.state(me).get("grow") == "pause":   # his choice: no growing for now
             print("0 lessons to learn from (he has paused his brain's growing)")
         else:
-            print(f"{apprentice.export(a.out, ACTIONS, letters=not a.no_letters)} lessons to learn from")
+            print(f"{apprentice.export(a.out, ACTIONS, letters=not a.no_letters, me=me)} lessons to learn from")
     elif a.cmd == "answer":
         world = World(config)
         req = next((r for r in world.requests if r["id"] == a.id), None)

@@ -93,7 +93,8 @@ for ex in held:
     except (ValueError, AttributeError):
         pass
 meta = {"base": BASE, "lessons": len(train), "tested": len(held), "valid": round(valid / len(held), 3),
-        "same_choice": round(same / len(held), 3), "epochs": epochs}
+        "same_choice": round(same / len(held), 3), "epochs": epochs,
+        "style": 2 if "hand_over" in actions else 1}   # which way of thinking it was taught (see apprentice.style)
 print("test:", meta)
 
 # Pack it: merge the new learning into the model, then one GGUF file for Ollama.

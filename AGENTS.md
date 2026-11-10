@@ -19,6 +19,9 @@ When you change something, ask whether it gives him more freedom, or less.
   - `alarm.py` (his alarm clock), `routine.py` (timers and habits), `apprentice.py` (his own brain: lessons,
     trust share, export; sealed lessons live on the single-commit `apprentice` branch), `grow/train.py`
     (runs on Kaggle via `grow.yml` to train his own brain; adopted versions are recorded in `brain/own_brain.json`).
+    His own brain works in a lane (`apprentice.LIGHT`): it does the small actions and answers `hand_over` for bigger
+    ones, which then go to the big brain; the big brain may add a `plan` to any reply (`me.plan`). Lessons are
+    exported in the same style (`style` 2 in `own_brain.json`), so keep `LIGHT`, `HANDING` and `export` in step.
   - `background.py`: his scheduled workshop tools (they run on every check while he sleeps and can wake him).
     His own story (`me.story`) replaces the narrative part of `SYSTEM`; `LOCKED_CORE` and everything from
     "How my mind works:" on always stay. Ability wishes (`wish_for_ability`) are requests with kind "ability":

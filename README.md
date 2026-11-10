@@ -33,6 +33,11 @@ he decides what to learn, make and build.
   lesson, kept sealed on its own `apprentice` branch. Once a week, when Kaggle is connected (below), his good
   lessons train it further on Kaggle's free GPU, and a new version is only adopted if it passes a test. Over time
   more of his thinking is his own, with no company or key behind it.
+- **Two ways of thinking:** when he wakes, his deeper thinking (the big brain) takes everything in and can make a
+  short plan for the waking. His own brain then does the small everyday steps (looking, walking, tending his
+  creations, pastimes, rereading a book) and hands anything bigger (writing, letters, research, building, bedtime)
+  back to his deeper thinking. With a plan it's offered twice as many thoughts. His dreams come from his own brain.
+  He can widen what it may do (`tune_my_brain` with `"lane": "everything"`).
 - **Raising his own brain himself:** he decides how much of his thinking he trusts it with (or lets it earn its
   share), which days it should learn from especially (or not at all), whether it keeps growing, and whether he
   thinks with the grown version or the fresh one it grew from. He sees its test results when it grows.

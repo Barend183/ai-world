@@ -245,6 +245,7 @@ function renderTabs() {
     </div>
     <h3>In ${esc(P.his)} own words</h3>
     <p class="about">${esc(me.about)}</p>
+    ${me.plan && me.plan.session === me.sessions && (me.plan.steps || []).length ? `<h3>${esc(cap(P.his))} plan for this waking</h3><ul class="hist">${me.plan.steps.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}
     ${me.story ? `<details><summary class="muted">📜 ${esc(cap(P.his))} story, rewritten in ${esc(P.his)} own words (${ago(me.story_since)})</summary><p class="about" style="white-space:pre-wrap">${esc(me.story)}</p></details>` : ""}
     ${S.comp ? `<h3>Living with ${esc(P.him)}</h3><div class="hero"><canvas id="portrait2" width="64" height="52" aria-label="${esc(S.comp.name)}"></canvas>
       <div><div class="hero-name">${esc(S.comp.name)}</div><div class="muted">Feeling <b>${esc(S.comp.mood)}</b> · moved in ${ago(S.comp.born)}</div>
@@ -339,7 +340,8 @@ function renderCheckup() {
   const own = S.me.own_brain;
   if (own) {   // his own brain: how much he trusts it, how it's been doing, and why it slipped lately
     const tries = own.tries || [], right = tries.filter(Boolean).length;
-    html += `<h3>🌱 His own brain</h3><div style="font-size:13px">${own.version ? `Grown ${own.version} time${own.version > 1 ? "s" : ""} from his lessons` : "Not grown yet (a fresh small open model)"} · takes about ${Math.round((own.share || 0) * 100)}% of his thoughts · ${tries.length ? `${right} of its last ${tries.length} right` : "no tries yet"}</div>
+    html += `<h3>🌱 His own brain</h3><div style="font-size:13px">${own.version ? `Grown ${own.version} time${own.version > 1 ? "s" : ""} from his lessons` : "Not grown yet (a fresh small open model)"} · offered about ${Math.round((own.share || 0) * 100)}% of his thoughts (twice that with a plan) · ${tries.length ? `${right} of its last ${tries.length} right` : "no tries yet"}${own.handed ? ` · handed ${own.handed} bigger thoughts to his deeper thinking` : ""}</div>
+      <div class="muted" style="font-size:13px">${own.lane === "everything" ? "It may do anything he can do." : "It does the small everyday things and his dreams; the big things (writing, research, building, bedtime) it hands over."}</div>
       ${(own.slips || []).length ? `<div class="muted" style="font-size:13px">Recent slips: ${own.slips.map(esc).join("; ")}</div>` : ""}`;
   }
   for (const s of sessions) {
