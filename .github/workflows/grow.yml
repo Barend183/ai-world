@@ -72,6 +72,13 @@ jobs:
             echo "::error::Kaggle rejected the API token; check the KAGGLE_ secrets."
             exit 1
           fi
+          # His lessons and his brain are filed under the account the key signs in as. Ask Kaggle for that
+          # account's username instead of trusting the KAGGLE_USERNAME secret: when the two differed, Kaggle
+          # refused the upload ("Invalid Owner Id") and the training started without any lessons.
+          OWNER=$(python -c "from kaggle import api; print(api.get_config_value('username') or '')" 2>/dev/null || true)
+          [ -n "$OWNER" ] || OWNER="$KAGGLE_USERNAME"
+          echo "::add-mask::$OWNER"
+          echo "KAGGLE_OWNER=$OWNER" >> "$GITHUB_ENV"
           python -m brain unlock   # to read his own choices about his brain (whether it should grow now)
           mkdir -p work/data work/kernel
           python -m brain lessons work/data/lessons.jsonl | tee work/count.txt
@@ -82,22 +89,31 @@ jobs:
       - name: Send them to Kaggle and start the training
         if: steps.lessons.outputs.go == 'true'
         run: |
-          U="$KAGGLE_USERNAME"
+          U="$KAGGLE_OWNER"
           printf '{"title": "sprout-lessons", "id": "%s/sprout-lessons", "licenses": [{"name": "other"}]}' "$U" > work/data/dataset-metadata.json
           # private by default; a new version each week
           kaggle datasets version -p work/data -m "lessons $(date -u +%F)" -q || kaggle datasets create -p work/data -q
           sleep 60   # let Kaggle unpack the new version before the training reads it
+          # the Kaggle tool reports a refused upload without failing, so make sure the lessons really arrived
+          kaggle datasets files "$U/sprout-lessons" 2>&1 | grep -q "lessons.jsonl" \
+            || { echo "::error::His lessons didn't arrive on Kaggle, so there's nothing to train on."; exit 1; }
           cp brain/grow/train.py work/kernel/
           printf '{"id": "%s/sprout-grow", "title": "sprout-grow", "code_file": "train.py", "language": "python", "kernel_type": "script", "is_private": true, "enable_gpu": true, "enable_internet": true, "dataset_sources": ["%s/sprout-lessons"]}' "$U" "$U" > work/kernel/kernel-metadata.json
-          kaggle kernels push -p work/kernel
+          kaggle kernels push -p work/kernel 2>&1 | tee work/push.txt
+          grep -q "successfully pushed" work/push.txt || { echo "::error::Kaggle didn't accept the training notebook."; exit 1; }
+          if grep -q "not valid dataset sources" work/push.txt; then echo "::error::The training couldn't be given his lessons."; exit 1; fi
 
       - name: Wait for it to finish learning
         if: steps.lessons.outputs.go == 'true'
         run: |
+          lost=0
           for i in $(seq 1 150); do
-            s=$(kaggle kernels status "$KAGGLE_USERNAME/sprout-grow" 2>&1 || true); echo "$s" | tail -1
+            s=$(kaggle kernels status "$KAGGLE_OWNER/sprout-grow" 2>&1 || true); echo "$s" | tail -1
             echo "$s" | grep -qiE 'complete' && exit 0
             echo "$s" | grep -qiE 'error|cancel' && exit 1
+            # no status at all, several times running: stop instead of waiting five hours on nothing
+            if echo "$s" | grep -qiE 'running|queued|pending|status'; then lost=0; else lost=$((lost + 1)); fi
+            if [ "$lost" -ge 5 ]; then echo "::error::Kaggle isn't reporting the training's status."; exit 1; fi
             sleep 120
           done
           exit 1
@@ -105,7 +121,7 @@ jobs:
       - name: Test results, and adopt it if it passed
         if: steps.lessons.outputs.go == 'true'
         run: |
-          kaggle kernels output "$KAGGLE_USERNAME/sprout-grow" -p work/out
+          kaggle kernels output "$KAGGLE_OWNER/sprout-grow" -p work/out
           cat work/out/meta.json
           python - <<'EOF'
           import json, sys, datetime
@@ -121,7 +137,7 @@ jobs:
           EOF
           # his adopted brain lives as a private Kaggle dataset; each wake-up fetches it from there
           mkdir -p work/brain && cp work/out/sprout.gguf work/out/Modelfile brain/own_brain.json work/brain/
-          printf '{"title": "sprout-brain", "id": "%s/sprout-brain", "licenses": [{"name": "other"}]}' "$KAGGLE_USERNAME" > work/brain/dataset-metadata.json
+          printf '{"title": "sprout-brain", "id": "%s/sprout-brain", "licenses": [{"name": "other"}]}' "$KAGGLE_OWNER" > work/brain/dataset-metadata.json
           kaggle datasets version -p work/brain -m "version $(python -c 'import json; print(json.load(open("brain/own_brain.json"))["version"])')" -q \
             || kaggle datasets create -p work/brain -q
 

@@ -104,7 +104,11 @@ jobs:
               # ...and a new-style token saved under the old name works once it's used as a token
               if KAGGLE_API_TOKEN="$KAGGLE_KEY" kaggle quota > /dev/null 2>&1; then export KAGGLE_API_TOKEN="$KAGGLE_KEY"; else unset KAGGLE_API_TOKEN; fi
             fi
-            kaggle datasets download "$KAGGLE_USERNAME/sprout-brain" -p "$HOME/sprout" --unzip -q \
+            # filed under the account the key signs in as (which may not be what the KAGGLE_USERNAME secret says)
+            OWNER=$(python -c "from kaggle import api; print(api.get_config_value('username') or '')" 2>/dev/null || true)
+            [ -n "$OWNER" ] || OWNER="$KAGGLE_USERNAME"
+            echo "::add-mask::$OWNER"
+            kaggle datasets download "$OWNER/sprout-brain" -p "$HOME/sprout" --unzip -q \
               && (cd "$HOME/sprout" && ollama create sprout -f Modelfile > /dev/null) || echo "couldn't fetch his grown brain this time"
           fi
           ollama list
