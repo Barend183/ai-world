@@ -21,8 +21,17 @@ from peft import LoraConfig, get_peft_model  # noqa: E402
 from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: E402
 
 if not torch.cuda.is_available():
-    sys.exit("No GPU in this Kaggle session. GPUs (and internet) need a phone-verified Kaggle account: "
-             "kaggle.com/settings -> Phone verification.")
+    import urllib.request
+    try:   # internet and GPUs are both switched off for accounts without a verified phone number
+        urllib.request.urlopen("https://huggingface.co", timeout=15)
+        online = True
+    except Exception:
+        online = False
+    sys.exit("No GPU in this Kaggle session, and "
+             + ("the internet works, so the account is verified: Kaggle just didn't attach the GPU that was asked for."
+                if online else
+                "no internet either. That's what a Kaggle account without a verified phone number gets: "
+                "kaggle.com/settings -> Phone verification."))
 
 BASE = os.environ.get("SPROUT_BASE", "Qwen/Qwen3-1.7B")
 OUT = "/kaggle/working"
