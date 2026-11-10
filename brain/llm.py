@@ -244,9 +244,11 @@ class OwnBrain:
         self.label = f"my own brain ({'grown' if self.grown else 'new'}, {self.model})"
 
     def think(self, system, prompt):
-        body = {"model": self.model, "stream": False, "format": "json", "think": False,
+        body = {"model": self.model, "stream": False, "format": "json",
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
                 "options": {"num_ctx": 8192, "temperature": 0.7}}
+        if not self.grown:   # the plain model muses first unless told not to; his grown one was taught not to
+            body["think"] = False
         try:
             return _request(f"{self.host}/api/chat", body, timeout=240)["message"]["content"]
         except Exception as e:   # (240 s: a thought that takes longer than that counts as a slip)

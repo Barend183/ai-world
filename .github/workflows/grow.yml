@@ -110,7 +110,12 @@ jobs:
           for i in $(seq 1 150); do
             s=$(kaggle kernels status "$KAGGLE_OWNER/sprout-grow" 2>&1 || true); echo "$s" | tail -1
             echo "$s" | grep -qiE 'complete' && exit 0
-            echo "$s" | grep -qiE 'error|cancel' && exit 1
+            if echo "$s" | grep -qiE 'error|cancel'; then
+              kaggle kernels output "$KAGGLE_OWNER/sprout-grow" -p work/fail > /dev/null 2>&1 || true
+              echo "The training stopped. The end of its log:"
+              python brain/grow/kaggle_log.py work/fail || true
+              exit 1
+            fi
             # no status at all, several times running: stop instead of waiting five hours on nothing
             if echo "$s" | grep -qiE 'running|queued|pending|status'; then lost=0; else lost=$((lost + 1)); fi
             if [ "$lost" -ge 5 ]; then echo "::error::Kaggle isn't reporting the training's status."; exit 1; fi

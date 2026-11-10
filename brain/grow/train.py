@@ -14,11 +14,15 @@ import re
 import subprocess
 import sys
 
-subprocess.run([sys.executable, "-m", "pip", "install", "-q", "peft>=0.13", "gguf", "sentencepiece", "protobuf"], check=True)
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "peft>=0.13", "sentencepiece", "protobuf"], check=True)
 
 import torch  # noqa: E402
 from peft import LoraConfig, get_peft_model  # noqa: E402
 from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: E402
+
+if not torch.cuda.is_available():
+    sys.exit("No GPU in this Kaggle session. GPUs (and internet) need a phone-verified Kaggle account: "
+             "kaggle.com/settings -> Phone verification.")
 
 BASE = os.environ.get("SPROUT_BASE", "Qwen/Qwen3-1.7B")
 OUT = "/kaggle/working"
@@ -38,6 +42,11 @@ model.gradient_checkpointing_enable()
 model.enable_input_require_grads()
 model = get_peft_model(model, LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, task_type="CAUSAL_LM",
                                          target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]))
+# The model itself stays in half precision to fit the GPU, but what's being learned must be full precision:
+# the gradient scaler refuses to work on half-precision weights ("Attempting to unscale FP16 gradients").
+for p in model.parameters():
+    if p.requires_grad:
+        p.data = p.data.float()
 
 
 def prompt_of(msgs):
@@ -95,13 +104,17 @@ for ex in held:
 meta = {"base": BASE, "lessons": len(train), "tested": len(held), "valid": round(valid / len(held), 3),
         "same_choice": round(same / len(held), 3), "epochs": epochs,
         "style": 2 if "hand_over" in actions else 1}   # which way of thinking it was taught (see apprentice.style)
-print("test:", meta)
+print("test:", meta, flush=True)
+with open(f"{OUT}/meta.json", "w") as f:   # kept even if the packing below fails
+    json.dump(meta, f)
 
 # Pack it: merge the new learning into the model, then one GGUF file for Ollama.
 merged = model.merge_and_unload()
 merged.save_pretrained(f"{OUT}/merged", safe_serialization=True)
 tok.save_pretrained(f"{OUT}/merged")
 subprocess.run(["git", "clone", "-q", "--depth", "1", "https://github.com/ggml-org/llama.cpp", "/tmp/llama.cpp"], check=True)
+# the converter needs the gguf library that ships with it, not whichever version pip happens to have
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "/tmp/llama.cpp/gguf-py"], check=True)
 subprocess.run([sys.executable, "/tmp/llama.cpp/convert_hf_to_gguf.py", f"{OUT}/merged", "--outtype", "q8_0",
                 "--outfile", f"{OUT}/sprout.gguf"], check=True)
 subprocess.run(["rm", "-rf", f"{OUT}/merged"], check=True)
@@ -111,6 +124,4 @@ with open(f"{OUT}/Modelfile", "w") as f:
             '{{ if .Prompt }}<|im_start|>user\n{{ .Prompt }}<|im_end|>\n{{ end }}'
             '<|im_start|>assistant\n<think>\n\n</think>\n\n{{ .Response }}<|im_end|>\n"""\n'
             'PARAMETER stop "<|im_end|>"\nPARAMETER temperature 0.7\n')
-with open(f"{OUT}/meta.json", "w") as f:
-    json.dump(meta, f)
 print("done")
