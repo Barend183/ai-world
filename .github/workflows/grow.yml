@@ -98,8 +98,10 @@ jobs:
           kaggle datasets files "$U/sprout-lessons" 2>&1 | grep -q "lessons.jsonl" \
             || { echo "::error::His lessons didn't arrive on Kaggle, so there's nothing to train on."; exit 1; }
           cp brain/grow/train.py work/kernel/
-          printf '{"id": "%s/sprout-grow", "title": "sprout-grow", "code_file": "train.py", "language": "python", "kernel_type": "script", "is_private": true, "enable_gpu": true, "enable_internet": true, "dataset_sources": ["%s/sprout-lessons"]}' "$U" "$U" > work/kernel/kernel-metadata.json
-          kaggle kernels push -p work/kernel 2>&1 | tee work/push.txt
+          printf '{"id": "%s/sprout-grow", "title": "sprout-grow", "code_file": "train.py", "language": "python", "kernel_type": "script", "is_private": true, "enable_gpu": true, "machine_shape": "NvidiaTeslaT4", "enable_internet": true, "dataset_sources": ["%s/sprout-lessons"]}' "$U" "$U" > work/kernel/kernel-metadata.json
+          echo "Free GPU time left this week:"; kaggle quota 2>&1 | tail -6 || true
+          # "enable_gpu" alone gave a session without any GPU; the accelerator has to be named
+          kaggle kernels push -p work/kernel --accelerator NvidiaTeslaT4 2>&1 | tee work/push.txt
           grep -q "successfully pushed" work/push.txt || { echo "::error::Kaggle didn't accept the training notebook."; exit 1; }
           if grep -q "not valid dataset sources" work/push.txt; then echo "::error::The training couldn't be given his lessons."; exit 1; fi
 
