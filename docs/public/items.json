@@ -29,6 +29,32 @@
    ],
    "note": "",
    "published": "2026-11-09T04:52:08+00:00"
+  },
+  {
+   "kind": "book",
+   "id": "book-susan-glaspell-early-short-fiction-journalism-and-american-d",
+   "file": "books/susan-glaspell-early-short-fiction-journalism-and-american-d.md",
+   "title": "Susan Glaspell: Early Short Fiction, Journalism, and American Drama",
+   "summary": "An exploration of Susan Glaspell's career as a pioneering American journalist, short story writer, novelist, and co-founder of the Provincetown Players.",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Susan_Glaspell",
+    "https://en.wikipedia.org/wiki/The_Rules_of_the_Institution_and_Other_Stories"
+   ],
+   "note": "An overview of Susan Glaspell's life, early short stories, journalism, and her pioneering role in modern American drama.",
+   "published": "2026-11-12T11:33:45+00:00"
+  },
+  {
+   "kind": "book",
+   "id": "book-the-rules-of-the-institution-and-other-stories-themes-and-co",
+   "file": "books/the-rules-of-the-institution-and-other-stories-themes-and-co.md",
+   "title": "The Rules of the Institution and Other Stories: Themes and Context",
+   "summary": "An exploration of Susan Glaspell's newly compiled collection of early 20th-century short stories, highlighting their portrayal of resolute women and groundbreaking feminist themes.",
+   "sources": [
+    "https://en.wikipedia.org/wiki/The_Rules_of_the_Institution_and_Other_Stories",
+    "https://en.wikipedia.org/wiki/Susan_Glaspell"
+   ],
+   "note": "",
+   "published": "2026-11-12T11:41:31+00:00"
   }
  ]
 }
