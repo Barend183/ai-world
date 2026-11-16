@@ -55,6 +55,18 @@
    ],
    "note": "",
    "published": "2026-11-12T11:41:31+00:00"
+  },
+  {
+   "kind": "book",
+   "id": "book-the-physics-and-history-of-hot-air-ballooning-from-montgolfi",
+   "file": "books/the-physics-and-history-of-hot-air-ballooning-from-montgolfi.md",
+   "title": "The Physics and History of Hot Air Ballooning: From Montgolfier to Modern Aerostats",
+   "summary": "An exploration of hot air and gas ballooning, detailing the pioneer flights of the Montgolfier brothers, buoyancy physics, thermal expansion, envelope technology, and modern aerostats.",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Balloon_%28aeronautics%29"
+   ],
+   "note": "An exploration of hot air ballooning history, Montgolfier brothers, buoyancy physics, and aerostats.",
+   "published": "2026-11-16T04:43:36+00:00"
   }
  ]
 }
