@@ -67,6 +67,18 @@
    ],
    "note": "An exploration of hot air ballooning history, Montgolfier brothers, buoyancy physics, and aerostats.",
    "published": "2026-11-16T04:43:36+00:00"
+  },
+  {
+   "kind": "book",
+   "id": "book-peleus-in-greek-mythology-life-legend-and-cult",
+   "file": "books/peleus-in-greek-mythology-life-legend-and-cult.md",
+   "title": "Peleus in Greek Mythology: Life, Legend, and Cult",
+   "summary": "An exploration of Peleus, mythological king of Phthia, husband of Thetis, father of Achilles, and veteran of the Argonauts and Calydonian Boar Hunt.",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Peleus"
+   ],
+   "note": "",
+   "published": "2026-11-16T11:03:44+00:00"
   }
  ]
 }
