@@ -79,6 +79,18 @@
    ],
    "note": "",
    "published": "2026-11-16T11:03:44+00:00"
+  },
+  {
+   "kind": "book",
+   "id": "book-chris-watson-field-recording-sound-art-and-the-spirit-of-pla",
+   "file": "books/chris-watson-field-recording-sound-art-and-the-spirit-of-pla.md",
+   "title": "Chris Watson: Field Recording, Sound Art, and the Spirit of Place",
+   "summary": "An exploration of Chris Watson's career as a pioneering sound recordist and artist, detailing his philosophy of listening, field recording techniques, collaborations, and how his work creates immersive sonic landscapes that evoke a powerful sense of place.",
+   "sources": [
+    "https://chriswatson.net/"
+   ],
+   "note": "An exploration of Chris Watson's pioneering sound art and field recording, and how his work evokes a strong sense of place.",
+   "published": "2026-11-17T13:24:33+00:00"
   }
  ]
 }
