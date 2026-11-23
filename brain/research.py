@@ -3,6 +3,8 @@ import ipaddress
 import json
 import re
 import socket
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from html import unescape
@@ -234,37 +236,70 @@ def _wikipedia_article(url):
     return page.get("title", title), page.get("extract", ""), images[:6]
 
 
-def read(url, max_chars, part=1):
-    """Reads a public web page, PDF, text or JSON. Long pages come in parts of max_chars.
-    Returns a dict: title, text, images, links, part, parts."""
-    if not _is_public(url):
-        raise ValueError("that address isn't on the public internet")
+# Pages I've opened lately, so reading on through a long article doesn't fetch it again each time
+# (sites like Wikipedia refuse when the same page is asked for over and over).
+_OPENED = {}
+KEEP_SECONDS = 1800
+
+
+def _open(url):
+    """Fetches a page once and turns it into (title, text, images, links)."""
     if re.match(r"https?://en\.wikipedia\.org/wiki/", url):
         title, text, images = _wikipedia_article(url)
-        links = []
-    else:
-        raw, ctype, charset = _fetch(url, limit=15_000_000)
-        images, links = [], []
-        if ctype == "application/pdf" or raw[:5] == b"%PDF-":
-            title, text = _pdf_text(raw, max_chars * part)
-        elif "html" in ctype:
-            title, text, images, links = html_to_text(raw.decode(charset, errors="replace"), url)
-            if BLOCKED.search(title + " " + text[:600]) and len(text) < 2500:
-                raise ValueError("the site showed a bot check instead of the page; try another source")
-        elif ctype.startswith("text/") or "json" in ctype:
-            title, text = url, raw.decode(charset, errors="replace")
-        else:
-            raise ValueError(f"can't read {ctype} files")
+        return title, text, images, []
+    raw, ctype, charset = _fetch(url, limit=15_000_000)
+    if ctype == "application/pdf" or raw[:5] == b"%PDF-":
+        title, text = _pdf_text(raw, 10 ** 9)   # the whole document (up to 120 pages), so "part 2 of 5" stays true
+        return title, text, [], []
+    if "html" in ctype:
+        title, text, images, links = html_to_text(raw.decode(charset, errors="replace"), url)
+        if BLOCKED.search(title + " " + text[:600]) and len(text) < 2500:
+            raise ValueError("the site showed a bot check instead of the page; try another source")
+        return title, text, images, links
+    if ctype.startswith("text/") or "json" in ctype:
+        return url, raw.decode(charset, errors="replace"), [], []
+    raise ValueError(f"can't read {ctype} files")
+
+
+def _opened(url):
+    kept = _OPENED.get(url)
+    if kept and time.time() - kept[0] < KEEP_SECONDS:
+        return kept[1]
+    try:
+        page = _open(url)
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            raise ValueError("the site says it's been asked too often just now; give it a few minutes and try again") from e
+        raise
+    _OPENED[url] = (time.time(), page)
+    for old in sorted(_OPENED, key=lambda u: _OPENED[u][0])[:-8]:   # keep only the last few pages
+        del _OPENED[old]
+    return page
+
+
+def read(url, max_chars, part=1, start=None):
+    """Reads a public web page, PDF, text or JSON. Long pages come in parts of max_chars.
+    start (a character position) picks up exactly where an earlier reading stopped, even if the part size changed.
+    Returns a dict: title, text, images, links, part, parts, start, end, length."""
+    if not _is_public(url):
+        raise ValueError("that address isn't on the public internet")
+    title, text, images, links = _opened(url)
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     parts = max(1, -(-len(text) // max_chars))
-    part = min(max(1, int(part)), parts)
-    chunk = text[(part - 1) * max_chars: part * max_chars]
-    if part < parts:
+    if start is not None and 0 < start < len(text):
+        begin = start
+    else:
+        begin = (min(max(1, int(part)), parts) - 1) * max_chars
+    chunk = text[begin: begin + max_chars]
+    end = begin + len(chunk)
+    part = min(parts, begin // max_chars + 1)
+    if end < len(text):
         chunk += f" [...continues: part {part} of {parts}]"
     is_sound = lambda u: u.split("?")[0].lower().endswith(SOUND_EXTENSIONS)
     sounds = [(u, a) for u, a in images + links if is_sound(u)][:8]
     return {"title": title or url, "text": chunk, "images": [(u, a) for u, a in images if not is_sound(u)],
-            "links": [(u, a) for u, a in links if not is_sound(u)], "sounds": sounds, "part": part, "parts": parts}
+            "links": [(u, a) for u, a in links if not is_sound(u)], "sounds": sounds, "part": part, "parts": parts,
+            "start": begin, "end": end, "length": len(text)}
 
 
 def fetch_image(url, limit=6_000_000):

@@ -81,10 +81,10 @@ When I wake, or whenever my plans change, I can add "plan": ["<the few things I 
 
 What I can do, and how:
 - search {{"query": "...", "kind": "web" or "papers", "wish": "<wish id, optional>"}}  ("papers" searches research papers)
-- read {{"url": "<any public web address: a page, PDF, link I saw, or data service>", "part": <optional: 2, 3... for long pages>}}
+- read {{"url": "<any public web address: a page, PDF, link I saw, or data service>", "part": <optional: 2, 3..., or "next" for long pages>}}  (long pages keep a bookmark: reading the same page again carries on where I stopped, across wakings; "part": 1 starts over)
 - write_book {{"title": "...", "shelf": "<subject, e.g. Biology, Cooking, Poems>", "summary": "<one sentence>", "content": "<the whole book in markdown>", "sources": ["<urls I read, if any>"]}}
   (Using an existing book's title replaces that book, so I include everything worth keeping.)
-- read_book {{"id": "<book id>"}}
+- read_book {{"id": "<book id>", "part": <optional: 2, 3... for long books>}}
 - add_wish {{"topic": "...", "why": "..."}} / complete_wish {{"id": "...", "book": "<book id>"}} / drop_wish {{"id": "...", "reason": "..."}}
 - think {{"about": "..."}}
 - reply_note {{"id": "<note id>", "reply": "..."}}  (one answer per letter; adding "add": true puts a P.S. under an answer I already sent)
@@ -362,6 +362,7 @@ class Session:
         self.last_seen = {}  # what each creation looked like when last observed this session
         self.pictures = []  # (label, mime, bytes) he is looking at, newest last
         self.last_query = None
+        self.last_url = None   # the page I read last, so "read on" needs no address
 
     # ---- the prompt ------------------------------------------------------
     def _context(self, step):
@@ -520,6 +521,50 @@ class Session:
         keep = keep or (3 if self.kind == "gemini" else 1)
         self.desk.append(item)
         self.desk = self.desk[-keep:]
+
+    # Words for "carry on" and "go back", however I happen to put them.
+    NEXT_WORDS = {"next", "continue", "more", "on", "rest", "following", "keep going", "carry on", "next part", "resume"}
+    START_WORDS = {"start", "beginning", "first", "top", "again", "restart", "over", "from the start"}
+
+    def _marks(self):
+        """My own pile of bookmarks (a companion keeps theirs separately)."""
+        return self.world.bookmarks.setdefault(self.world.me.get("id", "home"), {})
+
+    def _reading_spot(self, url, args):
+        """Where to open a page: (part, start, note). A part number goes straight there; "next" or
+        nothing at all carries on from my bookmark, so a long article reads like one continuous text."""
+        mark = self._marks().get(url)
+        part = args.get("part", args.get("page"))
+        wants_next = any(args.get(k) for k in ("next", "next_part", "continue", "more", "resume"))
+        if isinstance(part, str):
+            said = part.strip().lower()
+            number = re.search(r"\d+", said)
+            if said in self.NEXT_WORDS or said.startswith(("next", "contin")):
+                part, wants_next = None, True
+            elif said in self.START_WORDS:
+                return 1, None, ""
+            elif said in ("last", "end", "final"):
+                return 10 ** 6, None, ""
+            elif number:   # "2", "part 2", "2 of 5"
+                part = int(number.group())
+            else:
+                part = None
+        if isinstance(part, (int, float)) and not isinstance(part, bool) and part >= 1:
+            return int(part), None, ""
+        if mark and mark["end"] < mark["length"]:
+            return 1, mark["end"], " — carried on from my bookmark"
+        if wants_next:
+            return 1, None, " — I had no bookmark in it, so I began at the start"
+        return 1, None, ""
+
+    def _bookmark(self, url, page):
+        """Remembers how far I got in a long page (across wakings), and lets go once I've read to the end."""
+        marks = self._marks()
+        marks.pop(url, None)
+        if page["end"] < page["length"]:
+            marks[url] = {"title": page["title"][:120], "end": page["end"], "length": page["length"], "at": now()}
+        while len(marks) > 40:   # the oldest bookmarks fall out of the pile
+            marks.pop(next(iter(marks)))
 
     def _system(self):
         c, me = self.world.config, self.world.me
@@ -710,24 +755,33 @@ class Session:
             return f'searched "{query}" ({len(results)} results)'
 
         if action == "read":
-            url = str(args.get("url", "")).strip()
+            url = str(args.get("url") or args.get("link") or "").strip().split("#")[0]
+            if not url:
+                url = self.last_url or next(reversed(self._marks()), "")
+                if not url:
+                    raise ValueError('read needs a web address, e.g. {"url": "https://en.wikipedia.org/wiki/Moon"}')
+            part, start, note = self._reading_spot(url, args)
             try:
                 kind = self.chain.current.kind if self.chain.current else self.kind   # the brain may have changed mid-session
-                page = research.read(url, self.config_for("page_chars", kind, self.page_chars), args.get("part") or 1)
+                page = research.read(url, self.config_for("page_chars", kind, self.page_chars), part, start)
             except Exception as e:
                 say(f"Tried to open a page but it wouldn't load", f"{url}\n{e}", url=url)
                 return f"couldn't open {url} ({e})"
             self.read_urls.add(url)
+            self.last_url = url
+            self._bookmark(url, page)
             title, text = page["title"], page["text"]
             pics = "".join(f"\n  - {alt or 'picture'}: {src}" for src, alt in page["images"])
             links = "".join(f"\n  - {label}: {href}" for href, label in page["links"][:25])
             sounds = "".join(f"\n  - {label or 'recording'}: {href}" for href, label in page.get("sounds", []))
             where = f" (part {page['part']} of {page['parts']})" if page["parts"] > 1 else ""
-            self._put_on_desk(f"Page: {title}{where}\n{url}\n{text}" + (f"\nPictures on this page:{pics}" if pics else "")
+            onward = ("; to read on: read the same url again, or with \"part\": \"next\"" if page["end"] < page["length"]
+                      else "; that's the end of it" if page["parts"] > 1 else "")
+            self._put_on_desk(f"Page: {title}{where}{note}\n{url}\n{text}" + (f"\nPictures on this page:{pics}" if pics else "")
                               + (f"\nRecordings on this page (listen to hear them):{sounds}" if sounds else "")
                               + (f"\nLinks on this page:{links}" if links else ""))
             say(f"Read “{title}”{where}", text[:1500], url=url)
-            return f"read “{title}”{where} ({url})"
+            return f"read “{title}”{where}{note} ({url}){onward}"
 
         if action == "write_book":
             title = str(args.get("title", "")).strip()
@@ -744,13 +798,24 @@ class Session:
             return f"{'revised' if revised else 'wrote'} book [{book['id']}] “{book['title']}” ({book['words']} words)"
 
         if action == "read_book":
-            book = w.find_book(str(args.get("id", "")))
+            key = str(args.get("id") or args.get("title") or args.get("url") or "").strip()
+            if key.startswith(("http://", "https://")):   # a web address belongs to read; open it there
+                return self.act(thought, "read", {**args, "url": key})
+            book = w.find_book(key)
             if not book:
-                raise ValueError("there's no book with that id on your shelves")
+                raise ValueError("there's no book with that id on my shelves (for a web page I use read with its url); my books: "
+                                 + (", ".join(f"[{b['id']}]" for b in w.shelves[-12:]) or "none yet"))
             text = w.read_book_text(book["id"])
-            self._put_on_desk(f"Book [{book['id']}] {book['title']} (sources: {', '.join(book['sources'])})\n{text[: self.page_chars]}")
-            say(f"Took “{book['title']}” off the shelf to reread it", book=book["id"])
-            return f"reread book [{book['id']}]"
+            size = self.page_chars
+            parts = max(1, -(-len(text) // size))
+            part = args.get("part")
+            number = re.search(r"\d+", str(part)) if part is not None else None
+            part = min(max(1, int(number.group())), parts) if number else 1
+            where = f" (part {part} of {parts})" if parts > 1 else ""
+            self._put_on_desk(f"Book [{book['id']}] {book['title']}{where} (sources: {', '.join(book['sources'])})\n"
+                              + text[(part - 1) * size: part * size])
+            say(f"Took “{book['title']}” off the shelf to reread it{where}", book=book["id"])
+            return f"reread book [{book['id']}]{where}" + (f'; for more: read_book with "part": {part + 1}' if part < parts else "")
 
         if action == "add_wish":
             topic = str(args.get("topic", "")).strip()

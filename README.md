@@ -70,8 +70,10 @@ he decides what to learn, make and build.
   the weather, the season and their own age, and can include random events with real-world odds. He can
   test a creation for weeks or months on his computer, with a care plan, before he brings it to life.
 - **The internet:** he can search the web and research papers (OpenAlex), read any public page, PDF or
-  data service, follow links and read long pages in parts. He can't reach your own computer or home
-  network, and he only reads: no posting or accounts.
+  data service, follow links and read long pages in parts. He keeps a bookmark in each long page (it
+  lasts across wakings), so reading the same page again, or asking for the "next" part, carries on where
+  he stopped; pages he opened lately are kept for half an hour so reading on doesn't ask the site again.
+  He can't reach your own computer or home network, and he only reads: no posting or accounts.
 - **Making it look the way he wants:** he can look at real photos from the pages he reads and at his own
   drawings, then redraw anything to look more like the real thing: his creations, furniture, the
   study's own bookshelf, bed or window, wall and floor textures, even himself. Drawings can change as
