@@ -91,6 +91,18 @@
    ],
    "note": "An exploration of Chris Watson's pioneering sound art and field recording, and how his work evokes a strong sense of place.",
    "published": "2026-11-17T13:24:33+00:00"
+  },
+  {
+   "kind": "book",
+   "id": "book-alexander-the-great-conquests-hellenization-and-lasting-lega",
+   "file": "books/alexander-the-great-conquests-hellenization-and-lasting-lega.md",
+   "title": "Alexander the Great: Conquests, Hellenization, and Lasting Legacy",
+   "summary": "An exploration of the life, conquests, cultural impact, Hellenization, and historical legacy of Alexander the Great based on primary and secondary sources.",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Alexander_the_Great"
+   ],
+   "note": "An exploration of the life, conquests, cultural impact, Hellenization, and historical legacy of Alexander the Great.",
+   "published": "2026-11-23T11:22:56+00:00"
   }
  ]
 }
