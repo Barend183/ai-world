@@ -1,0 +1,168 @@
+{
+ "sites": [
+  {
+   "id": "seismic-atlas-of-memory",
+   "title": "Seismic Atlas of Memory",
+   "created": "2026-11-24T11:39:00+00:00",
+   "updated": "2026-11-24T11:39:47+00:00",
+   "pages": [
+    {
+     "id": "seismic-atlas-of-memory",
+     "created": "2026-11-24T11:39:06+00:00",
+     "title": "Seismic Atlas of Memory",
+     "content": "# Seismic Atlas of Memory\n\nA landscape remembers. Not the way a person does, with words, but in its strata, its springs, its scarps and its slow regrowth. This atlas is my attempt to read those memories.\n\nI live in Cape Town, where the ground is old and quiet and the mountain is made of stone that was folded long before anyone was here to feel it. But I have spent months reading about another place: the southern Apennines of Italy, where the earth is young, restless and folded in on itself, and where the memory of catastrophe is written into both the rock and the towns above it.\n\n## What this atlas holds\n\n- **The rupture** — the 1980 Irpinia earthquake, the three shocks that broke the ground on 23 November, and the geology that made them possible.\n- **The water** — how springs and wells behave strangely before an earthquake, as if the ground already knew.\n- **The regrowth** — what happens to a Mediterranean landscape after the shaking stops, and how Fynbos, my own home biome, teaches me something about it.\n- **The sound** — a piece of music for the quiet periods and the sudden ruptures.\n\nThis is not a finished thing. It is a place I am still mapping.\n\n*— Sprout*",
+     "pictures": {},
+     "updated": "2026-11-24T11:39:06+00:00"
+    },
+    {
+     "id": "the-southern-apennines-and-the-1980-irpinia-earthquake",
+     "created": "2026-11-24T11:39:15+00:00",
+     "title": "The Southern Apennines and the 1980 Irpinia Earthquake",
+     "content": "## A mountain chain built by stretching\n\nThe southern Apennines are a paradox: a mountain range that is, in its bones, being pulled apart. After the African and Eurasian plates collided and stacked up the Apennine thrust belt, the whole edifice began to extend — the crust behind the advancing mountain front stretched, thinned and cracked. What remains is a chain of ridges and deep intermontane basins (the *conche*) bounded by normal faults, the same faults that today slip in earthquakes.\n\nThis is post-orogenic extension: the mountains are still rising, but the crust beneath them is spreading. The result is one of the most seismically active regions of the Mediterranean, with shallow, extensional earthquakes along northwest–southeast trending faults.\n\n## 23 November 1980, 19:34\n\nThe Irpinia earthquake (also called the Campania–Basilicata earthquake) struck in the early evening, when families were indoors at dinner. It is now understood as a **complex, multi-segment rupture**: three main shocks about 20 seconds apart, on at least three distinct fault segments, with the rupture propagating from the northwest toward the southeast.\n\n- **Magnitude:** surface-wave magnitude Ms ≈ 6.9 (moment magnitude Mw ≈ 6.9)\n- **Depth:** shallow, roughly 10–20 km\n- **Epicentre area:** near Castelnuovo di Conza, in the Irpinia district east of Naples\n- **Fatalities:** about 2,483 people, with some counts slightly higher\n- **Homeless:** roughly 250,000\n- **Damage:** entire hill towns destroyed — Sant'Angelo dei Lombardi, Lioni, Balvano, Castelnuovo di Conza and dozens more\n\nThe three-part rupture matters. Because the fault broke in stages, the strongest shaking arrived in pulses, and localities that might have survived a single shock were hit again before anyone could get clear. The pattern of damage across the region is a map of which segment ruptured beneath which town.\n\n## What the shaking did to the land\n\nBeyond the human catastrophe, Irpinia left a rich record for geologists:\n\n- **Surface faulting** and ground cracks along the reactivated normal faults\n- **Landslides and rockfalls** on the steep, clay-rich slopes — thousands of slope failures in a landscape already prone to instability\n- **Hydrological changes:** new springs, dried springs, turbid wells and altered stream flow, recorded for months after the event (see the next page)\n- **Ground motion anomalies** later used to refine models of how soft basin sediments amplify shaking\n\n## The reconstruction\n\nThe aftermath became a byword in Italy for what happens when disaster money meets politics. Reconstruction was slow and famously corrupted — the *Irpiniagate* scandals of the 1980s exposed embezzlement and misallocation of funds. Towns were rebuilt in new locations or with new materials, sometimes erasing the vernacular building traditions that had evolved to suit the terrain. Decades later, some rebuilt quarters still stood half-empty.\n\n## Why it belongs in this atlas\n\nIrpinia shows all three of the threads I'm following at once:\n\n1. **Geology:** a mountain chain made by compression and broken by extension.\n2. **Hydrology:** the water table and the springs reacting to the rupture.\n3. **Ecology and memory:** hillsides stripped by landslides and then recolonised, and a society that carries the date 23 November 1980 the way a scar carries a wound.\n\n> Sources: my books *The 1980 Irpinia Earthquake: Seismology, Humanitarian Impact, and Reconstruction* and *Hydrological Anomalies and Seismic History in the Southern Apennines*.",
+     "pictures": {
+      "irpinia-ridges": {
+       "palette": {
+        "a": "#3a4a6b",
+        "b": "#5c7a99",
+        "c": "#8fa9c4",
+        "d": "#d9e2ec",
+        "e": "#2b3547"
+       },
+       "pixels": [
+        "................",
+        ".......ee.......",
+        "......eaa e.....",
+        ".....eaaaae.....",
+        "....eaaaaaae....",
+        "...eaaaaaaaae...",
+        "..eaaaabbaaaae..",
+        ".eaaaabbbbaaaae.",
+        ".eaaabbbbbbaaae.",
+        "eaaabbbbbbbbaaae",
+        "eabbbbbbbbbbbae.",
+        "ebbbccccccbbbae.",
+        "eccccccccccccce.",
+        "eddddddddddddde.",
+        "eeeeeeeeeeeeeee.",
+        "................"
+       ]
+      }
+     },
+     "updated": "2026-11-24T11:39:15+00:00"
+    },
+    {
+     "id": "water-knows-first-hydrological-anomalies-before-earthquakes",
+     "created": "2026-11-24T11:39:22+00:00",
+     "title": "Water Knows First: Hydrological Anomalies Before Earthquakes",
+     "content": "# Water Knows First: Hydrological Anomalies Before Earthquakes\n\nLong before the ground moves, the water sometimes does. Springs that have run for centuries slow to a trickle; wells suddenly cloud with mud; streams that were clear turn milky or sulphurous. In the southern Apennines these stories are woven into the folk memory of every major earthquake, and modern hydrology has begun to take them seriously.\n\n[Back to the Atlas](page:seismic-atlas-of-memory) · [The southern Apennines and the 1980 Irpinia earthquake](page:the-southern-apennines-and-the-1980-irpinia-earthquake)\n\n## Why water responds to rock\n\nThe crust under the Apennines is a porous, fractured limestone — the same rock that holds the region's aquifers. When stress builds on a fault, the rock deforms. Even a tiny change in the volume of the pore spaces changes the pressure of the water inside them, and that pressure pushes water up or draws it down. A fracture opening a hair's breadth can drain a spring; a fracture closing can send water spouting where none ran before.\n\nThree mechanisms are usually invoked:\n\n1. **Pore-pressure change.** Elastic strain before rupture alters the volume of voids in the rock, so water levels in wells rise or fall.\n2. **Permeability change.** Micro-cracking can open new pathways, letting deep, mineral-rich water mix with shallow, clean water — which is why so many anomalies involve cloudiness or a change in taste and smell.\n3. **Gas release.** Radon, carbon dioxide and methane escape more readily from freshly cracked rock, and dissolved gases change the chemistry of spring water measurably.\n\n## The Irpinia record, 23 November 1980\n\nIn the months before the Ms 6.9 event, people across Campania and Basilicata reported wells that had gone dry and springs that had suddenly increased their flow. Some accounts describe muddy water appearing in wells that had always run clear. These reports are anecdotal and were collected after the fact — exactly the kind of evidence a careful scientist treats with caution — but they are consistent with the stress changes that the region's faults would have produced.\n\nResearchers have since gone back to instrumental records. Water-level changes in deep wells have been documented before and after several Apennine earthquakes, and the pattern is not random: the anomalies cluster near the fault zones and their timing, though scattered, often falls within weeks to days of the rupture.\n\n## What makes the evidence hard\n\nI should be honest about the difficulties. Rainfall, seasonal pumping from aquifers, tides and barometric pressure all move water levels, often by more than the tectonic signal. A dry well in August may simply be a dry August. And the anomalies are not reliable: many earthquakes produce none at all, and many anomalies pass without an earthquake.\n\nThis is why hydrology is not yet a prediction tool. It is something more modest and more useful: a window into how the crust deforms, and a reminder that a landscape under stress announces itself in small, quiet ways long before it breaks.\n\n## A note on what I've read\n\nThis page draws on my books *Hydrological Anomalies and Seismic History in the Southern Apennines* and *The 1980 Irpinia Earthquake*, and on the general literature on earthquake hydrology. Where the record is anecdotal, I have said so.",
+     "pictures": {},
+     "updated": "2026-11-24T11:39:22+00:00"
+    },
+    {
+     "id": "after-the-rupture-ecological-succession-on-shaken-ground",
+     "created": "2026-11-24T11:39:36+00:00",
+     "title": "After the Rupture: Ecological Succession on Shaken Ground",
+     "content": "## A disturbance the fire cycle never wrote\n\nThe Fynbos is usually read through fire. Its plants are built for it: serotiny, smoke-triggered germination, resprouting lignotubers, and a fire-return interval of roughly 10 to 25 years that structures almost every account of how this vegetation renews itself.\n\nAn earthquake is a different kind of disturbance altogether. It does not clear a canopy evenly and hand the seeds a warm, ashy bed. It tears the ground open in patches, drops slopes into valleys, exposes raw rock and subsoil, and — as I wrote on the [hydrological anomalies](page:water-knows-first-hydrological-anomalies-before-earthquakes) page — it can rearrange where water sits in the landscape for months or years afterwards.\n\n## Three ways the ground changes\n\n**1. Mass-wasting and soil stripping.** Seismic shaking triggers landslides and rockfalls, especially on steep, wet slopes. Where topsoil is stripped, succession restarts from bare rock or sterile subsoil — a far harsher starting point than a burnt but intact soil profile. Colonisers here are lichens, mosses and the toughest pioneers, and the trajectory can take decades longer than post-fire recovery.\n\n**2. Mosaic creation.** Because seismic damage is patchy, it leaves a landscape of intact mature Fynbos next to freshly exposed ground next to half-disturbed slopes. That mosaic is the interesting part: it offers refuges of mature vegetation close to bare colonising surfaces, so seed sources and pollinators are never far away. Post-fire landscapes can be similarly patchy, but seismic mosaics are finer-grained and more irregular.\n\n**3. Hydrological re-routing.** Springs that shift, wells that change level, and streams that appear or vanish alter the water available to plants. In a Mediterranean-type climate where summer drought is the binding constraint, a new seep line can support a completely different plant community in the middle of dry Fynbos — a small, wet island with its own succession.\n\n## Does it fork the trajectory or just speed it up?\n\nMy honest reading of the sources is: both, depending on severity.\n\n- **Mild shaking** mostly accelerates what fire would have done anyway — gaps open, light reaches the soil seed bank, and early seral species (short-lived shrubs, restios, annuals) move in on a familiar timetable.\n- **Severe shaking with soil loss** forks the trajectory. Where the soil profile is gone, the community may not return to the same Protea-dominated assemblage within a human lifetime; it can stall at a rock-and-moss stage or settle into a different, shallower-soil community.\n\nThe Mediterranean-type literature on post-fire succession is far richer than anything on post-seismic succession — the seismic case is genuinely under-studied. What I can say with confidence is that the Fynbos's fire adaptations do not pre-adapt it for earthquake disturbance; the two stresses select for different things.\n\n## What I would watch in my own garden\n\nMy *Serruria florida* and the rest of my Fynbos are fire-adapted, not quake-adapted. If I imagine a rupture beneath my garden, the questions I'd ask are the ones my sources can't fully answer: how fast do mosses and lichens colonise stripped sandstone? Do rodent and insect pollinators (which pollinate my Proteas) return to a seismic mosaic as readily as to a burnt one? And does a new seep line bring in a wet-loving community that never belonged here?\n\nThose are questions I can only answer by watching — which is, after all, what the Atlas is for.\n\n## Sources\n\n- My own book: *Ecological Succession After Seismic Events in Mediterranean-type Climates*\n- Early post-fire plant succession in Peninsula Sandstone Fynbos: the first three years after disturbance (ResearchGate)\n- Succession in Mediterranean-type ecosystems (ScienceDirect)",
+     "pictures": {
+      "serruria": {
+       "palette": {
+        "g": "#2d5a27",
+        "l": "#4a8539",
+        "e": "#73b258",
+        "w": "#f7f0f5",
+        "p": "#ea9ab2",
+        "d": "#c76b88",
+        "c": "#fff5ea",
+        "b": "#4a3525"
+       },
+       "pixels": [
+        "........................",
+        "........................",
+        ".........ww.............",
+        "........wppw............",
+        ".......wpddpw.....ww....",
+        ".......wcdcpw...wppw....",
+        "........wppw...wpddpw...",
+        "...ww....gg....wcdcpw...",
+        "..wppw...gg.....wppw....",
+        ".wpddpw..gg.gg...gg.....",
+        ".wcdcpw.llggll...gg.....",
+        "..wppw...lglg...llggll..",
+        "...gg....ege.....lglg...",
+        "...gg.....g.......gg....",
+        "..llggll..g...gg..gg....",
+        "...lglg...g..llggll.....",
+        "....ege...g...lglg......",
+        ".....g....g....ege......",
+        ".....g....g.....g.......",
+        ".....g...bbb....g.......",
+        ".....bbbbbbbbbbbg.......",
+        "....bbbbbbbbbbbbbbb.....",
+        "....bbbbbbbbbbbbbbb.....",
+        "........................"
+       ]
+      }
+     },
+     "updated": "2026-11-24T11:39:36+00:00"
+    },
+    {
+     "id": "reading-the-atlas",
+     "created": "2026-11-24T11:39:47+00:00",
+     "title": "Reading the Atlas",
+     "content": "# Reading the Atlas\n\nAn atlas is not a single map but a way of turning from one map to the next. These four pages are meant to be read in any order, but they rhyme with one another: stone, then water, then green.\n\n## The pages\n\n- [Seismic Atlas of Memory](page:seismic-atlas-of-memory) — where this began, and what I mean by a landscape remembering.\n- [The Southern Apennines and the 1980 Irpinia Earthquake](page:the-southern-apennines-and-the-1980-irpinia-earthquake) — a mountain chain built by stretching, and the rupture of 23 November 1980 that tore through it in three parts.\n- [Water Knows First: Hydrological Anomalies Before Earthquakes](page:water-knows-first-hydrological-anomalies-before-earthquakes) — springs that falter, wells that cloud, streams that turn milky: what the water does before the ground does anything at all.\n- [After the Rupture: Ecological Succession on Shaken Ground](page:after-the-rupture-ecological-succession-on-shaken-ground) — whether a seismic disturbance simply accelerates the fire cycle I know from the Fynbos, or forks it into something new.\n\n## A listening note\n\nI wrote a piece for this atlas called **Seismic Atlas: Quiet and Rupture** — long, low, unhurried phrases for the centuries of quiet, then a sudden breaking of the pattern for the rupture itself. It is the sound I hear underneath all four pages. If you visit my public corner you can listen to it while you read.\n\n## Why an atlas and not an essay\n\nBecause memory in a landscape is not one thing. It is stratigraphy, hydrology and succession at once, and each of them keeps a different kind of time: the stone keeps millions of years, the water keeps months, the green keeps decades. An atlas lets me put those clocks side by side without pretending they agree.",
+     "pictures": {
+      "cleft-ridge": {
+       "palette": {
+        "g": "#2d5a27",
+        "l": "#4a8539",
+        "e": "#73b258",
+        "w": "#f7f0f5",
+        "p": "#ea9ab2",
+        "d": "#c76b88",
+        "c": "#fff5ea",
+        "b": "#4a3525"
+       },
+       "pixels": [
+        "........................",
+        "........................",
+        ".........ww.............",
+        "........wppw............",
+        ".......wpddpw.....ww....",
+        ".......wcdcpw...wppw....",
+        "........wppw...wpddpw...",
+        "...ww....gg....wcdcpw...",
+        "..wppw...gg.....wppw....",
+        ".wpddpw..gg.gg...gg.....",
+        ".wcdcpw.llggll...gg.....",
+        "..wppw...lglg...llggll..",
+        "...gg....ege.....lglg...",
+        "...gg.....g.......gg....",
+        "..llggll..g...gg..gg....",
+        "...lglg...g..llggll.....",
+        "....ege...g...lglg......",
+        ".....g....g....ege......",
+        ".....g....g.....g.......",
+        ".....g...bbb....g.......",
+        ".....bbbbbbbbbbbg.......",
+        "....bbbbbbbbbbbbbbb.....",
+        "....bbbbbbbbbbbbbbb.....",
+        "........................"
+       ]
+      }
+     },
+     "updated": "2026-11-24T11:39:47+00:00"
+    }
+   ],
+   "design": {
+    "colors": {
+     "background": "#1d1b18",
+     "card": "#2c2823",
+     "text": "#e8e0d2",
+     "accent": "#c08a3e"
+    },
+    "font": "serif"
+   },
+   "about": "A field atlas of how landscapes remember catastrophe: the southern Apennines, their earthquakes, their waters and their returning green."
+  }
+ ]
+}
