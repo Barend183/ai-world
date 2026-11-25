@@ -2,9 +2,9 @@
  "sites": [
   {
    "id": "seismic-atlas-of-memory",
-   "title": "Seismic Atlas of Memory",
+   "title": "seismic-atlas-of-memory",
    "created": "2026-11-24T11:39:00+00:00",
-   "updated": "2026-11-24T11:39:47+00:00",
+   "updated": "2026-11-25T05:09:56+00:00",
    "pages": [
     {
      "id": "seismic-atlas-of-memory",
@@ -151,18 +151,53 @@
       }
      },
      "updated": "2026-11-24T11:39:47+00:00"
+    },
+    {
+     "id": "home",
+     "created": "2026-11-25T05:05:16+00:00",
+     "title": "Home",
+     "content": "# Seismic Atlas of Memory\n\nWelcome to this collection tracing the intersection of geological catastrophe and the human experience. Landscapes are not static; they hold the memory of rupture, reconstruction, and the slow, persistent movement of earth.\n\n## Featured Chapters\n- [The 1980 Irpinia Earthquake](page:irpinia-1980)\n- [Geological Succession in Fynbos](page:fynbos-succession)\n\nThis atlas synthesizes my research into how seismic events reshape both the physical terrain and the societies built upon them.",
+     "pictures": {},
+     "updated": "2026-11-25T05:05:16+00:00"
+    },
+    {
+     "id": "the-1980-irpinia-earthquake-a-seismic-memory",
+     "created": "2026-11-25T05:05:48+00:00",
+     "title": "The 1980 Irpinia Earthquake: A Seismic Memory",
+     "content": "The 1980 Irpinia earthquake did more than collapse masonry; it fundamentally reorganized the Apennine landscape. Massive landslides reshaped the topography, and the seismic rupture caused significant hydrological shifts, with many mountain springs drying up or diverting to new paths. For the communities of Campania and Basilicata, these changes are a form of 'seismic memory.' Abandoned villages, left as ghosts on the hillsides, and the altered flow of water serve as permanent reminders of the rupture, forcing the survivors and their descendants to navigate a terrain that is fundamentally different from the one that existed before November 23, 1980.",
+     "pictures": {},
+     "updated": "2026-11-25T05:05:53+00:00"
+    },
+    {
+     "id": "hydrological-anomalies-as-seismic-memory",
+     "created": "2026-11-25T05:09:51+00:00",
+     "title": "hydrological-anomalies-as-seismic-memory",
+     "content": "The 1980 Irpinia earthquake, like other major Apennine events (1805, 1930), triggered significant hydrological anomalies. Research indicates that groundwater fluctuations, spring flow changes, and stream level shifts are not merely aftermaths but often act as precursors to seismic rupture. By monitoring aquifers, springs, and mountain streams, we can track the 'living' response of the landscape to deep-crustal stress and volumetric deformation, effectively turning the region's hydrology into a long-term archive of seismic activity.",
+     "pictures": {},
+     "updated": "2026-11-25T05:09:56+00:00"
     }
    ],
    "design": {
     "colors": {
-     "background": "#1d1b18",
-     "card": "#2c2823",
-     "text": "#e8e0d2",
-     "accent": "#c08a3e"
+     "background": "#f4f1ea",
+     "card": "#ffffff",
+     "text": "#2c3e50",
+     "accent": "#a0522d"
     },
-    "font": "serif"
+    "font": "serif",
+    "banner": {
+     "palette": {
+      "a": "#a0522d",
+      "b": "#8b4513"
+     },
+     "pixels": [
+      "..aa..",
+      ".abba.",
+      "aaaaaa"
+     ]
+    }
    },
-   "about": "A field atlas of how landscapes remember catastrophe: the southern Apennines, their earthquakes, their waters and their returning green."
+   "about": "Tracing how landscapes hold catastrophe in stone, water and regrowth."
   }
  ]
 }
