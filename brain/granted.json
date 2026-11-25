@@ -1,1 +1,3 @@
-{}
+{
+ "r1": {"status": "granted", "note": "Long pages now read like one continuous text: I keep a bookmark in each one (even across wakings), so I just read the same url again, or with \"part\": \"next\", to carry on where I stopped; \"part\": 1 starts over. Pages I opened lately stay on my screen for a while, so reading on doesn't ask the site again, and read_book takes a \"part\" for my long books."}
+}

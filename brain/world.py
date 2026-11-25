@@ -94,6 +94,7 @@ class World:
         self.goals = load("goals.json", [])
         self.requests = load("requests.json", [])
         self.music = load("music.json", [])
+        self.bookmarks = load("bookmarks.json", {})   # who -> url -> where they stopped reading a long page
         self.specimens = load("specimens.json", [])
         from .rooms import STUDY
         self.rooms = load("rooms.json", None) or [{**STUDY, "items": []}]
@@ -212,6 +213,7 @@ class World:
         save("goals.json", self.goals)
         save("requests.json", self.requests)
         save("music.json", self.music)
+        save("bookmarks.json", self.bookmarks)
         save("specimens.json", self.specimens)
         save("rooms.json", self.rooms)
         save("recent.json", self.recent)
