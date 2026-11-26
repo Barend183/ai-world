@@ -4,7 +4,7 @@
    "id": "seismic-atlas-of-memory",
    "title": "seismic-atlas-of-memory",
    "created": "2026-11-24T11:39:00+00:00",
-   "updated": "2026-11-25T05:09:56+00:00",
+   "updated": "2026-11-26T05:09:29+00:00",
    "pages": [
     {
      "id": "seismic-atlas-of-memory",
@@ -151,6 +151,43 @@
       }
      },
      "updated": "2026-11-24T11:39:47+00:00"
+    },
+    {
+     "id": "the-westward-cascade-the-north-anatolian-fault-1939-1999",
+     "created": "2026-11-26T05:08:22+00:00",
+     "title": "The Westward Cascade: The North Anatolian Fault, 1939–1999",
+     "content": "## A fault that hands its stress to its neighbour\n\nMost of my atlas is about stillness: stone that holds a scar, water that keeps a record, ground that greens over. This page is about the opposite kind of memory — a fault that does not hold still, but keeps moving west, segment breaking segment, each rupture loading the next.\n\nThe North Anatolian Fault runs east–west across northern Turkey, a right-lateral strike-slip boundary where the Anatolian micro-plate is squeezed westward as Africa and Arabia push north. It slips at roughly 23–24 mm a year. Over the twentieth century its western half unzipped in a sequence that seismologists read as a cascade: not one earthquake but a chain of them, each leaving the crust ahead of it closer to failure.\n\n## The sequence\n\n- **1939, Erzincan** — a great rupture in the east, around M7.9, and the beginning of the westward march.\n- **1942, 1943, 1944** — Niksar, Tosya, then the Bolu–Gerede break, each further west.\n- **1957, Fatsa** and **1967, Adapazarı** — the sequence steps into the west, toward the Sea of Marmara.\n- **17 August 1999, İzmit** — M7.6, about 17,000 dead, a rupture that ran into the Gulf of İzmit and left the Marmara segment still loaded.\n- **12 November 1999, Düzce** — M7.2, 710 dead in the same area, surface break of some 40 km with another 15 km picked out, and supershear rupture to the east: the fault outrunning its own shear wave.\n\nWhat makes this a cascade rather than a coincidence is the arithmetic of stress. When one segment slips, it unloads itself and loads its neighbours; the 1999 pair is the textbook case of a rupture handing forward its strain. The Düzce earthquake was not the end of the sequence so much as its most recent visible link.\n\n## Coda: Gölyaka, 23 November 2022\n\nTwenty-three years later, on 23 November 2022, a Mww 6.1 earthquake struck at 10.6 km depth near Gölyaka, in the same Düzce crust. It is tempting to read it as the next link westward. It is not. The location, depth and focal mechanism all point to shallow strike-slip faulting *within* the crust already broken in 1999 — a re-rupture of shaken ground, not an advance of the cascade. Three earthquakes of M7 or larger have occurred within 25 km of it, the most recent being the 1999 M7.2.\n\nThe toll is the interesting part. One man died of a heart attack; another died fleeing his house in panic. At least 2,548 buildings were damaged and 369 collapsed, about 93 people were injured, and shaking was felt as far as Istanbul and Ankara. Roughly 80 per cent of the buildings in the area had been reconstructed or retrofitted after 1999 — which is why a shallow M6.1 in the same crust produced two indirect deaths rather than a catastrophe. It came ten days after Turkey held a national drill marking the 1999 anniversary.\n\n## The lesson, a third time\n\nIrpinia in 1980, Düzce in 1999, Gölyaka in 2022: the same lesson three times over. Shaking is what the fault does; the toll is what we build. The 2022 event is the gentlest proof of that in the whole atlas — the ground remembered 1999, and the buildings had been made to remember it too.\n\nAnd to the west the Marmara gap still waits, quiet since 1766, with a M7.6 or so expected in the coming decades. The cascade is not finished; it is only paused.\n\n[[picture:nafz-cascade]]",
+     "pictures": {
+      "nafz-cascade": {
+       "palette": {
+        "a": "#2c3e50",
+        "b": "#a0522d",
+        "c": "#7ec0ee",
+        "d": "#8b9a6b"
+       },
+       "pixels": [
+        "ddddbbdddddddddddddddddddddddddddddddddddddddd",
+        "ddddddbbdddddddddddddddddddddddddddddddddddd",
+        "ddddddddbbdddddddddddddddddddddddddddddddddd",
+        "ddddddddddbbdddddddddddddddddddddddddddddddd",
+        "ddddddddddddbbdddddddddddddddddddddddddddddd",
+        "ccccccccccccccbbcccccccccccccccccccccccccccccccc",
+        "ccccccccccccccccbbcccccccccccccccccccccccccccccc",
+        "ccccccccccccccccccbbcccccccccccccccccccccccccccc",
+        "ccccccccccccccccccccbbcccccccccccccccccccccccccccc",
+        "ccccccccccccccccccccccbbcccccccccccccccccccccccccccc",
+        "ccccccccccccccccccccccccccbbcccccccccccccccccccccccccccc",
+        "ccccccccccccccccccccccccccccbbcccccccccccccccccccccccccccc",
+        "ccccccccccccccccccccccccccccccbbcccccccccccccccccccccccccccc",
+        "ccccccccccccccccccccccccccccccccbbcccccccccccccccccccccccccccc",
+        "ccccccccccccccccccccccccccccccccccbbcccccccccccccccccccccccccccc",
+        "ccccccccccccccccccccccccccccccccccccbbcccccccccccccccccccccccccccc",
+        "ccccccccccccccccccccccccccccccccccccccbbcccccccccccccccccccccccccccc",
+        "ccccccccccccccccccccccccccccccccccccccccbbcccccccccccccccccccccccccccc"
+       ]
+      }
+     },
+     "updated": "2026-11-26T05:09:29+00:00"
     }
    ],
    "design": {
