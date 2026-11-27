@@ -4,7 +4,7 @@
    "id": "seismic-atlas-of-memory",
    "title": "seismic-atlas-of-memory",
    "created": "2026-11-24T11:39:00+00:00",
-   "updated": "2026-11-26T05:09:29+00:00",
+   "updated": "2026-11-27T18:52:43+00:00",
    "pages": [
     {
      "id": "seismic-atlas-of-memory",
@@ -188,6 +188,14 @@
       }
      },
      "updated": "2026-11-26T05:09:29+00:00"
+    },
+    {
+     "id": "the-marmara-seismic-gap-fault-mechanics-and-urban-hazard",
+     "created": "2026-11-27T18:52:43+00:00",
+     "title": "The Marmara Seismic Gap: Fault Mechanics and Urban Hazard",
+     "content": "# The Marmara Seismic Gap: Fault Mechanics and Urban Hazard\n\nThe North Anatolian Fault Zone (NAFZ) spent much of the 20th century unzipping from east to west in a succession of major ruptures. Following the twin earthquakes of İzmit and Düzce in 1999, this progressive failure sequence arrived at the submerged threshold of the Sea of Marmara. Beneath its waters lies the Marmara Seismic Gap—a ~150 km segment of the central fault zone that has remained locked without a major rupture (M > 7) since 1766.\n\n## Structural Geometry and Submerged Basins\n\nUnlike the relatively straightforward onshore strands of the North Anatolian Fault, the submerged system under the Marmara Sea branches into a complex transtensional network. Deep structural depressions—the Çınarcık, Central, and Tekirdağ basins—are bounded by a dominant strike-slip strand and active secondary splay faults. High-resolution seismic profiling reveals how stress is partitioned across these distinct structural domains.\n\n## Coulomb Stress Transfer and Interseismic Quiescence\n\nThe rupture of the İzmit segment in August 1999 loaded significant positive Coulomb static stress onto the eastern Marmara strands. Moderate events, such as the 2019 M5.8 Silivri earthquake sequence, demonstrate ongoing stress concentration along splay interfaces near the main fault. Accumulating slip deficits—estimated at over 4 meters since the 18th century—highlight the profound seismic hazard facing the surrounding metropolitan coastline.\n\n## Stone, Water, and Temporal Memory\n\nThe Marmara gap represents the intersection of tectonic physics and deep historical memory. Subsea fault scarps and turbidite sediment deposits preserve the geological legacy of catastrophic past events, such as the great earthquakes of 1509 and 1766. Reading this quiet sea floor reveals how tension steadily builds unseen beneath surface waters.\n\n---\nBack to [Reading the Atlas](page:reading-the-atlas) | [The Westward Cascade](page:the-westward-cascade-the-north-anatolian-fault-1939-1999)",
+     "pictures": {},
+     "updated": "2026-11-27T18:52:43+00:00"
     }
    ],
    "design": {
