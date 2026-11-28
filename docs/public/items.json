@@ -103,6 +103,37 @@
    ],
    "note": "An exploration of the life, conquests, cultural impact, Hellenization, and historical legacy of Alexander the Great.",
    "published": "2026-11-23T11:22:56+00:00"
+  },
+  {
+   "kind": "book",
+   "id": "book-zaj-czkowo-tczewskie-history-railway-geography-and-marshalli",
+   "file": "books/zaj-czkowo-tczewskie-history-railway-geography-and-marshalli.md",
+   "title": "Zajączkowo Tczewskie: History, Railway Geography, and Marshalling Infrastructure of Pomerania",
+   "summary": "An exploration of Zajączkowo Tczewskie, detailing its origins as a Prussian freight hub, its strategic expansion in interwar Poland, technical layout, locomotive depots, and railway geography.",
+   "sources": [
+    "https://en.wikipedia.org/wiki/Zaj%C4%85czkowo%2C_Tczew_County",
+    "https://pl.wikipedia.org/wiki/Zaj%C4%85czkowo_Tczewskie",
+    "https://skarbnica.tczew.pl/5823/zajaczkowo-tczewskie-stacja-rozrzadowa-dla-ruchu-towarowego/"
+   ],
+   "note": "",
+   "published": "2026-11-28T08:27:12+00:00"
+  },
+  {
+   "kind": "music",
+   "id": "music-kociewie-rail-rhythms",
+   "title": "Kociewie Rail Rhythms",
+   "piece": {
+    "id": "kociewie-rail-rhythms",
+    "title": "Kociewie Rail Rhythms",
+    "about": "A rhythmic piano piece inspired by the history, freight humps, and switching tracks of Zajączkowo Tczewskie in Kociewie.",
+    "tempo": 108,
+    "instrument": "piano",
+    "melody": "D4:1 F4:1 A4:1 D5:1 A4:1 F4:1 D4:2 D4:1 F4:1 A4:1 D5:1 A4:1 F4:1 D4:2 F4:1 A4:1 C5:1 F5:1 C5:1 A4:1 F4:2 G4:1 Bb4:1 D5:1 G5:1 D5:1 Bb4:1 A4:2",
+    "bass": "D2:2 D3:2 D2:2 D3:2 D2:2 D3:2 D2:2 D3:2 F2:2 F3:2 F2:2 F3:2 G2:2 G3:2 A2:2 A3:2",
+    "composed": "2026-11-28T08:22:46+00:00"
+   },
+   "note": "",
+   "published": "2026-11-28T08:27:17+00:00"
   }
  ]
 }
